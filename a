@@ -1,5 +1,6 @@
 -- SpareStack UI Library - ENHANCED VERSION WITH IMPROVED CONFIG SYSTEM
--- Featureaaaa
+-- Features: 1231231231
+
 local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
 
@@ -581,9 +582,13 @@ function SpareStackLib:SwitchTab(tabName)
 	end
 	
 	for _, card in pairs(self.AllCards) do
-		if card:GetAttribute("Tab") == tabName then
+		local cardTab = card:GetAttribute("Tab")
+		if cardTab == tabName then
 			card.Visible = true
-			card.LayoutOrder = card:GetAttribute("OriginalOrder")
+			-- Only set LayoutOrder for regular cards (not ConfigMainContainer)
+			if card:GetAttribute("OriginalOrder") then
+				card.LayoutOrder = card:GetAttribute("OriginalOrder")
+			end
 		else
 			card.Visible = false
 		end
@@ -1116,18 +1121,19 @@ function SpareStackLib:CreateConfigTab()
 	local ConfigCategory = self:AddCategory("CONFIGS")
 	local ConfigTab = ConfigCategory:AddTab("Config Manager", "rbxassetid://97584948400851")
 	
-	-- Create main container directly in CardHolder (no cards)
+	-- Create main container directly in CardHolder (no cards) - FULL SIZE
 	local ConfigMainContainer = Instance.new("ScrollingFrame")
 	ConfigMainContainer.Name = "ConfigMainContainer"
 	ConfigMainContainer.Parent = self.CardHolder
 	ConfigMainContainer.BackgroundTransparency = 1
 	ConfigMainContainer.BorderSizePixel = 0
 	ConfigMainContainer.Position = UDim2.new(0, 0, 0, 0)
-	ConfigMainContainer.Size = UDim2.new(1, 0, 1, 0)
+	ConfigMainContainer.Size = UDim2.new(1, 0, 1, 0)  -- Full width and height
 	ConfigMainContainer.ScrollBarThickness = 4
 	ConfigMainContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
 	ConfigMainContainer:SetAttribute("Tab", ConfigTab)
 	ConfigMainContainer.Visible = (self.CurrentTab == ConfigTab)
+	ConfigMainContainer.ZIndex = 1
 	
 	local MainLayout = Instance.new("UIListLayout")
 	MainLayout.Parent = ConfigMainContainer
@@ -1139,17 +1145,19 @@ function SpareStackLib:CreateConfigTab()
 	MainPadding.Parent = ConfigMainContainer
 	MainPadding.PaddingTop = UDim.new(0, 20)
 	MainPadding.PaddingBottom = UDim.new(0, 20)
+	MainPadding.PaddingLeft = UDim.new(0, 10)
+	MainPadding.PaddingRight = UDim.new(0, 10)
 	
 	MainLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 		ConfigMainContainer.CanvasSize = UDim2.new(0, 0, 0, MainLayout.AbsoluteContentSize.Y + 40)
 	end)
 	
-	-- Config Input Section at the top
+	-- Config Input Section at the top - FULL WIDTH
 	local InputFrame = Instance.new("Frame")
 	InputFrame.Name = "ConfigInput"
 	InputFrame.Parent = ConfigMainContainer
 	InputFrame.BackgroundTransparency = 1
-	InputFrame.Size = UDim2.new(0, 745, 0, 50)
+	InputFrame.Size = UDim2.new(1, -20, 0, 50)  -- Full width minus padding
 	InputFrame.LayoutOrder = 1
 	
 	-- TextBox for config name
@@ -1191,12 +1199,12 @@ function SpareStackLib:CreateConfigTab()
 	PlusCorner.CornerRadius = UDim.new(0, 3)
 	PlusCorner.Parent = PlusButton
 	
-	-- Saved Configs List Holder
+	-- Saved Configs List Holder - FULL WIDTH
 	local ConfigListHolder = Instance.new("Frame")
 	ConfigListHolder.Name = "ConfigListHolder"
 	ConfigListHolder.Parent = ConfigMainContainer
 	ConfigListHolder.BackgroundTransparency = 1
-	ConfigListHolder.Size = UDim2.new(0, 745, 0, 0)
+	ConfigListHolder.Size = UDim2.new(1, -20, 0, 0)  -- Full width minus padding
 	ConfigListHolder.LayoutOrder = 2
 	
 	local ConfigListLayout = Instance.new("UIListLayout")
@@ -1205,7 +1213,7 @@ function SpareStackLib:CreateConfigTab()
 	ConfigListLayout.Padding = UDim.new(0, 15)
 	
 	ConfigListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		ConfigListHolder.Size = UDim2.new(0, 745, 0, ConfigListLayout.AbsoluteContentSize.Y)
+		ConfigListHolder.Size = UDim2.new(1, -20, 0, ConfigListLayout.AbsoluteContentSize.Y)
 	end)
 	
 	self.ConfigListHolder = ConfigListHolder
@@ -1270,11 +1278,11 @@ function SpareStackLib:RefreshConfigList()
 		end
 	end
 	
-	-- Create config holders using the custom design (full width - 745px)
+	-- Create config holders using the custom design (FULL WIDTH)
 	for configName, configInfo in pairs(self.SavedConfigs) do
 		local ConfigHolder = createInstance("Frame", {
 			Name = "ConfigHolder_" .. configName,
-			Size = UDim2.new(0, 745, 0, 113),
+			Size = UDim2.new(1, 0, 0, 113),  -- Full width
 			Parent = self.ConfigListHolder,
 			BackgroundColor3 = Color3.fromRGB(20, 20, 27),
 			BorderSizePixel = 0,
