@@ -1,6 +1,5 @@
 -- SpareStack UI Library - ENHANCED VERSION WITH IMPROVED CONFIG SYSTEM
--- Features: Advanced search, settings, centered cards, improved config management
-
+-- Featureaaaa
 local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
 
@@ -1112,37 +1111,54 @@ function SpareStackLib:AddButton(parent, name, callback)
 	return Button
 end
 
--- IMPROVED CONFIG SYSTEM
+-- IMPROVED CONFIG SYSTEM - NO CARDS
 function SpareStackLib:CreateConfigTab()
 	local ConfigCategory = self:AddCategory("CONFIGS")
 	local ConfigTab = ConfigCategory:AddTab("Config Manager", "rbxassetid://97584948400851")
 	
-	local ConfigCard = self:CreateCard("Config System", ConfigTab)
+	-- Create main container directly in CardHolder (no cards)
+	local ConfigMainContainer = Instance.new("ScrollingFrame")
+	ConfigMainContainer.Name = "ConfigMainContainer"
+	ConfigMainContainer.Parent = self.CardHolder
+	ConfigMainContainer.BackgroundTransparency = 1
+	ConfigMainContainer.BorderSizePixel = 0
+	ConfigMainContainer.Position = UDim2.new(0, 0, 0, 0)
+	ConfigMainContainer.Size = UDim2.new(1, 0, 1, 0)
+	ConfigMainContainer.ScrollBarThickness = 4
+	ConfigMainContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+	ConfigMainContainer:SetAttribute("Tab", ConfigTab)
+	ConfigMainContainer.Visible = (self.CurrentTab == ConfigTab)
 	
-	-- Config Input Section
+	local MainLayout = Instance.new("UIListLayout")
+	MainLayout.Parent = ConfigMainContainer
+	MainLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	MainLayout.Padding = UDim.new(0, 15)
+	MainLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	
+	local MainPadding = Instance.new("UIPadding")
+	MainPadding.Parent = ConfigMainContainer
+	MainPadding.PaddingTop = UDim.new(0, 20)
+	MainPadding.PaddingBottom = UDim.new(0, 20)
+	
+	MainLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		ConfigMainContainer.CanvasSize = UDim2.new(0, 0, 0, MainLayout.AbsoluteContentSize.Y + 40)
+	end)
+	
+	-- Config Input Section at the top
 	local InputFrame = Instance.new("Frame")
 	InputFrame.Name = "ConfigInput"
-	InputFrame.Parent = ConfigCard.ElementsHolder
+	InputFrame.Parent = ConfigMainContainer
 	InputFrame.BackgroundTransparency = 1
-	InputFrame.Size = UDim2.new(1, 0, 0, 80)
-	
-	local InputLabel = Instance.new("TextLabel")
-	InputLabel.Parent = InputFrame
-	InputLabel.BackgroundTransparency = 1
-	InputLabel.Size = UDim2.new(1, 0, 0, 25)
-	InputLabel.Font = Enum.Font.GothamBold
-	InputLabel.Text = "Create New Config:"
-	InputLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	InputLabel.TextSize = 14
-	InputLabel.TextXAlignment = Enum.TextXAlignment.Left
+	InputFrame.Size = UDim2.new(0, 745, 0, 50)
+	InputFrame.LayoutOrder = 1
 	
 	-- TextBox for config name
 	local ConfigNameBox = Instance.new("TextBox")
 	ConfigNameBox.Parent = InputFrame
 	ConfigNameBox.BackgroundColor3 = Color3.fromRGB(20, 20, 27)
 	ConfigNameBox.BorderSizePixel = 0
-	ConfigNameBox.Position = UDim2.new(0, 0, 0, 30)
-	ConfigNameBox.Size = UDim2.new(0.75, -5, 0, 40)
+	ConfigNameBox.Position = UDim2.new(0, 0, 0, 0)
+	ConfigNameBox.Size = UDim2.new(0.85, -5, 0, 50)
 	ConfigNameBox.Font = Enum.Font.Gotham
 	ConfigNameBox.PlaceholderText = "Enter config name..."
 	ConfigNameBox.Text = ""
@@ -1157,59 +1173,46 @@ function SpareStackLib:CreateConfigTab()
 	
 	local NameBoxPadding = Instance.new("UIPadding")
 	NameBoxPadding.Parent = ConfigNameBox
-	NameBoxPadding.PaddingLeft = UDim.new(0, 10)
+	NameBoxPadding.PaddingLeft = UDim.new(0, 15)
 	
 	-- Plus Button
 	local PlusButton = Instance.new("TextButton")
 	PlusButton.Parent = InputFrame
 	PlusButton.BackgroundColor3 = Color3.fromRGB(51, 105, 255)
 	PlusButton.BorderSizePixel = 0
-	PlusButton.Position = UDim2.new(0.75, 5, 0, 30)
-	PlusButton.Size = UDim2.new(0.25, -5, 0, 40)
+	PlusButton.Position = UDim2.new(0.85, 5, 0, 0)
+	PlusButton.Size = UDim2.new(0.15, -5, 0, 50)
 	PlusButton.Font = Enum.Font.GothamBold
 	PlusButton.Text = "+"
 	PlusButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-	PlusButton.TextSize = 24
+	PlusButton.TextSize = 28
 	
 	local PlusCorner = Instance.new("UICorner")
 	PlusCorner.CornerRadius = UDim.new(0, 3)
 	PlusCorner.Parent = PlusButton
 	
-	-- Auto Load Toggle
-	ConfigCard:AddToggle("Auto Load Last Config", false, function(value)
-		self.AutoLoadConfig = value
-	end, false)
-	
-	-- Saved Configs List
-	local ConfigListLabel = Instance.new("TextLabel")
-	ConfigListLabel.Parent = ConfigCard.ElementsHolder
-	ConfigListLabel.BackgroundTransparency = 1
-	ConfigListLabel.Size = UDim2.new(1, 0, 0, 25)
-	ConfigListLabel.Font = Enum.Font.GothamBold
-	ConfigListLabel.Text = "Saved Configs:"
-	ConfigListLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	ConfigListLabel.TextSize = 14
-	ConfigListLabel.TextXAlignment = Enum.TextXAlignment.Left
-	
-	local ConfigListHolder = Instance.new("ScrollingFrame")
-	ConfigListHolder.Name = "ConfigList"
-	ConfigListHolder.Parent = ConfigCard.ElementsHolder
+	-- Saved Configs List Holder
+	local ConfigListHolder = Instance.new("Frame")
+	ConfigListHolder.Name = "ConfigListHolder"
+	ConfigListHolder.Parent = ConfigMainContainer
 	ConfigListHolder.BackgroundTransparency = 1
-	ConfigListHolder.BorderSizePixel = 0
-	ConfigListHolder.Size = UDim2.new(1, 0, 0, 300)
-	ConfigListHolder.ScrollBarThickness = 0
-	ConfigListHolder.CanvasSize = UDim2.new(0, 0, 0, 0)
+	ConfigListHolder.Size = UDim2.new(0, 745, 0, 0)
+	ConfigListHolder.LayoutOrder = 2
 	
 	local ConfigListLayout = Instance.new("UIListLayout")
 	ConfigListLayout.Parent = ConfigListHolder
 	ConfigListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	ConfigListLayout.Padding = UDim.new(0, 10)
+	ConfigListLayout.Padding = UDim.new(0, 15)
 	
 	ConfigListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		ConfigListHolder.CanvasSize = UDim2.new(0, 0, 0, ConfigListLayout.AbsoluteContentSize.Y + 10)
+		ConfigListHolder.Size = UDim2.new(0, 745, 0, ConfigListLayout.AbsoluteContentSize.Y)
 	end)
 	
 	self.ConfigListHolder = ConfigListHolder
+	self.ConfigMainContainer = ConfigMainContainer
+	
+	-- Store reference for tab switching
+	table.insert(self.AllCards, ConfigMainContainer)
 	
 	-- Plus Button Click Event
 	PlusButton.MouseButton1Click:Connect(function()
@@ -1267,11 +1270,11 @@ function SpareStackLib:RefreshConfigList()
 		end
 	end
 	
-	-- Create config holders using the custom design
+	-- Create config holders using the custom design (full width - 745px)
 	for configName, configInfo in pairs(self.SavedConfigs) do
 		local ConfigHolder = createInstance("Frame", {
 			Name = "ConfigHolder_" .. configName,
-			Size = UDim2.new(1, 0, 0, 113),
+			Size = UDim2.new(0, 745, 0, 113),
 			Parent = self.ConfigListHolder,
 			BackgroundColor3 = Color3.fromRGB(20, 20, 27),
 			BorderSizePixel = 0,
@@ -1325,7 +1328,7 @@ function SpareStackLib:RefreshConfigList()
 		-- Download/Load Icon
 		local DownloadIcon = createInstance("ImageLabel", {
 			Name = "Download",
-			Position = UDim2.new(0.75, 0, 0.363, 0),
+			Position = UDim2.new(0.82, 0, 0.363, 0),
 			Size = UDim2.new(0, 30, 0, 30),
 			Parent = ConfigHolder,
 			BackgroundTransparency = 1,
@@ -1339,7 +1342,7 @@ function SpareStackLib:RefreshConfigList()
 		-- Delete Icon
 		local DeleteIcon = createInstance("ImageLabel", {
 			Name = "Delete",
-			Position = UDim2.new(0.65, 0, 0.363, 0),
+			Position = UDim2.new(0.75, 0, 0.363, 0),
 			Size = UDim2.new(0, 30, 0, 30),
 			Parent = ConfigHolder,
 			BackgroundTransparency = 1,
@@ -1353,7 +1356,7 @@ function SpareStackLib:RefreshConfigList()
 		-- Load Button
 		local LoadButton = createInstance("TextButton", {
 			Name = "LoadButton",
-			Position = UDim2.new(0.85, 0, 0.274, 0),
+			Position = UDim2.new(0.90, 0, 0.274, 0),
 			Size = UDim2.new(0, 50, 0, 50),
 			Parent = ConfigHolder,
 			Font = Enum.Font.SourceSans,
@@ -1402,7 +1405,7 @@ function SpareStackLib:RefreshConfigList()
 		-- Delete Button (entire icon clickable)
 		local DeleteButton = createInstance("TextButton", {
 			Name = "DeleteButton",
-			Position = UDim2.new(0.65, 0, 0.363, 0),
+			Position = UDim2.new(0.75, 0, 0.363, 0),
 			Size = UDim2.new(0, 30, 0, 30),
 			Parent = ConfigHolder,
 			BackgroundTransparency = 1,
