@@ -1,5 +1,6 @@
 -- SpareStack UI Library - ENHANCED VERSION WITH IMPROVED CONFIG SYSTEM
--- Features123123
+-- Features124412
+
 local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
 
@@ -132,17 +133,19 @@ function SpareStackLib:CreateWindow(title)
 	Settings.Position = UDim2.new(0.93, 0, 0.017, 0)
 	Settings.Size = UDim2.new(0, 45, 0, 45)
 	Settings.Text = ""
+	Settings.ZIndex = 2
 	
 	local SettingsCorner = Instance.new("UICorner")
 	SettingsCorner.CornerRadius = UDim.new(0, 3)
 	SettingsCorner.Parent = Settings
 	
-	local SettingsImage = Instance.new("ImageButton")
+	local SettingsImage = Instance.new("ImageLabel")
 	SettingsImage.Parent = Settings
 	SettingsImage.BackgroundTransparency = 1
 	SettingsImage.Position = UDim2.new(0.256, 0, 0.284, 0)
 	SettingsImage.Size = UDim2.new(0, 20, 0, 20)
 	SettingsImage.Image = "rbxassetid://70543102142774"
+	SettingsImage.ZIndex = 3
 	
 	-- Title Image
 	local TitleImage = Instance.new("ImageLabel")
@@ -229,7 +232,10 @@ function SpareStackLib:CreateWindow(title)
 		isDraggingSlider = value
 	end
 	
-	-- Settings Button Click
+	-- Load configs from file
+	self:LoadConfigsFromFile()
+	
+	-- Settings Button Click - FIXED
 	Settings.MouseButton1Click:Connect(function()
 		if not self.SettingsMode then
 			if #self.SettingsCards == 0 then
@@ -1192,6 +1198,7 @@ function SpareStackLib:CreateConfigTab()
 			Date = os.date("%m.%d.%y")
 		}
 		
+		self:SaveConfigsToFile()
 		self:Notify("Success", "Config saved: " .. configName, 2)
 		ConfigNameBox.Text = ""
 		self:RefreshConfigList()
@@ -1244,7 +1251,7 @@ function SpareStackLib:CreateConfigTab()
 	return ConfigTab
 end
 
--- RefreshConfigList Function - CLEAN DESIGN
+-- RefreshConfigList Function - BETTER DESIGN
 function SpareStackLib:RefreshConfigList()
 	if not self.ConfigListHolder then return end
 	
@@ -1262,7 +1269,7 @@ function SpareStackLib:RefreshConfigList()
 		ConfigEntry.Parent = self.ConfigListHolder
 		ConfigEntry.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
 		ConfigEntry.BorderSizePixel = 0
-		ConfigEntry.Size = UDim2.new(1, 0, 0, 70)
+		ConfigEntry.Size = UDim2.new(1, 0, 0, 80)
 		ConfigEntry:SetAttribute("IsConfig", true)
 		
 		local EntryCorner = Instance.new("UICorner")
@@ -1273,25 +1280,25 @@ function SpareStackLib:RefreshConfigList()
 		local InfoFrame = Instance.new("Frame")
 		InfoFrame.Parent = ConfigEntry
 		InfoFrame.BackgroundTransparency = 1
-		InfoFrame.Position = UDim2.new(0, 15, 0, 0)
-		InfoFrame.Size = UDim2.new(0.5, 0, 1, 0)
+		InfoFrame.Position = UDim2.new(0, 20, 0, 0)
+		InfoFrame.Size = UDim2.new(0.45, 0, 1, 0)
 		
 		local NameLabel = Instance.new("TextLabel")
 		NameLabel.Parent = InfoFrame
 		NameLabel.BackgroundTransparency = 1
-		NameLabel.Position = UDim2.new(0, 0, 0, 12)
-		NameLabel.Size = UDim2.new(1, 0, 0, 20)
+		NameLabel.Position = UDim2.new(0, 0, 0, 15)
+		NameLabel.Size = UDim2.new(1, 0, 0, 22)
 		NameLabel.Font = Enum.Font.GothamBold
 		NameLabel.Text = configInfo.Name
 		NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-		NameLabel.TextSize = 14
+		NameLabel.TextSize = 15
 		NameLabel.TextXAlignment = Enum.TextXAlignment.Left
 		NameLabel.TextTruncate = Enum.TextTruncate.AtEnd
 		
 		local DateLabel = Instance.new("TextLabel")
 		DateLabel.Parent = InfoFrame
 		DateLabel.BackgroundTransparency = 1
-		DateLabel.Position = UDim2.new(0, 0, 0, 36)
+		DateLabel.Position = UDim2.new(0, 0, 0, 42)
 		DateLabel.Size = UDim2.new(1, 0, 0, 18)
 		DateLabel.Font = Enum.Font.Gotham
 		DateLabel.Text = "Created: " .. configInfo.Date
@@ -1303,8 +1310,8 @@ function SpareStackLib:RefreshConfigList()
 		local ButtonsFrame = Instance.new("Frame")
 		ButtonsFrame.Parent = ConfigEntry
 		ButtonsFrame.BackgroundTransparency = 1
-		ButtonsFrame.Position = UDim2.new(0.55, 0, 0, 10)
-		ButtonsFrame.Size = UDim2.new(0.45, -15, 1, -20)
+		ButtonsFrame.Position = UDim2.new(0.48, 0, 0, 15)
+		ButtonsFrame.Size = UDim2.new(0.5, -20, 1, -30)
 		
 		-- Load Button
 		local LoadButton = Instance.new("TextButton")
@@ -1312,11 +1319,11 @@ function SpareStackLib:RefreshConfigList()
 		LoadButton.BackgroundColor3 = Color3.fromRGB(51, 105, 255)
 		LoadButton.BorderSizePixel = 0
 		LoadButton.Position = UDim2.new(0, 0, 0, 0)
-		LoadButton.Size = UDim2.new(0.65, -5, 1, 0)
+		LoadButton.Size = UDim2.new(0.55, -5, 1, 0)
 		LoadButton.Font = Enum.Font.GothamBold
 		LoadButton.Text = "Load"
 		LoadButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-		LoadButton.TextSize = 13
+		LoadButton.TextSize = 14
 		
 		local LoadCorner = Instance.new("UICorner")
 		LoadCorner.CornerRadius = UDim.new(0, 6)
@@ -1327,12 +1334,12 @@ function SpareStackLib:RefreshConfigList()
 		DeleteButton.Parent = ButtonsFrame
 		DeleteButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 		DeleteButton.BorderSizePixel = 0
-		DeleteButton.Position = UDim2.new(0.65, 5, 0, 0)
-		DeleteButton.Size = UDim2.new(0.35, -5, 1, 0)
+		DeleteButton.Position = UDim2.new(0.55, 5, 0, 0)
+		DeleteButton.Size = UDim2.new(0.45, -5, 1, 0)
 		DeleteButton.Font = Enum.Font.GothamBold
 		DeleteButton.Text = "Delete"
 		DeleteButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-		DeleteButton.TextSize = 13
+		DeleteButton.TextSize = 14
 		
 		local DeleteCorner = Instance.new("UICorner")
 		DeleteCorner.CornerRadius = UDim.new(0, 6)
@@ -1396,6 +1403,32 @@ function SpareStackLib:RefreshConfigList()
 	end
 end
 
+-- Load Configs from File
+function SpareStackLib:LoadConfigsFromFile()
+	local success, result = pcall(function()
+		return readfile("spare_stack_configs.json")
+	end)
+	
+	if success and result then
+		local decoded = HttpService:JSONDecode(result)
+		self.SavedConfigs = decoded or {}
+	else
+		self.SavedConfigs = {}
+	end
+end
+
+-- Save Configs to File
+function SpareStackLib:SaveConfigsToFile()
+	local success, err = pcall(function()
+		local encoded = HttpService:JSONEncode(self.SavedConfigs)
+		writefile("spare_stack_configs.json", encoded)
+	end)
+	
+	if not success then
+		warn("Failed to save configs:", err)
+	end
+end
+
 -- LoadConfig Function
 function SpareStackLib:LoadConfig(configName)
 	local config = self.SavedConfigs[configName]
@@ -1417,6 +1450,7 @@ end
 
 function SpareStackLib:DeleteConfig(configName)
 	self.SavedConfigs[configName] = nil
+	self:SaveConfigsToFile()
 	self:Notify("Deleted", "Config deleted: " .. configName, 2)
 	self:RefreshConfigList()
 end
