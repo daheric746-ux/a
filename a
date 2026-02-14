@@ -1,5 +1,5 @@
 -- SpareStack UI Library - ENHANCED VERSION WITH IMPROVED CONFIG SYSTEM
--- Features124412
+-- aaadsdasas
 
 local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
@@ -1198,7 +1198,7 @@ function SpareStackLib:CreateConfigTab()
 			Date = os.date("%m.%d.%y")
 		}
 		
-		self:SaveConfigsToFile()
+		self:SaveConfigToFile(configName)
 		self:Notify("Success", "Config saved: " .. configName, 2)
 		ConfigNameBox.Text = ""
 		self:RefreshConfigList()
@@ -1403,29 +1403,68 @@ function SpareStackLib:RefreshConfigList()
 	end
 end
 
--- Load Configs from File
+-- Load Configs from Folder
 function SpareStackLib:LoadConfigsFromFile()
-	local success, result = pcall(function()
-		return readfile("spare_stack_configs.json")
+	-- Create folder if it doesn't exist
+	if not isfolder("spare_stack_configs") then
+		makefolder("spare_stack_configs")
+	end
+	
+	-- Load all config files from folder
+	self.SavedConfigs = {}
+	local success, files = pcall(function()
+		return listfiles("spare_stack_configs")
 	end)
 	
-	if success and result then
-		local decoded = HttpService:JSONDecode(result)
-		self.SavedConfigs = decoded or {}
-	else
-		self.SavedConfigs = {}
+	if success and files then
+		for _, filepath in pairs(files) do
+			if filepath:match("%.json$") then
+				local configSuccess, configData = pcall(function()
+					return readfile(filepath)
+				end)
+				
+				if configSuccess and configData then
+					local decoded = HttpService:JSONDecode(configData)
+					if decoded and decoded.Name then
+						self.SavedConfigs[decoded.Name] = decoded
+					end
+				end
+			end
+		end
 	end
 end
 
--- Save Configs to File
-function SpareStackLib:SaveConfigsToFile()
+-- Save Config to File
+function SpareStackLib:SaveConfigToFile(configName)
+	-- Create folder if it doesn't exist
+	if not isfolder("spare_stack_configs") then
+		makefolder("spare_stack_configs")
+	end
+	
+	local config = self.SavedConfigs[configName]
+	if not config then return end
+	
 	local success, err = pcall(function()
-		local encoded = HttpService:JSONEncode(self.SavedConfigs)
-		writefile("spare_stack_configs.json", encoded)
+		local encoded = HttpService:JSONEncode(config)
+		writefile("spare_stack_configs/" .. configName .. ".json", encoded)
 	end)
 	
 	if not success then
-		warn("Failed to save configs:", err)
+		warn("Failed to save config:", err)
+	end
+end
+
+-- Delete Config File
+function SpareStackLib:DeleteConfigFile(configName)
+	local filepath = "spare_stack_configs/" .. configName .. ".json"
+	local success, err = pcall(function()
+		if isfile(filepath) then
+			delfile(filepath)
+		end
+	end)
+	
+	if not success then
+		warn("Failed to delete config file:", err)
 	end
 end
 
@@ -1450,7 +1489,7 @@ end
 
 function SpareStackLib:DeleteConfig(configName)
 	self.SavedConfigs[configName] = nil
-	self:SaveConfigsToFile()
+	self:DeleteConfigFile(configName)
 	self:Notify("Deleted", "Config deleted: " .. configName, 2)
 	self:RefreshConfigList()
 end
