@@ -1,5 +1,5 @@
--- SpareStack UI Library - PROPERLY FIXED
--- Correct sizing, alignment, toggle states, settings menu
+-- SpareStack UI Library - FULLY FIXED
+-- Search works across all tabs, Settings creates a tab, working toggles, card alignment
 
 local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
@@ -19,7 +19,7 @@ function SpareStackLib:CreateWindow(title)
 	Sparestack.ResetOnSpawn = false
 	Sparestack.IgnoreGuiInset = true
 	
-	-- Background (PROPER SIZE)
+	-- Background
 	local Background = Instance.new("ImageLabel")
 	Background.Name = "Background"
 	Background.Parent = Sparestack
@@ -110,7 +110,7 @@ function SpareStackLib:CreateWindow(title)
 	SearchIcon.Size = UDim2.new(0, 15, 0, 15)
 	SearchIcon.Image = "rbxassetid://105544331892424"
 	
-	-- Settings Button
+	-- Settings Button (Creates Settings Tab)
 	local Settings = Instance.new("TextButton")
 	Settings.Name = "Settings"
 	Settings.Parent = Background
@@ -131,70 +131,7 @@ function SpareStackLib:CreateWindow(title)
 	SettingsImage.Size = UDim2.new(0, 20, 0, 20)
 	SettingsImage.Image = "rbxassetid://70543102142774"
 	
-	-- Settings Menu (Initially Hidden)
-	local SettingsMenu = Instance.new("Frame")
-	SettingsMenu.Name = "SettingsMenu"
-	SettingsMenu.Parent = Background
-	SettingsMenu.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
-	SettingsMenu.BorderSizePixel = 0
-	SettingsMenu.Position = UDim2.new(0.65, 0, 0.1, 0)
-	SettingsMenu.Size = UDim2.new(0, 300, 0, 400)
-	SettingsMenu.Visible = false
-	SettingsMenu.ZIndex = 100
-	
-	local SettingsMenuCorner = Instance.new("UICorner")
-	SettingsMenuCorner.CornerRadius = UDim.new(0, 8)
-	SettingsMenuCorner.Parent = SettingsMenu
-	
-	local SettingsTitle = Instance.new("TextLabel")
-	SettingsTitle.Parent = SettingsMenu
-	SettingsTitle.BackgroundTransparency = 1
-	SettingsTitle.Position = UDim2.new(0, 15, 0, 15)
-	SettingsTitle.Size = UDim2.new(1, -30, 0, 30)
-	SettingsTitle.Font = Enum.Font.GothamBold
-	SettingsTitle.Text = "Settings"
-	SettingsTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-	SettingsTitle.TextSize = 18
-	SettingsTitle.TextXAlignment = Enum.TextXAlignment.Left
-	
-	local SettingsClose = Instance.new("TextButton")
-	SettingsClose.Parent = SettingsMenu
-	SettingsClose.BackgroundTransparency = 1
-	SettingsClose.Position = UDim2.new(1, -35, 0, 10)
-	SettingsClose.Size = UDim2.new(0, 25, 0, 25)
-	SettingsClose.Font = Enum.Font.GothamBold
-	SettingsClose.Text = "×"
-	SettingsClose.TextColor3 = Color3.fromRGB(255, 255, 255)
-	SettingsClose.TextSize = 24
-	
-	local SettingsContent = Instance.new("ScrollingFrame")
-	SettingsContent.Parent = SettingsMenu
-	SettingsContent.BackgroundTransparency = 1
-	SettingsContent.BorderSizePixel = 0
-	SettingsContent.Position = UDim2.new(0, 15, 0, 55)
-	SettingsContent.Size = UDim2.new(1, -30, 1, -70)
-	SettingsContent.ScrollBarThickness = 0
-	SettingsContent.CanvasSize = UDim2.new(0, 0, 0, 0)
-	
-	local SettingsLayout = Instance.new("UIListLayout")
-	SettingsLayout.Parent = SettingsContent
-	SettingsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	SettingsLayout.Padding = UDim.new(0, 10)
-	
-	SettingsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		SettingsContent.CanvasSize = UDim2.new(0, 0, 0, SettingsLayout.AbsoluteContentSize.Y + 10)
-	end)
-	
-	-- Settings Button Click
-	Settings.MouseButton1Click:Connect(function()
-		SettingsMenu.Visible = not SettingsMenu.Visible
-	end)
-	
-	SettingsClose.MouseButton1Click:Connect(function()
-		SettingsMenu.Visible = false
-	end)
-	
-	-- Title Image (ALIGNED WITH SEARCH BAR)
+	-- Title Image
 	local TitleImage = Instance.new("ImageLabel")
 	TitleImage.Name = "Title"
 	TitleImage.Parent = Background
@@ -223,7 +160,7 @@ function SpareStackLib:CreateWindow(title)
 		SideHolder.CanvasSize = UDim2.new(0, 0, 0, SideLayout.AbsoluteContentSize.Y + 10)
 	end)
 	
-	-- Card Holder (MORE PADDING FROM EDGE)
+	-- Card Holder
 	local CardHolder = Instance.new("ScrollingFrame")
 	CardHolder.Name = "CardHolder"
 	CardHolder.Parent = Background
@@ -232,7 +169,7 @@ function SpareStackLib:CreateWindow(title)
 	CardHolder.BorderSizePixel = 0
 	CardHolder.Position = UDim2.new(0.23, 0, 0.12, 0)
 	CardHolder.Size = UDim2.new(0, 745, 0, 520)
-	CardHolder.ScrollBarThickness = 0 -- INVISIBLE SCROLLBAR
+	CardHolder.ScrollBarThickness = 0
 	CardHolder.CanvasSize = UDim2.new(0, 0, 0, 0)
 	CardHolder.ScrollingDirection = Enum.ScrollingDirection.Y
 	
@@ -240,7 +177,7 @@ function SpareStackLib:CreateWindow(title)
 	CardLayout.Parent = CardHolder
 	CardLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	CardLayout.CellPadding = UDim2.new(0, 18, 0, 18)
-	CardLayout.CellSize = UDim2.new(0, 356, 0, 420) -- BIGGER CARDS
+	CardLayout.CellSize = UDim2.new(0, 356, 0, 420)
 	CardLayout.FillDirection = Enum.FillDirection.Horizontal
 	CardLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 	CardLayout.VerticalAlignment = Enum.VerticalAlignment.Top
@@ -260,36 +197,25 @@ function SpareStackLib:CreateWindow(title)
 	self.SideHolder = SideHolder
 	self.CardHolder = CardHolder
 	self.SearchBox = Search
-	self.SettingsMenu = SettingsMenu
-	self.SettingsContent = SettingsContent
 	self.Cards = {}
+	self.AllCards = {} -- Track ALL cards for global search
 	self.Tabs = {}
 	self.Categories = {}
 	self.CurrentTab = nil
 	self.CategoryOrder = 0
 	self.TabOrder = 0
+	self.SettingsCreated = false
 	
-	-- Add default settings
-	self:AddSettingsToggle("Show FPS", false, function(value)
-		print("Show FPS:", value)
+	-- Settings Button Click - Creates Settings Tab
+	Settings.MouseButton1Click:Connect(function()
+		if not self.SettingsCreated then
+			self:CreateSettingsTab()
+			self.SettingsCreated = true
+		end
+		self:SwitchTab("Settings")
 	end)
 	
-	self:AddSettingsToggle("Show Ping", false, function(value)
-		print("Show Ping:", value)
-	end)
-	
-	self:AddSettingsSlider("UI Scale", 50, 150, 100, function(value)
-		print("UI Scale:", value)
-		-- Scale the UI
-		local scale = value / 100
-		Background.Size = UDim2.new(0, 1011 * scale, 0, 630 * scale)
-	end)
-	
-	self:AddSettingsButton("Reset UI Position", function()
-		Background.Position = UDim2.new(0.5, 0, 0.5, 0)
-	end)
-	
-	-- Search functionality
+	-- Search functionality (GLOBAL - searches ALL tabs)
 	Search:GetPropertyChangedSignal("Text"):Connect(function()
 		self:FilterCards(Search.Text:lower())
 	end)
@@ -297,41 +223,93 @@ function SpareStackLib:CreateWindow(title)
 	return self
 end
 
--- Add settings toggle
-function SpareStackLib:AddSettingsToggle(name, default, callback)
-	local toggle = self:AddToggle(self.SettingsContent, name, default, callback, false)
-	return toggle
+-- Create Settings Tab
+function SpareStackLib:CreateSettingsTab()
+	-- Add Settings category
+	local SettingsCategory = self:AddCategory("Settings")
+	SettingsCategory:AddTab("Settings", "rbxassetid://70543102142774")
+	
+	-- UI Settings Card
+	local UICard = self:CreateCard("UI Settings", "Settings", "left")
+	
+	UICard:AddToggle("Show FPS", false, function(value)
+		print("Show FPS:", value)
+		-- Add FPS display logic here
+	end, false)
+	
+	UICard:AddToggle("Show Ping", false, function(value)
+		print("Show Ping:", value)
+		-- Add ping display logic here
+	end, false)
+	
+	UICard:AddToggle("Show Watermark", true, function(value)
+		print("Show Watermark:", value)
+		-- Add watermark logic here
+	end, false)
+	
+	UICard:AddSlider("UI Scale", 50, 150, 100, function(value)
+		print("UI Scale:", value .. "%")
+		local scale = value / 100
+		self.Background.Size = UDim2.new(0, 1011 * scale, 0, 630 * scale)
+	end)
+	
+	UICard:AddButton("Reset UI Position", function()
+		self.Background.Position = UDim2.new(0.5, 0, 0.5, 0)
+		self:Notify("UI Reset", "UI position reset to center", 2)
+	end)
+	
+	-- Performance Card
+	local PerfCard = self:CreateCard("Performance", "Settings", "right")
+	
+	PerfCard:AddToggle("Reduce Graphics", false, function(value)
+		print("Reduce Graphics:", value)
+	end, false)
+	
+	PerfCard:AddSlider("Render Distance", 50, 500, 200, function(value)
+		print("Render Distance:", value)
+	end)
+	
+	PerfCard:AddDropdown("Quality", {"Low", "Medium", "High", "Ultra"}, "High", function(value)
+		print("Quality:", value)
+	end)
 end
 
--- Add settings slider
-function SpareStackLib:AddSettingsSlider(name, min, max, default, callback)
-	local slider = self:AddSlider(self.SettingsContent, name, min, max, default, callback)
-	return slider
-end
-
--- Add settings button
-function SpareStackLib:AddSettingsButton(name, callback)
-	local button = self:AddButton(self.SettingsContent, name, callback)
-	return button
-end
-
--- Filter cards
+-- Filter cards (GLOBAL SEARCH)
 function SpareStackLib:FilterCards(query)
-	for _, card in pairs(self.Cards) do
-		if query == "" then
+	if query == "" then
+		-- Show all cards in current tab
+		for _, card in pairs(self.AllCards) do
 			if card:GetAttribute("Tab") == self.CurrentTab then
 				card.Visible = true
-			end
-		else
-			local cardTitle = card:FindFirstChild("CardTitle")
-			if cardTitle and string.find(cardTitle.Text:lower(), query) then
-				if card:GetAttribute("Tab") == self.CurrentTab then
-					card.Visible = true
-				else
-					card.Visible = false
-				end
 			else
 				card.Visible = false
+			end
+		end
+	else
+		-- Search ALL cards, show matching ones regardless of tab
+		for _, card in pairs(self.AllCards) do
+			local cardTitle = card:FindFirstChild("CardTitle")
+			if cardTitle then
+				-- Search in card title
+				if string.find(cardTitle.Text:lower(), query) then
+					card.Visible = true
+				else
+					-- Also search in toggle names
+					local found = false
+					local elementsHolder = card:FindFirstChild("ElementsHolder")
+					if elementsHolder then
+						for _, child in pairs(elementsHolder:GetChildren()) do
+							if child:IsA("Frame") then
+								local titleLabel = child:FindFirstChild("TitleLabel")
+								if titleLabel and string.find(titleLabel.Text:lower(), query) then
+									found = true
+									break
+								end
+							end
+						end
+					end
+					card.Visible = found
+				end
 			end
 		end
 	end
@@ -436,6 +414,9 @@ end
 function SpareStackLib:SwitchTab(tabName)
 	self.CurrentTab = tabName
 	
+	-- Clear search when switching tabs
+	self.SearchBox.Text = ""
+	
 	for name, tab in pairs(self.Tabs) do
 		if name == tabName then
 			tab.Frame.BackgroundTransparency = 0
@@ -445,7 +426,7 @@ function SpareStackLib:SwitchTab(tabName)
 		end
 	end
 	
-	for _, card in pairs(self.Cards) do
+	for _, card in pairs(self.AllCards) do
 		if card:GetAttribute("Tab") == tabName then
 			card.Visible = true
 		else
@@ -454,8 +435,10 @@ function SpareStackLib:SwitchTab(tabName)
 	end
 end
 
--- Create Card
-function SpareStackLib:CreateCard(cardTitle, tabName)
+-- Create Card (with alignment option)
+function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
+	alignment = alignment or "left"
+	
 	local Card = Instance.new("Frame")
 	Card.Name = "Card_" .. cardTitle
 	Card.Parent = self.CardHolder
@@ -463,6 +446,14 @@ function SpareStackLib:CreateCard(cardTitle, tabName)
 	Card.BorderSizePixel = 0
 	Card.Size = UDim2.new(0, 356, 0, 420)
 	Card:SetAttribute("Tab", tabName)
+	Card:SetAttribute("Alignment", alignment)
+	
+	-- Set layout order based on alignment
+	if alignment == "right" then
+		Card.LayoutOrder = 1000 -- Higher order = appears later (right side)
+	else
+		Card.LayoutOrder = 0
+	end
 	
 	local CardIcon = Instance.new("ImageLabel")
 	CardIcon.Name = "Icon"
@@ -503,7 +494,6 @@ function SpareStackLib:CreateCard(cardTitle, tabName)
 	Placard.Image = "rbxassetid://91296368223791"
 	Placard.ScaleType = Enum.ScaleType.Stretch
 	
-	-- Scrolling Frame for infinite elements
 	local ElementsHolder = Instance.new("ScrollingFrame")
 	ElementsHolder.Name = "ElementsHolder"
 	ElementsHolder.Parent = Card
@@ -511,7 +501,7 @@ function SpareStackLib:CreateCard(cardTitle, tabName)
 	ElementsHolder.BorderSizePixel = 0
 	ElementsHolder.Position = UDim2.new(0.045, 0, 0.135, 0)
 	ElementsHolder.Size = UDim2.new(0.91, 0, 0.845, 0)
-	ElementsHolder.ScrollBarThickness = 0 -- INVISIBLE
+	ElementsHolder.ScrollBarThickness = 0
 	ElementsHolder.CanvasSize = UDim2.new(0, 0, 0, 0)
 	ElementsHolder.ScrollingDirection = Enum.ScrollingDirection.Y
 	
@@ -525,6 +515,7 @@ function SpareStackLib:CreateCard(cardTitle, tabName)
 	end)
 	
 	table.insert(self.Cards, Card)
+	table.insert(self.AllCards, Card)
 	if self.Tabs[tabName] then
 		table.insert(self.Tabs[tabName].Cards, Card)
 	end
@@ -566,15 +557,12 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 	TitleLabel.Size = UDim2.new(0.65, 0, 1, 0)
 	TitleLabel.Font = Enum.Font.GothamBold
 	TitleLabel.Text = name
-	-- OFF = GRAY, ON = WHITE
 	TitleLabel.TextColor3 = default and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(58, 58, 73)
 	TitleLabel.TextSize = 14
 	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 	
-	-- Settings Icon
-	local SettingsIcon
 	if settings then
-		SettingsIcon = Instance.new("ImageButton")
+		local SettingsIcon = Instance.new("ImageButton")
 		SettingsIcon.Name = "SettingsIcon"
 		SettingsIcon.Parent = Title
 		SettingsIcon.BackgroundTransparency = 1
@@ -631,12 +619,14 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 			BackgroundColor3 = toggled and Color3.fromRGB(51, 105, 255) or Color3.fromRGB(37, 37, 57)
 		}):Play()
 		
-		-- OFF = GRAY TEXT, ON = WHITE TEXT
 		TweenService:Create(TitleLabel, tweenInfo, {
 			TextColor3 = toggled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(58, 58, 73)
 		}):Play()
 		
-		callback(toggled)
+		-- Actually call the callback!
+		pcall(function()
+			callback(toggled)
+		end)
 	end
 	
 	Background_2.MouseButton1Click:Connect(toggle)
@@ -652,7 +642,7 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 	}
 end
 
--- Add Slider
+-- Add Slider (FIXED - SHRUNK SO KNOB DOESN'T GO OUT)
 function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 	callback = callback or function() end
 	min = min or 0
@@ -686,13 +676,14 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 	ValueLabel.TextSize = 14
 	ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
 	
+	-- SHRUNK BAR SO KNOB STAYS INSIDE
 	local Bar = Instance.new("Frame")
 	Bar.Name = "Bar"
 	Bar.Parent = SliderFrame
 	Bar.BackgroundColor3 = Color3.fromRGB(21, 21, 27)
 	Bar.BorderSizePixel = 0
-	Bar.Position = UDim2.new(0, 0, 0, 35)
-	Bar.Size = UDim2.new(1, 0, 0, 9)
+	Bar.Position = UDim2.new(0.02, 0, 0, 35) -- Slight offset from left
+	Bar.Size = UDim2.new(0.96, 0, 0, 9) -- 96% width instead of 100%
 	
 	local BarCorner = Instance.new("UICorner")
 	BarCorner.Parent = Bar
@@ -736,7 +727,9 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 		currentValue = math.floor(value)
 		ValueLabel.Text = currentValue .. (max == 100 and "%" or "")
 		
-		callback(currentValue)
+		pcall(function()
+			callback(currentValue)
+		end)
 	end
 	
 	Knob.MouseButton1Down:Connect(function()
@@ -785,7 +778,7 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 	}
 end
 
--- Add Dropdown (WITH CORRECT ICON)
+-- Add Dropdown
 function SpareStackLib:AddDropdown(parent, name, options, default, callback)
 	callback = callback or function() end
 	options = options or {"Option 1", "Option 2"}
@@ -819,7 +812,6 @@ function SpareStackLib:AddDropdown(parent, name, options, default, callback)
 	DropdownPadding.Parent = Dropdown
 	DropdownPadding.PaddingLeft = UDim.new(0, 10)
 	
-	-- CORRECT ICON
 	local Arrow = Instance.new("ImageLabel")
 	Arrow.Name = "Arrow"
 	Arrow.Parent = Dropdown
@@ -886,7 +878,9 @@ function SpareStackLib:AddDropdown(parent, name, options, default, callback)
 		Option.MouseButton1Click:Connect(function()
 			Dropdown.Text = "  " .. optionText
 			selectedValue = optionText
-			callback(optionText)
+			pcall(function()
+				callback(optionText)
+			end)
 			
 			isOpen = false
 			OptionsHolder.Visible = false
@@ -952,7 +946,9 @@ function SpareStackLib:AddButton(parent, name, callback)
 	ButtonCorner.Parent = Button
 	
 	Button.MouseButton1Click:Connect(function()
-		callback()
+		pcall(function()
+			callback()
+		end)
 		
 		TweenService:Create(Button, TweenInfo.new(0.1), {
 			BackgroundColor3 = Color3.fromRGB(41, 85, 200)
