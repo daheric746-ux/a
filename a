@@ -1,5 +1,5 @@
--- SpareStack UI Library - ENHANCED VERSION
--- Features: Centdsa
+-- SpareStack UI Library - ENHANCED VERSION WITH IMPROVED CONFIG SYSTEM
+-- Features: Advanced search, settings, centered cards, improved config management
 
 local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
@@ -8,6 +8,18 @@ local TweenService = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
+
+-- Helper function for creating instances
+function createInstance(className, properties)
+    local instance = Instance.new(className)
+    for k, v in pairs(properties) do
+        if typeof(k) ~= 'string' then
+            continue
+        end
+        instance[k] = v
+    end
+    return instance
+end
 
 function SpareStackLib:CreateWindow(title)
 	local self = setmetatable({}, SpareStackLib)
@@ -211,6 +223,7 @@ function SpareStackLib:CreateWindow(title)
 	self.CardLayoutOrder = 0
 	self.ConfigData = {}
 	self.SavedConfigs = {}
+	self.AutoLoadConfig = false
 	
 	-- Store drag flag reference
 	self.SetSliderDragging = function(value)
@@ -1099,60 +1112,119 @@ function SpareStackLib:AddButton(parent, name, callback)
 	return Button
 end
 
--- ADVANCED CONFIG SYSTEM
+-- IMPROVED CONFIG SYSTEM
 function SpareStackLib:CreateConfigTab()
 	local ConfigCategory = self:AddCategory("CONFIGS")
 	local ConfigTab = ConfigCategory:AddTab("Config Manager", "rbxassetid://97584948400851")
 	
 	local ConfigCard = self:CreateCard("Config System", ConfigTab)
 	
-	-- Config Name Input
-	local ConfigNameBox
-	local configNameFrame = Instance.new("Frame")
-	configNameFrame.Name = "ConfigName"
-	configNameFrame.Parent = ConfigCard.ElementsHolder
-	configNameFrame.BackgroundTransparency = 1
-	configNameFrame.Size = UDim2.new(1, 0, 0, 45)
+	-- Config Input Section
+	local InputFrame = Instance.new("Frame")
+	InputFrame.Name = "ConfigInput"
+	InputFrame.Parent = ConfigCard.ElementsHolder
+	InputFrame.BackgroundTransparency = 1
+	InputFrame.Size = UDim2.new(1, 0, 0, 80)
 	
-	local configLabel = Instance.new("TextLabel")
-	configLabel.Parent = configNameFrame
-	configLabel.BackgroundTransparency = 1
-	configLabel.Size = UDim2.new(0.3, 0, 0, 25)
-	configLabel.Font = Enum.Font.GothamBold
-	configLabel.Text = "Config Name:"
-	configLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	configLabel.TextSize = 14
-	configLabel.TextXAlignment = Enum.TextXAlignment.Left
+	local InputLabel = Instance.new("TextLabel")
+	InputLabel.Parent = InputFrame
+	InputLabel.BackgroundTransparency = 1
+	InputLabel.Size = UDim2.new(1, 0, 0, 25)
+	InputLabel.Font = Enum.Font.GothamBold
+	InputLabel.Text = "Create New Config:"
+	InputLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	InputLabel.TextSize = 14
+	InputLabel.TextXAlignment = Enum.TextXAlignment.Left
 	
-	ConfigNameBox = Instance.new("TextBox")
-	ConfigNameBox.Parent = configNameFrame
+	-- TextBox for config name
+	local ConfigNameBox = Instance.new("TextBox")
+	ConfigNameBox.Parent = InputFrame
 	ConfigNameBox.BackgroundColor3 = Color3.fromRGB(20, 20, 27)
 	ConfigNameBox.BorderSizePixel = 0
 	ConfigNameBox.Position = UDim2.new(0, 0, 0, 30)
-	ConfigNameBox.Size = UDim2.new(1, 0, 0, 36)
+	ConfigNameBox.Size = UDim2.new(0.75, -5, 0, 40)
 	ConfigNameBox.Font = Enum.Font.Gotham
 	ConfigNameBox.PlaceholderText = "Enter config name..."
 	ConfigNameBox.Text = ""
 	ConfigNameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 	ConfigNameBox.TextSize = 14
 	ConfigNameBox.TextXAlignment = Enum.TextXAlignment.Left
+	ConfigNameBox.ClearTextOnFocus = false
 	
-	local nameBoxCorner = Instance.new("UICorner")
-	nameBoxCorner.CornerRadius = UDim.new(0, 3)
-	nameBoxCorner.Parent = ConfigNameBox
+	local NameBoxCorner = Instance.new("UICorner")
+	NameBoxCorner.CornerRadius = UDim.new(0, 3)
+	NameBoxCorner.Parent = ConfigNameBox
 	
-	local nameBoxPadding = Instance.new("UIPadding")
-	nameBoxPadding.Parent = ConfigNameBox
-	nameBoxPadding.PaddingLeft = UDim.new(0, 10)
+	local NameBoxPadding = Instance.new("UIPadding")
+	NameBoxPadding.Parent = ConfigNameBox
+	NameBoxPadding.PaddingLeft = UDim.new(0, 10)
 	
-	-- Save Config Button
-	ConfigCard:AddButton("💾 Save Config", function()
-		local configName = ConfigNameBox.Text
+	-- Plus Button
+	local PlusButton = Instance.new("TextButton")
+	PlusButton.Parent = InputFrame
+	PlusButton.BackgroundColor3 = Color3.fromRGB(51, 105, 255)
+	PlusButton.BorderSizePixel = 0
+	PlusButton.Position = UDim2.new(0.75, 5, 0, 30)
+	PlusButton.Size = UDim2.new(0.25, -5, 0, 40)
+	PlusButton.Font = Enum.Font.GothamBold
+	PlusButton.Text = "+"
+	PlusButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	PlusButton.TextSize = 24
+	
+	local PlusCorner = Instance.new("UICorner")
+	PlusCorner.CornerRadius = UDim.new(0, 3)
+	PlusCorner.Parent = PlusButton
+	
+	-- Auto Load Toggle
+	ConfigCard:AddToggle("Auto Load Last Config", false, function(value)
+		self.AutoLoadConfig = value
+	end, false)
+	
+	-- Saved Configs List
+	local ConfigListLabel = Instance.new("TextLabel")
+	ConfigListLabel.Parent = ConfigCard.ElementsHolder
+	ConfigListLabel.BackgroundTransparency = 1
+	ConfigListLabel.Size = UDim2.new(1, 0, 0, 25)
+	ConfigListLabel.Font = Enum.Font.GothamBold
+	ConfigListLabel.Text = "Saved Configs:"
+	ConfigListLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	ConfigListLabel.TextSize = 14
+	ConfigListLabel.TextXAlignment = Enum.TextXAlignment.Left
+	
+	local ConfigListHolder = Instance.new("ScrollingFrame")
+	ConfigListHolder.Name = "ConfigList"
+	ConfigListHolder.Parent = ConfigCard.ElementsHolder
+	ConfigListHolder.BackgroundTransparency = 1
+	ConfigListHolder.BorderSizePixel = 0
+	ConfigListHolder.Size = UDim2.new(1, 0, 0, 300)
+	ConfigListHolder.ScrollBarThickness = 0
+	ConfigListHolder.CanvasSize = UDim2.new(0, 0, 0, 0)
+	
+	local ConfigListLayout = Instance.new("UIListLayout")
+	ConfigListLayout.Parent = ConfigListHolder
+	ConfigListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	ConfigListLayout.Padding = UDim.new(0, 10)
+	
+	ConfigListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		ConfigListHolder.CanvasSize = UDim2.new(0, 0, 0, ConfigListLayout.AbsoluteContentSize.Y + 10)
+	end)
+	
+	self.ConfigListHolder = ConfigListHolder
+	
+	-- Plus Button Click Event
+	PlusButton.MouseButton1Click:Connect(function()
+		local configName = ConfigNameBox.Text:match("^%s*(.-)%s*$") -- Trim whitespace
 		if configName == "" then
-			self:Notify("Error", "Please enter a config name!", 2)
+			self:Notify("Error", "Please enter a config name", 2)
 			return
 		end
 		
+		if self.SavedConfigs[configName] then
+			self:Notify("Error", "Config already exists", 2)
+			return
+		end
+		
+		-- Save config data
 		local configData = {}
 		for name, element in pairs(self.ConfigData) do
 			configData[name] = {
@@ -1164,148 +1236,233 @@ function SpareStackLib:CreateConfigTab()
 		self.SavedConfigs[configName] = {
 			Name = configName,
 			Data = configData,
-			Date = os.date("%m/%d/%Y %I:%M %p")
+			Date = os.date("%m.%d.%y")
 		}
 		
-		self:Notify("Success", "Config '" .. configName .. "' saved!", 2)
+		self:Notify("Success", "Config saved: " .. configName, 2)
+		ConfigNameBox.Text = ""
 		self:RefreshConfigList()
+		
+		-- Visual feedback on button
+		TweenService:Create(PlusButton, TweenInfo.new(0.1), {
+			BackgroundColor3 = Color3.fromRGB(41, 85, 200)
+		}):Play()
+		task.wait(0.1)
+		TweenService:Create(PlusButton, TweenInfo.new(0.1), {
+			BackgroundColor3 = Color3.fromRGB(51, 105, 255)
+		}):Play()
 	end)
-	
-	-- Auto Load Toggle
-	ConfigCard:AddToggle("Auto Load Last Config", false, function(value)
-		print("Auto Load:", value)
-	end, false)
-	
-	-- Saved Configs List Card
-	local ConfigListCard = self:CreateCard("Saved Configs", ConfigTab)
-	
-	local configListHolder = Instance.new("ScrollingFrame")
-	configListHolder.Name = "ConfigList"
-	configListHolder.Parent = ConfigListCard.ElementsHolder
-	configListHolder.BackgroundTransparency = 1
-	configListHolder.BorderSizePixel = 0
-	configListHolder.Size = UDim2.new(1, 0, 0, 300)
-	configListHolder.ScrollBarThickness = 0
-	configListHolder.CanvasSize = UDim2.new(0, 0, 0, 0)
-	
-	local configListLayout = Instance.new("UIListLayout")
-	configListLayout.Parent = configListHolder
-	configListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	configListLayout.Padding = UDim.new(0, 10)
-	
-	configListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		configListHolder.CanvasSize = UDim2.new(0, 0, 0, configListLayout.AbsoluteContentSize.Y + 10)
-	end)
-	
-	self.ConfigListHolder = configListHolder
 	
 	return ConfigTab
 end
 
+-- RefreshConfigList Function
 function SpareStackLib:RefreshConfigList()
 	if not self.ConfigListHolder then return end
 	
+	-- Clear existing configs
 	for _, child in pairs(self.ConfigListHolder:GetChildren()) do
-		if child:IsA("Frame") then
+		if child:IsA("Frame") and child:GetAttribute("IsConfig") then
 			child:Destroy()
 		end
 	end
 	
+	-- Create config holders using the custom design
 	for configName, configInfo in pairs(self.SavedConfigs) do
-		local configEntry = Instance.new("Frame")
-		configEntry.Name = "Config_" .. configName
-		configEntry.Parent = self.ConfigListHolder
-		configEntry.BackgroundColor3 = Color3.fromRGB(20, 20, 27)
-		configEntry.BorderSizePixel = 0
-		configEntry.Size = UDim2.new(1, 0, 0, 80)
+		local ConfigHolder = createInstance("Frame", {
+			Name = "ConfigHolder_" .. configName,
+			Size = UDim2.new(1, 0, 0, 113),
+			Parent = self.ConfigListHolder,
+			BackgroundColor3 = Color3.fromRGB(20, 20, 27),
+			BorderSizePixel = 0,
+			ZIndex = 1
+		})
+		ConfigHolder:SetAttribute("IsConfig", true)
 		
-		local configCorner = Instance.new("UICorner")
-		configCorner.CornerRadius = UDim.new(0, 5)
-		configCorner.Parent = configEntry
+		local UICorner = createInstance("UICorner", {
+			Parent = ConfigHolder,
+			CornerRadius = UDim.new(0, 3)
+		})
 		
-		local configNameLabel = Instance.new("TextLabel")
-		configNameLabel.Parent = configEntry
-		configNameLabel.BackgroundTransparency = 1
-		configNameLabel.Position = UDim2.new(0, 10, 0, 10)
-		configNameLabel.Size = UDim2.new(1, -20, 0, 20)
-		configNameLabel.Font = Enum.Font.GothamBold
-		configNameLabel.Text = "📁 " .. configInfo.Name
-		configNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-		configNameLabel.TextSize = 14
-		configNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+		local ConfigNameLabel = createInstance("TextLabel", {
+			Name = "ConfigName",
+			Position = UDim2.new(0.02, 0, 0.239, 0),
+			Size = UDim2.new(0, 200, 0, 31),
+			Parent = ConfigHolder,
+			BackgroundTransparency = 1,
+			Font = Enum.Font.GothamBold,
+			Text = configInfo.Name,
+			TextScaled = false,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			TextWrapped = true,
+			TextColor3 = Color3.fromRGB(255, 255, 255),
+			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+			TextSize = 14,
+			BorderSizePixel = 0,
+			ZIndex = 1
+		})
 		
-		local configDateLabel = Instance.new("TextLabel")
-		configDateLabel.Parent = configEntry
-		configDateLabel.BackgroundTransparency = 1
-		configDateLabel.Position = UDim2.new(0, 10, 0, 30)
-		configDateLabel.Size = UDim2.new(1, -20, 0, 15)
-		configDateLabel.Font = Enum.Font.Gotham
-		configDateLabel.Text = "📅 " .. configInfo.Date
-		configDateLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-		configDateLabel.TextSize = 12
-		configDateLabel.TextXAlignment = Enum.TextXAlignment.Left
+		local DateLabel = createInstance("TextLabel", {
+			Name = "Date",
+			Position = UDim2.new(0.02, 0, 0.513, 0),
+			Size = UDim2.new(0, 200, 0, 31),
+			Parent = ConfigHolder,
+			BackgroundTransparency = 1,
+			Font = Enum.Font.Gotham,
+			Text = "Created: " .. configInfo.Date,
+			TextScaled = false,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			TextWrapped = true,
+			TextColor3 = Color3.fromRGB(72, 71, 71),
+			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+			TextSize = 12,
+			BorderSizePixel = 0,
+			ZIndex = 1
+		})
+		
+		-- Download/Load Icon
+		local DownloadIcon = createInstance("ImageLabel", {
+			Name = "Download",
+			Position = UDim2.new(0.75, 0, 0.363, 0),
+			Size = UDim2.new(0, 30, 0, 30),
+			Parent = ConfigHolder,
+			BackgroundTransparency = 1,
+			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+			ImageColor3 = Color3.fromRGB(255, 255, 255),
+			Image = "rbxassetid://101239756058784",
+			BorderSizePixel = 0,
+			ZIndex = 1
+		})
+		
+		-- Delete Icon
+		local DeleteIcon = createInstance("ImageLabel", {
+			Name = "Delete",
+			Position = UDim2.new(0.65, 0, 0.363, 0),
+			Size = UDim2.new(0, 30, 0, 30),
+			Parent = ConfigHolder,
+			BackgroundTransparency = 1,
+			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+			ImageColor3 = Color3.fromRGB(255, 255, 255),
+			Image = "rbxassetid://103416695659912",
+			BorderSizePixel = 0,
+			ZIndex = 1
+		})
 		
 		-- Load Button
-		local loadBtn = Instance.new("TextButton")
-		loadBtn.Parent = configEntry
-		loadBtn.BackgroundColor3 = Color3.fromRGB(51, 105, 255)
-		loadBtn.BorderSizePixel = 0
-		loadBtn.Position = UDim2.new(0, 10, 0, 50)
-		loadBtn.Size = UDim2.new(0, 70, 0, 25)
-		loadBtn.Font = Enum.Font.GothamBold
-		loadBtn.Text = "▶ Load"
-		loadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-		loadBtn.TextSize = 12
+		local LoadButton = createInstance("TextButton", {
+			Name = "LoadButton",
+			Position = UDim2.new(0.85, 0, 0.274, 0),
+			Size = UDim2.new(0, 50, 0, 50),
+			Parent = ConfigHolder,
+			Font = Enum.Font.SourceSans,
+			Text = '',
+			TextXAlignment = Enum.TextXAlignment.Center,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			TextColor3 = Color3.fromRGB(0, 0, 0),
+			BackgroundColor3 = Color3.fromRGB(51, 105, 255),
+			TextSize = 14,
+			BorderSizePixel = 0,
+			ZIndex = 1
+		})
 		
-		local loadBtnCorner = Instance.new("UICorner")
-		loadBtnCorner.CornerRadius = UDim.new(0, 3)
-		loadBtnCorner.Parent = loadBtn
+		local LoadCorner = createInstance("UICorner", {
+			Parent = LoadButton,
+			CornerRadius = UDim.new(0, 3)
+		})
 		
-		loadBtn.MouseButton1Click:Connect(function()
+		local LoadIconImage = createInstance("ImageLabel", {
+			Name = "LoadIcon",
+			Position = UDim2.new(0.199, 0, 0.203, 0),
+			Size = UDim2.new(0, 30, 0, 30),
+			Parent = LoadButton,
+			BackgroundTransparency = 1,
+			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+			ImageColor3 = Color3.fromRGB(255, 255, 255),
+			Image = "rbxassetid://136764700896103",
+			BorderSizePixel = 0,
+			ZIndex = 1
+		})
+		
+		-- Load Button Click
+		LoadButton.MouseButton1Click:Connect(function()
 			self:LoadConfig(configName)
+			
+			-- Visual feedback
+			TweenService:Create(LoadButton, TweenInfo.new(0.1), {
+				BackgroundColor3 = Color3.fromRGB(41, 85, 200)
+			}):Play()
+			task.wait(0.1)
+			TweenService:Create(LoadButton, TweenInfo.new(0.1), {
+				BackgroundColor3 = Color3.fromRGB(51, 105, 255)
+			}):Play()
 		end)
 		
-		-- Delete Button
-		local deleteBtn = Instance.new("TextButton")
-		deleteBtn.Parent = configEntry
-		deleteBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-		deleteBtn.BorderSizePixel = 0
-		deleteBtn.Position = UDim2.new(0, 90, 0, 50)
-		deleteBtn.Size = UDim2.new(0, 70, 0, 25)
-		deleteBtn.Font = Enum.Font.GothamBold
-		deleteBtn.Text = "🗑 Delete"
-		deleteBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-		deleteBtn.TextSize = 12
+		-- Delete Button (entire icon clickable)
+		local DeleteButton = createInstance("TextButton", {
+			Name = "DeleteButton",
+			Position = UDim2.new(0.65, 0, 0.363, 0),
+			Size = UDim2.new(0, 30, 0, 30),
+			Parent = ConfigHolder,
+			BackgroundTransparency = 1,
+			Text = "",
+			ZIndex = 2
+		})
 		
-		local deleteBtnCorner = Instance.new("UICorner")
-		deleteBtnCorner.CornerRadius = UDim.new(0, 3)
-		deleteBtnCorner.Parent = deleteBtn
-		
-		deleteBtn.MouseButton1Click:Connect(function()
+		DeleteButton.MouseButton1Click:Connect(function()
 			self:DeleteConfig(configName)
+		end)
+		
+		-- Hover effects
+		LoadButton.MouseEnter:Connect(function()
+			TweenService:Create(LoadButton, TweenInfo.new(0.2), {
+				BackgroundColor3 = Color3.fromRGB(61, 115, 255)
+			}):Play()
+		end)
+		
+		LoadButton.MouseLeave:Connect(function()
+			TweenService:Create(LoadButton, TweenInfo.new(0.2), {
+				BackgroundColor3 = Color3.fromRGB(51, 105, 255)
+			}):Play()
+		end)
+		
+		DeleteButton.MouseEnter:Connect(function()
+			TweenService:Create(DeleteIcon, TweenInfo.new(0.2), {
+				ImageColor3 = Color3.fromRGB(255, 100, 100)
+			}):Play()
+		end)
+		
+		DeleteButton.MouseLeave:Connect(function()
+			TweenService:Create(DeleteIcon, TweenInfo.new(0.2), {
+				ImageColor3 = Color3.fromRGB(255, 255, 255)
+			}):Play()
 		end)
 	end
 end
 
+-- LoadConfig Function
 function SpareStackLib:LoadConfig(configName)
 	local config = self.SavedConfigs[configName]
 	if not config then
-		self:Notify("Error", "Config not found!", 2)
+		self:Notify("Error", "Config not found", 2)
 		return
 	end
 	
 	for name, data in pairs(config.Data) do
 		if self.ConfigData[name] then
-			self.ConfigData[name].SetValue(data.Value)
+			pcall(function()
+				self.ConfigData[name].SetValue(data.Value)
+			end)
 		end
 	end
 	
-	self:Notify("Success", "Config '" .. configName .. "' loaded!", 2)
+	self:Notify("Success", "Config loaded: " .. configName, 2)
 end
 
 function SpareStackLib:DeleteConfig(configName)
 	self.SavedConfigs[configName] = nil
-	self:Notify("Deleted", "Config '" .. configName .. "' deleted!", 2)
+	self:Notify("Deleted", "Config deleted: " .. configName, 2)
 	self:RefreshConfigList()
 end
 
