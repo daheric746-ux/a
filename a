@@ -1,5 +1,5 @@
--- SpareStack UI Library - FINAL WORKING VERSION
--- Fixed: GroupTransparency error, proper left/right alignment
+-- SpareStack UI Library - FIXED VERSION
+-- Fixed: Card grid layout, slider knob alignment, toggle positioning
 
 local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
@@ -206,8 +206,6 @@ function SpareStackLib:CreateWindow(title)
 	self.CategoryOrder = 0
 	self.TabOrder = 0
 	self.SettingsMode = false
-	self.LeftCardCounter = 0
-	self.RightCardCounter = 0
 	
 	-- Settings Button Click
 	Settings.MouseButton1Click:Connect(function()
@@ -360,7 +358,7 @@ function SpareStackLib:SetupCard(Card, title)
 	end)
 end
 
--- Show Settings (NO GROUPTRANSPARENCY)
+-- Show Settings
 function SpareStackLib:ShowSettings()
 	self.SettingsMode = true
 	
@@ -498,8 +496,7 @@ function SpareStackLib:AddTab(tabName, tabImage, categoryName)
 		Frame = Tab,
 		Category = categoryName,
 		Cards = {},
-		LeftCounter = 0,
-		RightCounter = 0
+		CardCounter = 0  -- FIXED: Single sequential counter
 	}
 	
 	if categoryName and self.Categories[categoryName] then
@@ -515,7 +512,7 @@ function SpareStackLib:AddTab(tabName, tabImage, categoryName)
 	return tabName
 end
 
--- Switch Tab (WITH SMOOTH TWEENING)
+-- Switch Tab
 function SpareStackLib:SwitchTab(tabName)
 	self.CurrentTab = tabName
 	self.SettingsMode = false
@@ -549,7 +546,7 @@ function SpareStackLib:SwitchTab(tabName)
 	end
 end
 
--- Create Card (PROPER LEFT/RIGHT ALIGNMENT)
+-- Create Card - FIXED: Sequential ordering for proper 2-column grid
 function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
 	alignment = alignment or "left"
 	
@@ -563,17 +560,10 @@ function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
 	Card:SetAttribute("Alignment", alignment)
 	Card.Visible = false
 	
-	-- PROPER LEFT/RIGHT LAYOUT ORDER
+	-- FIXED: Sequential LayoutOrder for proper grid filling
 	if self.Tabs[tabName] then
-		if alignment == "left" then
-			self.Tabs[tabName].LeftCounter = self.Tabs[tabName].LeftCounter + 1
-			-- Left cards: 1, 3, 5, 7, 9...
-			Card.LayoutOrder = (self.Tabs[tabName].LeftCounter * 2) - 1
-		else -- "right"
-			self.Tabs[tabName].RightCounter = self.Tabs[tabName].RightCounter + 1
-			-- Right cards: 2, 4, 6, 8, 10...
-			Card.LayoutOrder = (self.Tabs[tabName].RightCounter * 2)
-		end
+		self.Tabs[tabName].CardCounter = self.Tabs[tabName].CardCounter + 1
+		Card.LayoutOrder = self.Tabs[tabName].CardCounter
 	end
 	
 	self:SetupCard(Card, cardTitle)
@@ -604,7 +594,7 @@ function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
 	}
 end
 
--- Add Toggle
+-- Add Toggle - FIXED: Better positioning away from edge
 function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 	callback = callback or function() end
 	default = default or false
@@ -632,7 +622,7 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 		SettingsIcon.Name = "SettingsIcon"
 		SettingsIcon.Parent = Title
 		SettingsIcon.BackgroundTransparency = 1
-		SettingsIcon.Position = UDim2.new(0.68, 0, 0.3, 0)
+		SettingsIcon.Position = UDim2.new(0.62, 0, 0.3, 0)
 		SettingsIcon.Size = UDim2.new(0, 15, 0, 15)
 		SettingsIcon.Image = "rbxassetid://70543102142774"
 		SettingsIcon.ImageColor3 = Color3.fromRGB(46, 46, 66)
@@ -642,12 +632,13 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 		end)
 	end
 	
+	-- FIXED: Better positioning - moved from 0.80 to 0.73 for more spacing
 	local Background_2 = Instance.new("TextButton")
 	Background_2.Name = "Background"
 	Background_2.Parent = Title
 	Background_2.BackgroundColor3 = default and Color3.fromRGB(28, 48, 103) or Color3.fromRGB(21, 21, 28)
 	Background_2.BorderSizePixel = 0
-	Background_2.Position = UDim2.new(0.80, 0, 0.3, 0)
+	Background_2.Position = UDim2.new(0.73, 0, 0.3, 0)
 	Background_2.Size = UDim2.new(0, 35, 0, 20)
 	Background_2.Text = ""
 	
@@ -707,7 +698,7 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 	}
 end
 
--- Add Slider
+-- Add Slider - FIXED: Proper knob alignment accounting for knob radius
 function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 	callback = callback or function() end
 	min = min or 0
@@ -780,12 +771,17 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 	local currentValue = default
 	local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	
+	-- FIXED: Proper knob positioning accounting for knob radius
 	local function updateSlider(value)
 		value = math.clamp(value, min, max)
 		currentValue = math.floor(value)
 		
 		local percent = (value - min) / (max - min)
-		local pixelX = percent * Bar.AbsoluteSize.X
+		local knobRadius = 9  -- Half of knob width (18px)
+		local barWidth = Bar.AbsoluteSize.X
+		
+		-- Calculate position so knob stays within bounds
+		local pixelX = knobRadius + (percent * (barWidth - (knobRadius * 2)))
 		
 		TweenService:Create(Knob, tweenInfo, {
 			Position = UDim2.new(0, pixelX, 0.5, 0)
