@@ -1,5 +1,5 @@
 -- SpareStack UI Library - ENHANCED VERSION
--- Features: Centered cards, advanced config system, powerful search
+-- Features: Centdsa
 
 local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
