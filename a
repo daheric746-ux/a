@@ -1,5 +1,4 @@
--- asdasdasdasdd
-
+-- 12
 local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
 
@@ -178,7 +177,7 @@ function SpareStackLib:CreateWindow(title)
 	CardLayout.Parent = CardHolder
 	CardLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	CardLayout.CellPadding = UDim2.new(0, 15, 0, 15)
-	CardLayout.CellSize = UDim2.new(0, 356, 0, 420)
+	CardLayout.CellSize = UDim2.new(0, 350, 0, 420)
 	CardLayout.FillDirection = Enum.FillDirection.Horizontal  -- Fill left to right
 	CardLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 	CardLayout.VerticalAlignment = Enum.VerticalAlignment.Top
