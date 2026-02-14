@@ -1,5 +1,6 @@
--- SpareStack UI Library - FULLY FIXED
--- Search works across all tabs, Settings creates a tab, working toggles, card alignment
+-- SpareStack UI Library - COMPLETELY FIXED
+-- URL: https://raw.githubusercontent.com/daheric746-ux/a/refs/heads/main/a
+-- Fixed: slider initialization, initial tab loading, left/right cards, settings display
 
 local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
@@ -110,7 +111,7 @@ function SpareStackLib:CreateWindow(title)
 	SearchIcon.Size = UDim2.new(0, 15, 0, 15)
 	SearchIcon.Image = "rbxassetid://105544331892424"
 	
-	-- Settings Button (Creates Settings Tab)
+	-- Settings Button
 	local Settings = Instance.new("TextButton")
 	Settings.Name = "Settings"
 	Settings.Parent = Background
@@ -198,24 +199,31 @@ function SpareStackLib:CreateWindow(title)
 	self.CardHolder = CardHolder
 	self.SearchBox = Search
 	self.Cards = {}
-	self.AllCards = {} -- Track ALL cards for global search
+	self.AllCards = {}
+	self.SettingsCards = {}
 	self.Tabs = {}
 	self.Categories = {}
 	self.CurrentTab = nil
 	self.CategoryOrder = 0
 	self.TabOrder = 0
-	self.SettingsCreated = false
+	self.SettingsMode = false
+	self.CardCounter = 0
 	
-	-- Settings Button Click - Creates Settings Tab
+	-- Settings Button Click
 	Settings.MouseButton1Click:Connect(function()
-		if not self.SettingsCreated then
-			self:CreateSettingsTab()
-			self.SettingsCreated = true
+		if not self.SettingsMode then
+			if #self.SettingsCards == 0 then
+				self:CreateSettingsCards()
+			end
+			self:ShowSettings()
+		else
+			if self.CurrentTab then
+				self:SwitchTab(self.CurrentTab)
+			end
 		end
-		self:SwitchTab("Settings")
 	end)
 	
-	-- Search functionality (GLOBAL - searches ALL tabs)
+	-- Search functionality
 	Search:GetPropertyChangedSignal("Text"):Connect(function()
 		self:FilterCards(Search.Text:lower())
 	end)
@@ -223,61 +231,159 @@ function SpareStackLib:CreateWindow(title)
 	return self
 end
 
--- Create Settings Tab
-function SpareStackLib:CreateSettingsTab()
-	-- Add Settings category
-	local SettingsCategory = self:AddCategory("Settings")
-	SettingsCategory:AddTab("Settings", "rbxassetid://70543102142774")
-	
+-- Create Settings Cards
+function SpareStackLib:CreateSettingsCards()
 	-- UI Settings Card
-	local UICard = self:CreateCard("UI Settings", "Settings", "left")
+	local UICard = Instance.new("Frame")
+	UICard.Name = "SettingsCard_UI"
+	UICard.Parent = self.CardHolder
+	UICard.BackgroundTransparency = 1
+	UICard.BorderSizePixel = 0
+	UICard.Size = UDim2.new(0, 356, 0, 420)
+	UICard.Visible = false
+	UICard.LayoutOrder = 10000
+	UICard:SetAttribute("IsSettings", true)
 	
-	UICard:AddToggle("Show FPS", false, function(value)
+	self:SetupCard(UICard, "UI Settings")
+	local UIElements = UICard:FindFirstChild("ElementsHolder")
+	
+	self:AddToggle(UIElements, "Show FPS", false, function(value)
 		print("Show FPS:", value)
-		-- Add FPS display logic here
 	end, false)
 	
-	UICard:AddToggle("Show Ping", false, function(value)
+	self:AddToggle(UIElements, "Show Ping", false, function(value)
 		print("Show Ping:", value)
-		-- Add ping display logic here
 	end, false)
 	
-	UICard:AddToggle("Show Watermark", true, function(value)
+	self:AddToggle(UIElements, "Show Watermark", true, function(value)
 		print("Show Watermark:", value)
-		-- Add watermark logic here
 	end, false)
 	
-	UICard:AddSlider("UI Scale", 50, 150, 100, function(value)
-		print("UI Scale:", value .. "%")
+	self:AddSlider(UIElements, "UI Scale", 50, 150, 100, function(value)
 		local scale = value / 100
 		self.Background.Size = UDim2.new(0, 1011 * scale, 0, 630 * scale)
 	end)
 	
-	UICard:AddButton("Reset UI Position", function()
+	self:AddButton(UIElements, "Reset UI Position", function()
 		self.Background.Position = UDim2.new(0.5, 0, 0.5, 0)
-		self:Notify("UI Reset", "UI position reset to center", 2)
+		self:Notify("UI Reset", "Position reset to center", 2)
 	end)
 	
-	-- Performance Card
-	local PerfCard = self:CreateCard("Performance", "Settings", "right")
+	table.insert(self.SettingsCards, UICard)
 	
-	PerfCard:AddToggle("Reduce Graphics", false, function(value)
+	-- Performance Card
+	local PerfCard = Instance.new("Frame")
+	PerfCard.Name = "SettingsCard_Perf"
+	PerfCard.Parent = self.CardHolder
+	PerfCard.BackgroundTransparency = 1
+	PerfCard.BorderSizePixel = 0
+	PerfCard.Size = UDim2.new(0, 356, 0, 420)
+	PerfCard.Visible = false
+	PerfCard.LayoutOrder = 10001
+	PerfCard:SetAttribute("IsSettings", true)
+	
+	self:SetupCard(PerfCard, "Performance")
+	local PerfElements = PerfCard:FindFirstChild("ElementsHolder")
+	
+	self:AddToggle(PerfElements, "Reduce Graphics", false, function(value)
 		print("Reduce Graphics:", value)
 	end, false)
 	
-	PerfCard:AddSlider("Render Distance", 50, 500, 200, function(value)
+	self:AddSlider(PerfElements, "Render Distance", 50, 500, 200, function(value)
 		print("Render Distance:", value)
 	end)
 	
-	PerfCard:AddDropdown("Quality", {"Low", "Medium", "High", "Ultra"}, "High", function(value)
+	self:AddDropdown(PerfElements, "Quality", {"Low", "Medium", "High", "Ultra"}, "High", function(value)
 		print("Quality:", value)
+	end)
+	
+	table.insert(self.SettingsCards, PerfCard)
+end
+
+-- Setup Card Visuals
+function SpareStackLib:SetupCard(Card, title)
+	local CardIcon = Instance.new("ImageLabel")
+	CardIcon.Name = "Icon"
+	CardIcon.Parent = Card
+	CardIcon.BackgroundTransparency = 1
+	CardIcon.Position = UDim2.new(0.045, 0, 0.035, 0)
+	CardIcon.Size = UDim2.new(0, 20, 0, 20)
+	CardIcon.Image = "rbxassetid://97584948400851"
+	
+	local CardBackground = Instance.new("ImageLabel")
+	CardBackground.Name = "Background"
+	CardBackground.Parent = Card
+	CardBackground.BackgroundTransparency = 1
+	CardBackground.Position = UDim2.new(0, 0, 0.119, 0)
+	CardBackground.Size = UDim2.new(1, 0, 0.881, 0)
+	CardBackground.ZIndex = 0
+	CardBackground.Image = "rbxassetid://79172856971491"
+	CardBackground.ScaleType = Enum.ScaleType.Stretch
+	
+	local CardTitleLabel = Instance.new("TextLabel")
+	CardTitleLabel.Name = "CardTitle"
+	CardTitleLabel.Parent = Card
+	CardTitleLabel.BackgroundTransparency = 1
+	CardTitleLabel.Position = UDim2.new(0.129, 0, 0, 0)
+	CardTitleLabel.Size = UDim2.new(0.87, 0, 0, 50)
+	CardTitleLabel.Font = Enum.Font.GothamBold
+	CardTitleLabel.Text = title
+	CardTitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	CardTitleLabel.TextSize = 14
+	CardTitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	
+	local Placard = Instance.new("ImageLabel")
+	Placard.Name = "Placard"
+	Placard.Parent = Card
+	Placard.BackgroundTransparency = 1
+	Placard.Size = UDim2.new(1, 0, 0, 50)
+	Placard.ZIndex = 0
+	Placard.Image = "rbxassetid://91296368223791"
+	Placard.ScaleType = Enum.ScaleType.Stretch
+	
+	local ElementsHolder = Instance.new("ScrollingFrame")
+	ElementsHolder.Name = "ElementsHolder"
+	ElementsHolder.Parent = Card
+	ElementsHolder.BackgroundTransparency = 1
+	ElementsHolder.BorderSizePixel = 0
+	ElementsHolder.Position = UDim2.new(0.045, 0, 0.135, 0)
+	ElementsHolder.Size = UDim2.new(0.91, 0, 0.845, 0)
+	ElementsHolder.ScrollBarThickness = 0
+	ElementsHolder.CanvasSize = UDim2.new(0, 0, 0, 0)
+	ElementsHolder.ScrollingDirection = Enum.ScrollingDirection.Y
+	
+	local ElementsLayout = Instance.new("UIListLayout")
+	ElementsLayout.Parent = ElementsHolder
+	ElementsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	ElementsLayout.Padding = UDim.new(0, 10)
+	
+	ElementsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		ElementsHolder.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 10)
 	end)
 end
 
--- Filter cards (GLOBAL SEARCH)
+-- Show Settings
+function SpareStackLib:ShowSettings()
+	self.SettingsMode = true
+	
+	for _, card in pairs(self.AllCards) do
+		card.Visible = false
+	end
+	
+	for _, card in pairs(self.SettingsCards) do
+		card.Visible = true
+	end
+	
+	for _, tab in pairs(self.Tabs) do
+		tab.Frame.BackgroundTransparency = 1
+	end
+end
+
+-- Filter cards
 function SpareStackLib:FilterCards(query)
+	if self.SettingsMode then return end
+	
 	if query == "" then
-		-- Show all cards in current tab
 		for _, card in pairs(self.AllCards) do
 			if card:GetAttribute("Tab") == self.CurrentTab then
 				card.Visible = true
@@ -286,15 +392,12 @@ function SpareStackLib:FilterCards(query)
 			end
 		end
 	else
-		-- Search ALL cards, show matching ones regardless of tab
 		for _, card in pairs(self.AllCards) do
 			local cardTitle = card:FindFirstChild("CardTitle")
 			if cardTitle then
-				-- Search in card title
 				if string.find(cardTitle.Text:lower(), query) then
 					card.Visible = true
 				else
-					-- Also search in toggle names
 					local found = false
 					local elementsHolder = card:FindFirstChild("ElementsHolder")
 					if elementsHolder then
@@ -403,8 +506,11 @@ function SpareStackLib:AddTab(tabName, tabImage, categoryName)
 		table.insert(self.Categories[categoryName].Tabs, tabName)
 	end
 	
+	-- Auto-select first tab
 	if not self.CurrentTab then
-		self:SwitchTab(tabName)
+		task.defer(function()
+			self:SwitchTab(tabName)
+		end)
 	end
 	
 	return tabName
@@ -413,8 +519,7 @@ end
 -- Switch Tab
 function SpareStackLib:SwitchTab(tabName)
 	self.CurrentTab = tabName
-	
-	-- Clear search when switching tabs
+	self.SettingsMode = false
 	self.SearchBox.Text = ""
 	
 	for name, tab in pairs(self.Tabs) do
@@ -426,6 +531,10 @@ function SpareStackLib:SwitchTab(tabName)
 		end
 	end
 	
+	for _, card in pairs(self.SettingsCards) do
+		card.Visible = false
+	end
+	
 	for _, card in pairs(self.AllCards) do
 		if card:GetAttribute("Tab") == tabName then
 			card.Visible = true
@@ -435,9 +544,11 @@ function SpareStackLib:SwitchTab(tabName)
 	end
 end
 
--- Create Card (with alignment option)
+-- Create Card (FIXED LEFT/RIGHT ALIGNMENT)
 function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
 	alignment = alignment or "left"
+	
+	self.CardCounter = self.CardCounter + 1
 	
 	local Card = Instance.new("Frame")
 	Card.Name = "Card_" .. cardTitle
@@ -447,72 +558,20 @@ function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
 	Card.Size = UDim2.new(0, 356, 0, 420)
 	Card:SetAttribute("Tab", tabName)
 	Card:SetAttribute("Alignment", alignment)
+	Card.Visible = false
 	
-	-- Set layout order based on alignment
-	if alignment == "right" then
-		Card.LayoutOrder = 1000 -- Higher order = appears later (right side)
+	-- PROPER LEFT/RIGHT LAYOUT ORDER
+	-- Left cards: 1, 3, 5, 7, 9...
+	-- Right cards: 2, 4, 6, 8, 10...
+	if alignment == "left" then
+		Card.LayoutOrder = (self.CardCounter * 2) - 1
 	else
-		Card.LayoutOrder = 0
+		Card.LayoutOrder = (self.CardCounter * 2)
 	end
 	
-	local CardIcon = Instance.new("ImageLabel")
-	CardIcon.Name = "Icon"
-	CardIcon.Parent = Card
-	CardIcon.BackgroundTransparency = 1
-	CardIcon.Position = UDim2.new(0.045, 0, 0.035, 0)
-	CardIcon.Size = UDim2.new(0, 20, 0, 20)
-	CardIcon.Image = "rbxassetid://97584948400851"
+	self:SetupCard(Card, cardTitle)
 	
-	local CardBackground = Instance.new("ImageLabel")
-	CardBackground.Name = "Background"
-	CardBackground.Parent = Card
-	CardBackground.BackgroundTransparency = 1
-	CardBackground.Position = UDim2.new(0, 0, 0.119, 0)
-	CardBackground.Size = UDim2.new(1, 0, 0.881, 0)
-	CardBackground.ZIndex = 0
-	CardBackground.Image = "rbxassetid://79172856971491"
-	CardBackground.ScaleType = Enum.ScaleType.Stretch
-	
-	local CardTitleLabel = Instance.new("TextLabel")
-	CardTitleLabel.Name = "CardTitle"
-	CardTitleLabel.Parent = Card
-	CardTitleLabel.BackgroundTransparency = 1
-	CardTitleLabel.Position = UDim2.new(0.129, 0, 0, 0)
-	CardTitleLabel.Size = UDim2.new(0.87, 0, 0, 50)
-	CardTitleLabel.Font = Enum.Font.GothamBold
-	CardTitleLabel.Text = cardTitle
-	CardTitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	CardTitleLabel.TextSize = 14
-	CardTitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-	
-	local Placard = Instance.new("ImageLabel")
-	Placard.Name = "Placard"
-	Placard.Parent = Card
-	Placard.BackgroundTransparency = 1
-	Placard.Size = UDim2.new(1, 0, 0, 50)
-	Placard.ZIndex = 0
-	Placard.Image = "rbxassetid://91296368223791"
-	Placard.ScaleType = Enum.ScaleType.Stretch
-	
-	local ElementsHolder = Instance.new("ScrollingFrame")
-	ElementsHolder.Name = "ElementsHolder"
-	ElementsHolder.Parent = Card
-	ElementsHolder.BackgroundTransparency = 1
-	ElementsHolder.BorderSizePixel = 0
-	ElementsHolder.Position = UDim2.new(0.045, 0, 0.135, 0)
-	ElementsHolder.Size = UDim2.new(0.91, 0, 0.845, 0)
-	ElementsHolder.ScrollBarThickness = 0
-	ElementsHolder.CanvasSize = UDim2.new(0, 0, 0, 0)
-	ElementsHolder.ScrollingDirection = Enum.ScrollingDirection.Y
-	
-	local ElementsLayout = Instance.new("UIListLayout")
-	ElementsLayout.Parent = ElementsHolder
-	ElementsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	ElementsLayout.Padding = UDim.new(0, 10)
-	
-	ElementsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		ElementsHolder.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 10)
-	end)
+	local ElementsHolder = Card:FindFirstChild("ElementsHolder")
 	
 	table.insert(self.Cards, Card)
 	table.insert(self.AllCards, Card)
@@ -538,7 +597,7 @@ function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
 	}
 end
 
--- Add Toggle (FIXED - OFF = GRAY, ON = WHITE)
+-- Add Toggle
 function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 	callback = callback or function() end
 	default = default or false
@@ -623,7 +682,6 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 			TextColor3 = toggled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(58, 58, 73)
 		}):Play()
 		
-		-- Actually call the callback!
 		pcall(function()
 			callback(toggled)
 		end)
@@ -642,12 +700,12 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 	}
 end
 
--- Add Slider (FIXED - SHRUNK SO KNOB DOESN'T GO OUT)
+-- Add Slider (FIXED INITIALIZATION)
 function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 	callback = callback or function() end
 	min = min or 0
 	max = max or 100
-	default = default or 0
+	default = math.clamp(default or min, min, max)
 	
 	local SliderFrame = Instance.new("Frame")
 	SliderFrame.Name = "Slider_" .. name
@@ -671,19 +729,18 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 	ValueLabel.Position = UDim2.new(0.75, 0, 0, 0)
 	ValueLabel.Size = UDim2.new(0.25, 0, 0, 25)
 	ValueLabel.Font = Enum.Font.Gotham
-	ValueLabel.Text = "0%"
+	ValueLabel.Text = tostring(default)
 	ValueLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	ValueLabel.TextSize = 14
 	ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
 	
-	-- SHRUNK BAR SO KNOB STAYS INSIDE
 	local Bar = Instance.new("Frame")
 	Bar.Name = "Bar"
 	Bar.Parent = SliderFrame
 	Bar.BackgroundColor3 = Color3.fromRGB(21, 21, 27)
 	Bar.BorderSizePixel = 0
-	Bar.Position = UDim2.new(0.02, 0, 0, 35) -- Slight offset from left
-	Bar.Size = UDim2.new(0.96, 0, 0, 9) -- 96% width instead of 100%
+	Bar.Position = UDim2.new(0, 0, 0, 35)
+	Bar.Size = UDim2.new(1, 0, 0, 9)
 	
 	local BarCorner = Instance.new("UICorner")
 	BarCorner.Parent = Bar
@@ -715,21 +772,34 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 	local dragging = false
 	local currentValue = default
 	
-	local function updateSlider(mouseX)
-		local barWidth = Bar.AbsoluteSize.X
-		mouseX = math.clamp(mouseX, 0, barWidth)
-		
-		Knob.Position = UDim2.new(0, mouseX, 0.5, 0)
-		Fill.Size = UDim2.new(0, mouseX, 1, 0)
-		
-		local percent = mouseX / barWidth
-		local value = min + (percent * (max - min))
+	local function updateSlider(value)
+		value = math.clamp(value, min, max)
 		currentValue = math.floor(value)
-		ValueLabel.Text = currentValue .. (max == 100 and "%" or "")
+		
+		local percent = (value - min) / (max - min)
+		local pixelX = percent * Bar.AbsoluteSize.X
+		
+		Knob.Position = UDim2.new(0, pixelX, 0.5, 0)
+		Fill.Size = UDim2.new(0, pixelX, 1, 0)
+		
+		if max == 100 and min == 0 then
+			ValueLabel.Text = currentValue .. "%"
+		else
+			ValueLabel.Text = tostring(currentValue)
+		end
 		
 		pcall(function()
 			callback(currentValue)
 		end)
+	end
+	
+	local function updateFromMouse(mouseX)
+		local barPos = Bar.AbsolutePosition.X
+		local barWidth = Bar.AbsoluteSize.X
+		local relativeX = mouseX - barPos
+		local percent = math.clamp(relativeX / barWidth, 0, 1)
+		local value = min + (percent * (max - min))
+		updateSlider(value)
 	end
 	
 	Knob.MouseButton1Down:Connect(function()
@@ -744,36 +814,35 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 	
 	UIS.InputChanged:Connect(function(input)
 		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-			local mouseX = input.Position.X - Bar.AbsolutePosition.X
-			updateSlider(mouseX)
+			updateFromMouse(input.Position.X)
 		end
 	end)
 	
 	Bar.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			local mouseX = input.Position.X - Bar.AbsolutePosition.X
-			updateSlider(mouseX)
+			updateFromMouse(input.Position.X)
 		end
 	end)
 	
 	ValueLabel.FocusLost:Connect(function()
 		local value = tonumber(ValueLabel.Text:match("%d+"))
 		if value then
-			value = math.clamp(value, min, max)
-			local percent = (value - min) / (max - min)
-			updateSlider(percent * Bar.AbsoluteSize.X)
+			updateSlider(value)
+		else
+			updateSlider(currentValue)
 		end
 	end)
 	
-	task.wait()
-	local initPercent = (default - min) / (max - min)
-	updateSlider(initPercent * Bar.AbsoluteSize.X)
+	-- PROPERLY INITIALIZE AFTER RENDER
+	task.spawn(function()
+		task.wait(0.05)
+		if Bar and Bar.Parent then
+			updateSlider(default)
+		end
+	end)
 	
 	return {
-		SetValue = function(val)
-			task.wait()
-			updateSlider(((val - min) / (max - min)) * Bar.AbsoluteSize.X)
-		end,
+		SetValue = updateSlider,
 		GetValue = function() return currentValue end
 	}
 end
