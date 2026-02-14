@@ -1,5 +1,5 @@
--- SpareStack UI Library - FIXED VERSION
--- Fixed: Card grid layout, slider knob alignment, toggle positioning
+-- SpareStack UI Library - FULLY FIXED VERSION
+-- Fixed: Toggle knob positions, card grid layout, slider drag interference
 
 local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
@@ -33,12 +33,13 @@ function SpareStackLib:CreateWindow(title)
 	Background.Image = "rbxassetid://71105506054247"
 	Background.ScaleType = Enum.ScaleType.Stretch
 	
-	-- Make draggable
+	-- Make draggable (with better drag prevention)
 	local dragging = false
 	local dragInput, mousePos, framePos
+	local isDraggingSlider = false
 	
 	Background.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if input.UserInputType == Enum.UserInputType.MouseButton1 and not isDraggingSlider then
 			dragging = true
 			mousePos = input.Position
 			framePos = Background.Position
@@ -58,7 +59,7 @@ function SpareStackLib:CreateWindow(title)
 	end)
 	
 	UIS.InputChanged:Connect(function(input)
-		if input == dragInput and dragging then
+		if input == dragInput and dragging and not isDraggingSlider then
 			local delta = input.Position - mousePos
 			Background.Position = UDim2.new(
 				framePos.X.Scale,
@@ -160,7 +161,7 @@ function SpareStackLib:CreateWindow(title)
 		SideHolder.CanvasSize = UDim2.new(0, 0, 0, SideLayout.AbsoluteContentSize.Y + 10)
 	end)
 	
-	-- Card Holder (2 COLUMN GRID)
+	-- Card Holder (2 COLUMN GRID - FIXED)
 	local CardHolder = Instance.new("ScrollingFrame")
 	CardHolder.Name = "CardHolder"
 	CardHolder.Parent = Background
@@ -206,6 +207,12 @@ function SpareStackLib:CreateWindow(title)
 	self.CategoryOrder = 0
 	self.TabOrder = 0
 	self.SettingsMode = false
+	self.isDraggingSlider = isDraggingSlider
+	
+	-- Store drag flag reference
+	self.SetSliderDragging = function(value)
+		isDraggingSlider = value
+	end
 	
 	-- Settings Button Click
 	Settings.MouseButton1Click:Connect(function()
@@ -496,7 +503,7 @@ function SpareStackLib:AddTab(tabName, tabImage, categoryName)
 		Frame = Tab,
 		Category = categoryName,
 		Cards = {},
-		CardCounter = 0  -- FIXED: Single sequential counter
+		CardCounter = 0
 	}
 	
 	if categoryName and self.Categories[categoryName] then
@@ -546,10 +553,8 @@ function SpareStackLib:SwitchTab(tabName)
 	end
 end
 
--- Create Card - FIXED: Sequential ordering for proper 2-column grid
+-- Create Card
 function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
-	alignment = alignment or "left"
-	
 	local Card = Instance.new("Frame")
 	Card.Name = "Card_" .. cardTitle
 	Card.Parent = self.CardHolder
@@ -557,10 +562,9 @@ function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
 	Card.BorderSizePixel = 0
 	Card.Size = UDim2.new(0, 356, 0, 420)
 	Card:SetAttribute("Tab", tabName)
-	Card:SetAttribute("Alignment", alignment)
 	Card.Visible = false
 	
-	-- FIXED: Sequential LayoutOrder for proper grid filling
+	-- Sequential LayoutOrder for grid
 	if self.Tabs[tabName] then
 		self.Tabs[tabName].CardCounter = self.Tabs[tabName].CardCounter + 1
 		Card.LayoutOrder = self.Tabs[tabName].CardCounter
@@ -594,7 +598,7 @@ function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
 	}
 end
 
--- Add Toggle - FIXED: Better positioning away from edge
+-- Add Toggle - FIXED: Orb positions to not touch edges
 function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 	callback = callback or function() end
 	default = default or false
@@ -622,7 +626,7 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 		SettingsIcon.Name = "SettingsIcon"
 		SettingsIcon.Parent = Title
 		SettingsIcon.BackgroundTransparency = 1
-		SettingsIcon.Position = UDim2.new(0.62, 0, 0.3, 0)
+		SettingsIcon.Position = UDim2.new(0.68, 0, 0.3, 0)
 		SettingsIcon.Size = UDim2.new(0, 15, 0, 15)
 		SettingsIcon.Image = "rbxassetid://70543102142774"
 		SettingsIcon.ImageColor3 = Color3.fromRGB(46, 46, 66)
@@ -632,13 +636,12 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 		end)
 	end
 	
-	-- FIXED: Better positioning - moved from 0.80 to 0.73 for more spacing
 	local Background_2 = Instance.new("TextButton")
 	Background_2.Name = "Background"
 	Background_2.Parent = Title
 	Background_2.BackgroundColor3 = default and Color3.fromRGB(28, 48, 103) or Color3.fromRGB(21, 21, 28)
 	Background_2.BorderSizePixel = 0
-	Background_2.Position = UDim2.new(0.73, 0, 0.3, 0)
+	Background_2.Position = UDim2.new(0.80, 0, 0.3, 0)
 	Background_2.Size = UDim2.new(0, 35, 0, 20)
 	Background_2.Text = ""
 	
@@ -646,12 +649,15 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 	BgCorner.CornerRadius = UDim.new(1, 0)
 	BgCorner.Parent = Background_2
 	
+	-- FIXED: Orb positions - Background is 35px, orb is 13px
+	-- Off: 2px from left (good spacing)
+	-- On: 18px from left (leaves 4px on right: 18 + 13 + 4 = 35)
 	local Orb = Instance.new("Frame")
 	Orb.Name = "Orb"
 	Orb.Parent = Background_2
 	Orb.BackgroundColor3 = default and Color3.fromRGB(51, 105, 255) or Color3.fromRGB(37, 37, 57)
 	Orb.BorderSizePixel = 0
-	Orb.Position = default and UDim2.new(0, 20, 0.15, 0) or UDim2.new(0, 2, 0.15, 0)
+	Orb.Position = default and UDim2.new(0, 18, 0.15, 0) or UDim2.new(0, 2, 0.15, 0)
 	Orb.Size = UDim2.new(0, 13, 0, 13)
 	
 	local OrbCorner = Instance.new("UICorner")
@@ -665,7 +671,7 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 		toggled = not toggled
 		
 		TweenService:Create(Orb, tweenInfo, {
-			Position = toggled and UDim2.new(0, 20, 0.15, 0) or UDim2.new(0, 2, 0.15, 0)
+			Position = toggled and UDim2.new(0, 18, 0.15, 0) or UDim2.new(0, 2, 0.15, 0)
 		}):Play()
 		
 		TweenService:Create(Background_2, tweenInfo, {
@@ -698,7 +704,7 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 	}
 end
 
--- Add Slider - FIXED: Proper knob alignment accounting for knob radius
+-- Add Slider - FIXED: Proper knob bounds and drag prevention
 function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 	callback = callback or function() end
 	min = min or 0
@@ -771,16 +777,16 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 	local currentValue = default
 	local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	
-	-- FIXED: Proper knob positioning accounting for knob radius
+	-- FIXED: Proper knob positioning with boundaries
 	local function updateSlider(value)
 		value = math.clamp(value, min, max)
 		currentValue = math.floor(value)
 		
 		local percent = (value - min) / (max - min)
-		local knobRadius = 9  -- Half of knob width (18px)
+		local knobRadius = 9  -- Half of 18px knob width
 		local barWidth = Bar.AbsoluteSize.X
 		
-		-- Calculate position so knob stays within bounds
+		-- Keep knob within bounds
 		local pixelX = knobRadius + (percent * (barWidth - (knobRadius * 2)))
 		
 		TweenService:Create(Knob, tweenInfo, {
@@ -811,13 +817,16 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 		updateSlider(value)
 	end
 	
+	-- FIXED: Prevent window drag when dragging slider
 	Knob.MouseButton1Down:Connect(function()
 		dragging = true
+		self.SetSliderDragging(true)
 	end)
 	
 	UIS.InputEnded:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			dragging = false
+			self.SetSliderDragging(false)
 		end
 	end)
 	
@@ -829,7 +838,14 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 	
 	Bar.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			self.SetSliderDragging(true)
 			updateFromMouse(input.Position.X)
+		end
+	end)
+	
+	Bar.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			self.SetSliderDragging(false)
 		end
 	end)
 	
