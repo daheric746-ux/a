@@ -1,5 +1,4 @@
--- SpareStack UI Library - COMPLETE FIX
--- Fixed: 2-column grid, larger slider for mobile, toggle spacing, settings icon
+-- asdasdasdasdd
 
 local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
@@ -387,41 +386,31 @@ end
 -- Filter cards
 function SpareStackLib:FilterCards(query)
 	if self.SettingsMode then return end
-	
-	if query == "" then
-		for _, card in pairs(self.AllCards) do
-			if card:GetAttribute("Tab") == self.CurrentTab then
-				card.Visible = true
-			else
-				card.Visible = false
+
+	query = query:lower()
+
+	for _, card in pairs(self.AllCards) do
+		local correctTab = card:GetAttribute("Tab") == self.CurrentTab
+		local matchesSearch = false
+
+		if query == "" then
+			matchesSearch = true
+		else
+			local cardTitle = card:FindFirstChild("CardTitle")
+			if cardTitle and string.find(cardTitle.Text:lower(), query) then
+				matchesSearch = true
 			end
 		end
-	else
-		for _, card in pairs(self.AllCards) do
-			local cardTitle = card:FindFirstChild("CardTitle")
-			if cardTitle then
-				if string.find(cardTitle.Text:lower(), query) then
-					card.Visible = true
-				else
-					local found = false
-					local elementsHolder = card:FindFirstChild("ElementsHolder")
-					if elementsHolder then
-						for _, child in pairs(elementsHolder:GetChildren()) do
-							if child:IsA("Frame") then
-								local titleLabel = child:FindFirstChild("TitleLabel")
-								if titleLabel and string.find(titleLabel.Text:lower(), query) then
-									found = true
-									break
-								end
-							end
-						end
-					end
-					card.Visible = found
-				end
-			end
+
+		if correctTab and matchesSearch then
+			card.Visible = true
+			card.LayoutOrder = card:GetAttribute("OriginalOrder")
+		else
+			card.Visible = false
 		end
 	end
 end
+
 
 -- Add Category
 function SpareStackLib:AddCategory(categoryName)
@@ -525,9 +514,9 @@ function SpareStackLib:SwitchTab(tabName)
 	self.CurrentTab = tabName
 	self.SettingsMode = false
 	self.SearchBox.Text = ""
-	
+
 	local tweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	
+
 	for name, tab in pairs(self.Tabs) do
 		if name == tabName then
 			TweenService:Create(tab.Frame, tweenInfo, {
@@ -540,19 +529,17 @@ function SpareStackLib:SwitchTab(tabName)
 			}):Play()
 		end
 	end
-	
-	for _, card in pairs(self.SettingsCards) do
-		card.Visible = false
-	end
-	
+
 	for _, card in pairs(self.AllCards) do
 		if card:GetAttribute("Tab") == tabName then
 			card.Visible = true
+			card.LayoutOrder = card:GetAttribute("OriginalOrder")
 		else
 			card.Visible = false
 		end
 	end
 end
+
 
 -- Create Card - FIXED: Using global counter for proper grid
 function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
@@ -568,6 +555,8 @@ function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
 	-- GLOBAL SEQUENTIAL COUNTER - THIS ENSURES PROPER 2-COLUMN GRID
 	self.CardLayoutOrder = self.CardLayoutOrder + 1
 	Card.LayoutOrder = self.CardLayoutOrder
+Card:SetAttribute("OriginalOrder", self.CardLayoutOrder)
+
 	
 	self:SetupCard(Card, cardTitle)
 	
