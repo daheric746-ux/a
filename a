@@ -1,5 +1,4 @@
--- SpareStack UI Library - ENHANCED VERSION WITH IMPROVED CONFIG SYSTEM
--- aaadsdasas
+--1234
 
 local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
@@ -1248,6 +1247,9 @@ function SpareStackLib:CreateConfigTab()
 	
 	self.ConfigListHolder = ConfigListHolder
 	
+	-- Refresh to show any loaded configs
+	self:RefreshConfigList()
+	
 	return ConfigTab
 end
 
@@ -1431,6 +1433,11 @@ function SpareStackLib:LoadConfigsFromFile()
 				end
 			end
 		end
+	end
+	
+	-- Refresh the config list if it exists
+	if self.ConfigListHolder then
+		self:RefreshConfigList()
 	end
 end
 
