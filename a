@@ -1,4 +1,5 @@
--- asdha
+-- SpareStack UI Library - ENHANCED VERSION WITH IMPROVED CONFIG SYSTEM
+-- Features: Advanced search, settings, centered cards, improved config management
 
 local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
@@ -226,10 +227,21 @@ function SpareStackLib:CreateWindow(title)
 	self.SavedConfigs = {}
 	self.AutoLoadConfig = false
 	
+	-- Watermark settings
+	self.ShowWatermark = true
+	self.ShowFPS = false
+	self.ShowPing = false
+	
 	-- Store drag flag reference
 	self.SetSliderDragging = function(value)
 		isDraggingSlider = value
 	end
+	
+	-- Create Mobile Toggle Button
+	self:CreateMobileToggle()
+	
+	-- Create Watermark
+	self:CreateWatermark()
 	
 	-- Load configs from file
 	self:LoadConfigsFromFile()
@@ -333,20 +345,27 @@ function SpareStackLib:CreateSettingsCards()
 	local UIElements = UICard:FindFirstChild("ElementsHolder")
 	
 	self:AddToggle(UIElements, "Show FPS", false, function(value)
-		print("Show FPS:", value)
+		self.ShowFPS = value
+		self.UpdateWatermark()
 	end, false)
 	
 	self:AddToggle(UIElements, "Show Ping", false, function(value)
-		print("Show Ping:", value)
+		self.ShowPing = value
+		self.UpdateWatermark()
 	end, false)
 	
 	self:AddToggle(UIElements, "Show Watermark", true, function(value)
-		print("Show Watermark:", value)
+		self.ShowWatermark = value
+		self.UpdateWatermark()
 	end, false)
 	
 	self:AddSlider(UIElements, "UI Scale", 50, 150, 100, function(value)
 		local scale = value / 100
+		-- Smooth scaling with proper anchor
 		self.Background.Size = UDim2.new(0, 1011 * scale, 0, 630 * scale)
+		-- Keep it centered
+		self.Background.AnchorPoint = Vector2.new(0.5, 0.5)
+		self.Background.Position = UDim2.new(0.5, 0, 0.5, 0)
 	end)
 	
 	self:AddButton(UIElements, "Reset UI Position", function()
@@ -932,13 +951,7 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 		SetValue = updateSlider,
 		SetEnabled = function(state)
 			toggleEnabled = state
-			-- Optionally update visual feedback
-			local alpha = state and 1 or 0.5
-			Title.TextTransparency = 1 - alpha
-			ValueLabel.TextTransparency = 1 - alpha
-			Bar.BackgroundTransparency = state and 0 or 0.3
-			Fill.BackgroundTransparency = state and 0 or 0.3
-			Knob.BackgroundTransparency = state and 0 or 0.3
+			-- No visual changes, only affects whether callback fires
 		end
 	}
 	
@@ -1427,6 +1440,289 @@ function SpareStackLib:RefreshConfigList()
 			}):Play()
 		end)
 	end
+end
+
+-- Create Mobile Toggle Button
+function SpareStackLib:CreateMobileToggle()
+	local Open = Instance.new("ImageButton")
+	Open.Name = "MobileToggle"
+	Open.Parent = self.Gui
+	Open.AnchorPoint = Vector2.new(0.5, 0.5)
+	Open.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	Open.BorderSizePixel = 0
+	Open.Position = UDim2.new(0.85, 0, 0.5, 0)
+	Open.Size = UDim2.new(0, 50, 0, 50)
+	Open.Image = "rbxassetid://134799410833460"
+	Open.ZIndex = 200
+	
+	local UICorner = Instance.new("UICorner")
+	UICorner.CornerRadius = UDim.new(1, 0)
+	UICorner.Parent = Open
+	
+	local HintLabel = Instance.new("TextLabel")
+	HintLabel.Parent = Open
+	HintLabel.BackgroundTransparency = 1
+	HintLabel.Position = UDim2.new(-1.24, 0, 1.2, 0)
+	HintLabel.Size = UDim2.new(0, 174, 0, 25)
+	HintLabel.Font = Enum.Font.GothamBold
+	HintLabel.Text = "Hold to lock"
+	HintLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	HintLabel.TextSize = 14
+	HintLabel.ZIndex = 200
+	
+	-- Dragging system (mobile only)
+	local ALPHA, DEADZONE = 0.6, 6
+	local dragging, inputObject, startPointer = false, nil, nil
+	local targetPos
+	local locked = false
+	local LONG_PRESS_TIME = 1.0
+	local longPressConn = nil
+	local longPressStart = 0
+	local longPressActive = false
+	
+	local function clamp(v, a, b)
+		return math.max(a, math.min(b, v))
+	end
+	
+	local function clampToParent(p)
+		local par, s, b = self.Gui, self.Gui.AbsoluteSize, Open.AbsoluteSize
+		local pa = par.AbsolutePosition
+		return Vector2.new(clamp(p.X, pa.X, pa.X + s.X - b.X), clamp(p.Y, pa.Y, pa.Y + s.Y - b.Y))
+	end
+	
+	local function toUDim2(p)
+		local pa = self.Gui.AbsolutePosition
+		return UDim2.new(0, p.X - pa.X, 0, p.Y - pa.Y)
+	end
+	
+	local function cancelLongPress()
+		if longPressConn then
+			longPressConn:Disconnect()
+			longPressConn = nil
+			longPressActive = false
+		end
+	end
+	
+	local function startLongPressWatch(input)
+		cancelLongPress()
+		longPressActive = true
+		longPressStart = tick()
+		longPressConn = game:GetService("RunService").Heartbeat:Connect(function()
+			if not inputObject or inputObject ~= input then
+				cancelLongPress()
+				return
+			end
+			
+			if input.Position and startPointer and (input.Position - startPointer).Magnitude > DEADZONE then
+				cancelLongPress()
+				return
+			end
+			
+			if tick() - longPressStart >= LONG_PRESS_TIME then
+				locked = not locked
+				HintLabel.Text = locked and "Locked" or "Hold to lock"
+				Open.ImageTransparency = locked and 0.3 or 0
+				cancelLongPress()
+			end
+		end)
+	end
+	
+	Open.Active = true
+	
+	Open.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+			inputObject = input
+			startPointer = input.Position
+			dragging = false
+			startLongPressWatch(input)
+		end
+	end)
+	
+	UIS.InputChanged:Connect(function(input)
+		if not inputObject then return end
+		
+		if (input.UserInputType == Enum.UserInputType.Touch and input == inputObject) or
+			(input.UserInputType == Enum.UserInputType.MouseMovement and inputObject and inputObject.UserInputType == Enum.UserInputType.MouseButton1) then
+			
+			local currentPos = input.Position
+			local delta = currentPos - startPointer
+			
+			if not dragging and delta.Magnitude >= DEADZONE then
+				cancelLongPress()
+				
+				if not locked then
+					dragging = true
+				end
+			end
+			
+			if dragging then
+				targetPos = clampToParent(currentPos)
+			end
+		end
+	end)
+	
+	UIS.InputEnded:Connect(function(input)
+		if longPressActive and input == inputObject then
+			cancelLongPress()
+		end
+		
+		if input == inputObject or (inputObject and inputObject.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseButton1) then
+			if not dragging and not longPressActive then
+				-- Simple tap - toggle UI visibility
+				self.Background.Visible = not self.Background.Visible
+			end
+			dragging = false
+			inputObject = nil
+		end
+	end)
+	
+	game:GetService("RunService").RenderStepped:Connect(function()
+		if dragging and targetPos then
+			local newPos = Open.AbsolutePosition:Lerp(targetPos, ALPHA)
+			Open.Position = toUDim2(newPos)
+		end
+	end)
+	
+	self.MobileToggle = Open
+end
+
+-- Create Watermark
+function SpareStackLib:CreateWatermark()
+	local Watermark = Instance.new("Frame")
+	Watermark.Name = "Watermark"
+	Watermark.Parent = self.Gui
+	Watermark.BackgroundColor3 = Color3.fromRGB(16, 16, 21)
+	Watermark.BorderSizePixel = 0
+	Watermark.Position = UDim2.new(0, 14, 0, 14)
+	Watermark.Size = UDim2.new(0, 250, 0, 80)
+	Watermark.ZIndex = 150
+	Watermark.Visible = false
+	
+	local WatermarkCorner = Instance.new("UICorner")
+	WatermarkCorner.CornerRadius = UDim.new(0, 5)
+	WatermarkCorner.Parent = Watermark
+	
+	-- Logo/Icon
+	local Logo = Instance.new("ImageLabel")
+	Logo.Parent = Watermark
+	Logo.BackgroundTransparency = 1
+	Logo.Position = UDim2.new(0, 12, 0, 12)
+	Logo.Size = UDim2.new(0, 24, 0, 24)
+	Logo.Image = "rbxassetid://134799410833460"
+	Logo.ZIndex = 151
+	
+	-- Title
+	local Title = Instance.new("TextLabel")
+	Title.Parent = Watermark
+	Title.BackgroundTransparency = 1
+	Title.Position = UDim2.new(0, 44, 0, 12)
+	Title.Size = UDim2.new(0, 150, 0, 24)
+	Title.Font = Enum.Font.GothamBold
+	Title.Text = "Spare Stack"
+	Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+	Title.TextSize = 15
+	Title.TextXAlignment = Enum.TextXAlignment.Left
+	Title.ZIndex = 151
+	
+	-- Info Container
+	local InfoContainer = Instance.new("Frame")
+	InfoContainer.Parent = Watermark
+	InfoContainer.BackgroundTransparency = 1
+	InfoContainer.Position = UDim2.new(0, 12, 0, 42)
+	InfoContainer.Size = UDim2.new(1, -24, 0, 30)
+	InfoContainer.ZIndex = 151
+	
+	-- FPS Label
+	local FPSLabel = Instance.new("TextLabel")
+	FPSLabel.Parent = InfoContainer
+	FPSLabel.BackgroundTransparency = 1
+	FPSLabel.Position = UDim2.new(0, 0, 0, 0)
+	FPSLabel.Size = UDim2.new(0.33, 0, 1, 0)
+	FPSLabel.Font = Enum.Font.Gotham
+	FPSLabel.Text = "FPS: 60"
+	FPSLabel.TextColor3 = Color3.fromRGB(34, 197, 94)
+	FPSLabel.TextSize = 12
+	FPSLabel.TextXAlignment = Enum.TextXAlignment.Left
+	FPSLabel.ZIndex = 151
+	FPSLabel.Visible = false
+	
+	-- Ping Label
+	local PingLabel = Instance.new("TextLabel")
+	PingLabel.Parent = InfoContainer
+	PingLabel.BackgroundTransparency = 1
+	PingLabel.Position = UDim2.new(0.33, 0, 0, 0)
+	PingLabel.Size = UDim2.new(0.34, 0, 1, 0)
+	PingLabel.Font = Enum.Font.Gotham
+	PingLabel.Text = "Ping: 45ms"
+	PingLabel.TextColor3 = Color3.fromRGB(51, 105, 255)
+	PingLabel.TextSize = 12
+	PingLabel.TextXAlignment = Enum.TextXAlignment.Left
+	PingLabel.ZIndex = 151
+	PingLabel.Visible = false
+	
+	-- Players Label
+	local PlayersLabel = Instance.new("TextLabel")
+	PlayersLabel.Parent = InfoContainer
+	PlayersLabel.BackgroundTransparency = 1
+	PlayersLabel.Position = UDim2.new(0.67, 0, 0, 0)
+	PlayersLabel.Size = UDim2.new(0.33, 0, 1, 0)
+	PlayersLabel.Font = Enum.Font.Gotham
+	PlayersLabel.Text = "Players: 1"
+	PlayersLabel.TextColor3 = Color3.fromRGB(250, 204, 21)
+	PlayersLabel.TextSize = 12
+	PlayersLabel.TextXAlignment = Enum.TextXAlignment.Left
+	PlayersLabel.ZIndex = 151
+	PlayersLabel.Visible = false
+	
+	-- Update function
+	local function updateWatermark()
+		Watermark.Visible = self.ShowWatermark
+		FPSLabel.Visible = self.ShowFPS
+		PingLabel.Visible = self.ShowPing
+		PlayersLabel.Visible = true -- Always show players when watermark is visible
+		
+		-- Calculate height based on what's shown
+		local baseHeight = 48
+		local hasInfo = self.ShowFPS or self.ShowPing
+		Watermark.Size = UDim2.new(0, 250, 0, hasInfo and 80 or baseHeight)
+	end
+	
+	-- FPS Counter
+	local frameCount = 0
+	local lastTime = tick()
+	game:GetService("RunService").RenderStepped:Connect(function()
+		frameCount = frameCount + 1
+		local currentTime = tick()
+		if currentTime - lastTime >= 1 then
+			local fps = frameCount
+			frameCount = 0
+			lastTime = currentTime
+			FPSLabel.Text = "FPS: " .. fps
+		end
+	end)
+	
+	-- Ping Counter
+	spawn(function()
+		while true do
+			local ping = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue()
+			PingLabel.Text = "Ping: " .. math.floor(ping) .. "ms"
+			task.wait(1)
+		end
+	end)
+	
+	-- Players Counter
+	game:GetService("Players").PlayerAdded:Connect(function()
+		PlayersLabel.Text = "Players: " .. #game:GetService("Players"):GetPlayers()
+	end)
+	game:GetService("Players").PlayerRemoving:Connect(function()
+		PlayersLabel.Text = "Players: " .. #game:GetService("Players"):GetPlayers()
+	end)
+	PlayersLabel.Text = "Players: " .. #game:GetService("Players"):GetPlayers()
+	
+	self.Watermark = Watermark
+	self.UpdateWatermark = updateWatermark
+	
+	updateWatermark()
 end
 
 -- Load Configs from Folder
