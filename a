@@ -1,4 +1,4 @@
---1234
+-- 124azcv
 
 local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
@@ -704,6 +704,7 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 	
 	local toggled = default
 	local tweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+	local dependentElements = {}
 	
 	local function toggle()
 		toggled = not toggled
@@ -724,6 +725,11 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 			TextColor3 = toggled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(58, 58, 73)
 		}):Play()
 		
+		-- Enable/disable dependent elements
+		for _, element in pairs(dependentElements) do
+			element.SetEnabled(toggled)
+		end
+		
 		pcall(function()
 			callback(toggled)
 		end)
@@ -742,7 +748,11 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 				toggle()
 			end
 		end,
-		Toggle = toggle
+		Toggle = toggle,
+		AddDependent = function(element)
+			table.insert(dependentElements, element)
+			element.SetEnabled(toggled)
+		end
 	}
 	
 	self.ConfigData[name] = toggleData
@@ -822,8 +832,11 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 	local dragging = false
 	local currentValue = default
 	local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local enabled = true
 	
 	local function updateSlider(value)
+		if not enabled then return end
+		
 		value = math.clamp(value, min, max)
 		currentValue = math.floor(value)
 		
@@ -852,6 +865,8 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 	end
 	
 	local function updateFromMouse(mouseX)
+		if not enabled then return end
+		
 		local barPos = Bar.AbsolutePosition.X
 		local barWidth = Bar.AbsoluteSize.X
 		local relativeX = mouseX - barPos
@@ -861,6 +876,7 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 	end
 	
 	Knob.MouseButton1Down:Connect(function()
+		if not enabled then return end
 		dragging = true
 		self.SetSliderDragging(true)
 	end)
@@ -879,6 +895,7 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 	end)
 	
 	Bar.InputBegan:Connect(function(input)
+		if not enabled then return end
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			self.SetSliderDragging(true)
 			updateFromMouse(input.Position.X)
@@ -892,6 +909,7 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 	end)
 	
 	ValueLabel.FocusLost:Connect(function()
+		if not enabled then return end
 		local value = tonumber(ValueLabel.Text:match("%d+"))
 		if value then
 			updateSlider(value)
@@ -915,7 +933,18 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 		Max = max,
 		Element = SliderFrame,
 		GetValue = function() return currentValue end,
-		SetValue = updateSlider
+		SetValue = updateSlider,
+		SetEnabled = function(state)
+			enabled = state
+			local disabledColor = Color3.fromRGB(100, 100, 110)
+			local enabledColor = Color3.fromRGB(255, 255, 255)
+			
+			Title.TextColor3 = state and enabledColor or disabledColor
+			ValueLabel.TextColor3 = state and enabledColor or disabledColor
+			Bar.BackgroundColor3 = state and Color3.fromRGB(21, 21, 27) or Color3.fromRGB(15, 15, 20)
+			Fill.BackgroundColor3 = state and Color3.fromRGB(51, 105, 255) or Color3.fromRGB(40, 40, 50)
+			Knob.BackgroundColor3 = state and Color3.fromRGB(255, 255, 255) or disabledColor
+		end
 	}
 	
 	self.ConfigData[name] = sliderData
@@ -1501,59 +1530,202 @@ function SpareStackLib:DeleteConfig(configName)
 	self:RefreshConfigList()
 end
 
--- Notify
-function SpareStackLib:Notify(title, text, duration)
+-- Notify with Types and Positions
+function SpareStackLib:Notify(title, text, duration, notifType, position)
 	duration = duration or 3
+	notifType = notifType or "info" -- "success", "error", "warning", "info"
+	position = position or "topright" -- "topright", "topleft", "bottomright", "bottomleft"
 	
-	local Notification = Instance.new("Frame")
-	Notification.Name = "Notification"
-	Notification.Parent = self.Gui
-	Notification.BackgroundColor3 = Color3.fromRGB(20, 20, 27)
-	Notification.BorderSizePixel = 0
-	Notification.Position = UDim2.new(0.5, -150, 1, 100)
-	Notification.Size = UDim2.new(0, 300, 0, 80)
-	Notification.AnchorPoint = Vector2.new(0.5, 1)
+	-- Icon and color based on type
+	local iconId, fillerColor
+	if notifType == "success" then
+		iconId = "rbxassetid://96462596892775"
+		fillerColor = Color3.fromRGB(34, 197, 94) -- #22C55E
+	elseif notifType == "error" then
+		iconId = "rbxassetid://84674618415860"
+		fillerColor = Color3.fromRGB(239, 68, 68) -- #EF4444
+	elseif notifType == "warning" then
+		iconId = "rbxassetid://115818015422286"
+		fillerColor = Color3.fromRGB(250, 204, 21) -- #FACC15
+	else -- info
+		iconId = "rbxassetid://99108275822290"
+		fillerColor = Color3.fromRGB(51, 105, 255) -- #3369FF
+	end
 	
-	local NotifCorner = Instance.new("UICorner")
-	NotifCorner.CornerRadius = UDim.new(0, 5)
-	NotifCorner.Parent = Notification
+	-- Position calculations
+	local startPos, endPos
+	if position == "topright" then
+		startPos = UDim2.new(1, 100, 0, 20)
+		endPos = UDim2.new(1, -360, 0, 20)
+	elseif position == "topleft" then
+		startPos = UDim2.new(0, -400, 0, 20)
+		endPos = UDim2.new(0, 14, 0, 20)
+	elseif position == "bottomright" then
+		startPos = UDim2.new(1, 100, 1, -115)
+		endPos = UDim2.new(1, -360, 1, -115)
+	else -- bottomleft
+		startPos = UDim2.new(0, -400, 1, -115)
+		endPos = UDim2.new(0, 14, 1, -115)
+	end
 	
-	local NotifTitle = Instance.new("TextLabel")
-	NotifTitle.Parent = Notification
-	NotifTitle.BackgroundTransparency = 1
-	NotifTitle.Position = UDim2.new(0, 10, 0, 10)
-	NotifTitle.Size = UDim2.new(1, -20, 0, 25)
-	NotifTitle.Font = Enum.Font.GothamBold
-	NotifTitle.Text = title
-	NotifTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-	NotifTitle.TextSize = 16
-	NotifTitle.TextXAlignment = Enum.TextXAlignment.Left
+	local Holder = createInstance("Frame", {
+		Name = "NotificationHolder",
+		Position = startPos,
+		Size = UDim2.new(0, 346, 0, 95),
+		Parent = self.Gui,
+		BackgroundColor3 = Color3.fromRGB(16, 16, 21),
+		BorderSizePixel = 0,
+		ZIndex = 100
+	})
 	
-	local NotifText = Instance.new("TextLabel")
-	NotifText.Parent = Notification
-	NotifText.BackgroundTransparency = 1
-	NotifText.Position = UDim2.new(0, 10, 0, 35)
-	NotifText.Size = UDim2.new(1, -20, 1, -45)
-	NotifText.Font = Enum.Font.Gotham
-	NotifText.Text = text
-	NotifText.TextColor3 = Color3.fromRGB(200, 200, 200)
-	NotifText.TextSize = 14
-	NotifText.TextXAlignment = Enum.TextXAlignment.Left
-	NotifText.TextYAlignment = Enum.TextYAlignment.Top
-	NotifText.TextWrapped = true
+	local UICorner = createInstance("UICorner", {
+		Parent = Holder,
+		CornerRadius = UDim.new(0, 5)
+	})
 	
-	TweenService:Create(Notification, TweenInfo.new(0.5), {
-		Position = UDim2.new(0.5, -150, 1, -20)
-	}):Play()
+	local Label = createInstance("TextLabel", {
+		Name = "Label",
+		Position = UDim2.new(0.017, 0, -0.011, 0),
+		Size = UDim2.new(0, 130, 0, 50),
+		Parent = Holder,
+		BackgroundTransparency = 1,
+		Font = Enum.Font.GothamBold,
+		Text = title,
+		TextScaled = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		TextWrapped = true,
+		TextColor3 = Color3.fromRGB(255, 255, 255),
+		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+		TextSize = 14,
+		BorderSizePixel = 0,
+		ZIndex = 101
+	})
 	
-	task.wait(duration)
+	local UITextSizeConstraint = createInstance("UITextSizeConstraint", {
+		Parent = Label,
+		MaxTextSize = 15,
+		MinTextSize = 1
+	})
 	
-	TweenService:Create(Notification, TweenInfo.new(0.5), {
-		Position = UDim2.new(0.5, -150, 1, 100)
-	}):Play()
+	local Image = createInstance("ImageLabel", {
+		Name = "Image",
+		Position = UDim2.new(0.035, 0, 0.158, 0),
+		Size = UDim2.new(0, 20, 0, 20),
+		Parent = Holder,
+		BackgroundTransparency = 1,
+		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+		ImageColor3 = Color3.fromRGB(255, 255, 255),
+		Image = iconId,
+		BorderSizePixel = 0,
+		ZIndex = 101
+	})
 	
+	local BarHolder = createInstance("Frame", {
+		Name = "BarHolder",
+		Position = UDim2.new(0.038, 0, 0.705, 0),
+		Size = UDim2.new(0, 320, 0, 13),
+		Parent = Holder,
+		BackgroundColor3 = Color3.fromRGB(30, 30, 36),
+		BorderSizePixel = 0,
+		ZIndex = 101
+	})
+	
+	local UICorner_1 = createInstance("UICorner", {
+		Parent = BarHolder
+	})
+	
+	local Filler = createInstance("Frame", {
+		Name = "Filler",
+		Position = UDim2.new(0.035, 0, 0.705, 0),
+		Size = UDim2.new(0, 320, 0, 13),
+		Parent = Holder,
+		BackgroundColor3 = fillerColor,
+		BorderSizePixel = 0,
+		ZIndex = 102
+	})
+	
+	local UICorner_2 = createInstance("UICorner", {
+		Parent = Filler
+	})
+	
+	local Description = createInstance("TextLabel", {
+		Name = "Description",
+		Position = UDim2.new(0.035, 0, 0.358, 0),
+		Size = UDim2.new(0, 300, 0, 32),
+		Parent = Holder,
+		BackgroundTransparency = 1,
+		Font = Enum.Font.Gotham,
+		Text = text,
+		TextScaled = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		TextWrapped = true,
+		TextColor3 = Color3.fromRGB(200, 200, 200),
+		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+		TextSize = 14,
+		BorderSizePixel = 0,
+		ZIndex = 101
+	})
+	
+	local UITextSizeConstraint_2 = createInstance("UITextSizeConstraint", {
+		Parent = Description,
+		MaxTextSize = 11,
+		MinTextSize = 1
+	})
+	
+	local Close = createInstance("ImageButton", {
+		Name = "Close",
+		Position = UDim2.new(0.905, 0, 0.147, 0),
+		Size = UDim2.new(0, 20, 0, 20),
+		Parent = Holder,
+		BackgroundTransparency = 1,
+		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+		ImageColor3 = Color3.fromRGB(255, 255, 255),
+		Image = "rbxassetid://93374486940401",
+		BorderSizePixel = 0,
+		ZIndex = 101
+	})
+	
+	-- Animations
+	local slideIn = TweenService:Create(Holder, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		Position = endPos
+	})
+	
+	local slideOut = TweenService:Create(Holder, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+		Position = startPos
+	})
+	
+	-- Progress bar animation
+	local barTween = TweenService:Create(Filler, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
+		Size = UDim2.new(0, 0, 0, 13)
+	})
+	
+	-- Close button
+	local closed = false
+	Close.MouseButton1Click:Connect(function()
+		if not closed then
+			closed = true
+			barTween:Cancel()
+			slideOut:Play()
+			task.wait(0.5)
+			Holder:Destroy()
+		end
+	end)
+	
+	-- Start animations
+	slideIn:Play()
 	task.wait(0.5)
-	Notification:Destroy()
+	barTween:Play()
+	
+	-- Auto close
+	task.wait(duration)
+	if not closed then
+		closed = true
+		slideOut:Play()
+		task.wait(0.5)
+		Holder:Destroy()
+	end
 end
 
 return SpareStackLib
