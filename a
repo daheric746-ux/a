@@ -1,5 +1,5 @@
 -- SpareStack UI Library - ENHANCED VERSION WITH IMPROVED CONFIG SYSTEM
--- Features: Advanced search, settings, centered cards, improved config management
+-- DHJABSBJHASDBJHSADBJHHJDSA
 
 local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
@@ -24,13 +24,16 @@ end
 function SpareStackLib:CreateWindow(title)
 	local self = setmetatable({}, SpareStackLib)
 	
+	local CoreGui = game:GetService("CoreGui")
+	
 	-- Main ScreenGui
 	local Sparestack = Instance.new("ScreenGui")
 	Sparestack.Name = "Spare stack"
-	Sparestack.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	Sparestack.Parent = CoreGui
 	Sparestack.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	Sparestack.ResetOnSpawn = false
 	Sparestack.IgnoreGuiInset = true
+	Sparestack.DisplayOrder = 999999999
 	
 	-- Background
 	local Background = Instance.new("ImageLabel")
@@ -1444,6 +1447,11 @@ end
 
 -- Create Mobile Toggle Button
 function SpareStackLib:CreateMobileToggle()
+	-- Only show on mobile devices
+	if not UIS.TouchEnabled or UIS.KeyboardEnabled then
+		return -- PC detected, don't create mobile button
+	end
+	
 	local Open = Instance.new("ImageButton")
 	Open.Name = "MobileToggle"
 	Open.Parent = self.Gui
@@ -1458,6 +1466,12 @@ function SpareStackLib:CreateMobileToggle()
 	local UICorner = Instance.new("UICorner")
 	UICorner.CornerRadius = UDim.new(1, 0)
 	UICorner.Parent = Open
+	
+	local UIStroke = Instance.new("UIStroke")
+	UIStroke.Parent = Open
+	UIStroke.Color = Color3.fromRGB(51, 105, 255)
+	UIStroke.Thickness = 1.5
+	UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	
 	local HintLabel = Instance.new("TextLabel")
 	HintLabel.Parent = Open
@@ -1594,7 +1608,7 @@ function SpareStackLib:CreateWatermark()
 	Watermark.BackgroundColor3 = Color3.fromRGB(16, 16, 21)
 	Watermark.BorderSizePixel = 0
 	Watermark.Position = UDim2.new(0, 14, 0, 14)
-	Watermark.Size = UDim2.new(0, 250, 0, 80)
+	Watermark.Size = UDim2.new(0, 280, 0, 70)
 	Watermark.ZIndex = 150
 	Watermark.Visible = false
 	
@@ -1606,8 +1620,8 @@ function SpareStackLib:CreateWatermark()
 	local Logo = Instance.new("ImageLabel")
 	Logo.Parent = Watermark
 	Logo.BackgroundTransparency = 1
-	Logo.Position = UDim2.new(0, 12, 0, 12)
-	Logo.Size = UDim2.new(0, 24, 0, 24)
+	Logo.Position = UDim2.new(0, 15, 0, 15)
+	Logo.Size = UDim2.new(0, 20, 0, 20)
 	Logo.Image = "rbxassetid://134799410833460"
 	Logo.ZIndex = 151
 	
@@ -1615,76 +1629,90 @@ function SpareStackLib:CreateWatermark()
 	local Title = Instance.new("TextLabel")
 	Title.Parent = Watermark
 	Title.BackgroundTransparency = 1
-	Title.Position = UDim2.new(0, 44, 0, 12)
-	Title.Size = UDim2.new(0, 150, 0, 24)
+	Title.Position = UDim2.new(0, 42, 0, 15)
+	Title.Size = UDim2.new(1, -50, 0, 20)
 	Title.Font = Enum.Font.GothamBold
 	Title.Text = "Spare Stack"
 	Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-	Title.TextSize = 15
+	Title.TextSize = 14
 	Title.TextXAlignment = Enum.TextXAlignment.Left
+	Title.TextYAlignment = Enum.TextYAlignment.Center
 	Title.ZIndex = 151
 	
-	-- Info Container
+	-- Info Container (properly aligned)
 	local InfoContainer = Instance.new("Frame")
 	InfoContainer.Parent = Watermark
 	InfoContainer.BackgroundTransparency = 1
-	InfoContainer.Position = UDim2.new(0, 12, 0, 42)
-	InfoContainer.Size = UDim2.new(1, -24, 0, 30)
+	InfoContainer.Position = UDim2.new(0, 15, 0, 42)
+	InfoContainer.Size = UDim2.new(1, -30, 0, 18)
 	InfoContainer.ZIndex = 151
+	
+	local InfoLayout = Instance.new("UIListLayout")
+	InfoLayout.Parent = InfoContainer
+	InfoLayout.FillDirection = Enum.FillDirection.Horizontal
+	InfoLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	InfoLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	InfoLayout.Padding = UDim.new(0, 15)
+	InfoLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	
 	-- FPS Label
 	local FPSLabel = Instance.new("TextLabel")
+	FPSLabel.Name = "FPS"
 	FPSLabel.Parent = InfoContainer
 	FPSLabel.BackgroundTransparency = 1
-	FPSLabel.Position = UDim2.new(0, 0, 0, 0)
-	FPSLabel.Size = UDim2.new(0.33, 0, 1, 0)
+	FPSLabel.Size = UDim2.new(0, 60, 1, 0)
 	FPSLabel.Font = Enum.Font.Gotham
 	FPSLabel.Text = "FPS: 60"
 	FPSLabel.TextColor3 = Color3.fromRGB(34, 197, 94)
 	FPSLabel.TextSize = 12
 	FPSLabel.TextXAlignment = Enum.TextXAlignment.Left
+	FPSLabel.TextYAlignment = Enum.TextYAlignment.Center
 	FPSLabel.ZIndex = 151
 	FPSLabel.Visible = false
+	FPSLabel.LayoutOrder = 1
 	
 	-- Ping Label
 	local PingLabel = Instance.new("TextLabel")
+	PingLabel.Name = "Ping"
 	PingLabel.Parent = InfoContainer
 	PingLabel.BackgroundTransparency = 1
-	PingLabel.Position = UDim2.new(0.33, 0, 0, 0)
-	PingLabel.Size = UDim2.new(0.34, 0, 1, 0)
+	PingLabel.Size = UDim2.new(0, 80, 1, 0)
 	PingLabel.Font = Enum.Font.Gotham
 	PingLabel.Text = "Ping: 45ms"
 	PingLabel.TextColor3 = Color3.fromRGB(51, 105, 255)
 	PingLabel.TextSize = 12
 	PingLabel.TextXAlignment = Enum.TextXAlignment.Left
+	PingLabel.TextYAlignment = Enum.TextYAlignment.Center
 	PingLabel.ZIndex = 151
 	PingLabel.Visible = false
+	PingLabel.LayoutOrder = 2
 	
 	-- Players Label
 	local PlayersLabel = Instance.new("TextLabel")
+	PlayersLabel.Name = "Players"
 	PlayersLabel.Parent = InfoContainer
 	PlayersLabel.BackgroundTransparency = 1
-	PlayersLabel.Position = UDim2.new(0.67, 0, 0, 0)
-	PlayersLabel.Size = UDim2.new(0.33, 0, 1, 0)
+	PlayersLabel.Size = UDim2.new(0, 80, 1, 0)
 	PlayersLabel.Font = Enum.Font.Gotham
 	PlayersLabel.Text = "Players: 1"
 	PlayersLabel.TextColor3 = Color3.fromRGB(250, 204, 21)
 	PlayersLabel.TextSize = 12
 	PlayersLabel.TextXAlignment = Enum.TextXAlignment.Left
+	PlayersLabel.TextYAlignment = Enum.TextYAlignment.Center
 	PlayersLabel.ZIndex = 151
 	PlayersLabel.Visible = false
+	PlayersLabel.LayoutOrder = 3
 	
 	-- Update function
 	local function updateWatermark()
 		Watermark.Visible = self.ShowWatermark
-		FPSLabel.Visible = self.ShowFPS
-		PingLabel.Visible = self.ShowPing
-		PlayersLabel.Visible = true -- Always show players when watermark is visible
+		FPSLabel.Visible = self.ShowFPS and self.ShowWatermark
+		PingLabel.Visible = self.ShowPing and self.ShowWatermark
+		PlayersLabel.Visible = self.ShowWatermark
 		
 		-- Calculate height based on what's shown
-		local baseHeight = 48
 		local hasInfo = self.ShowFPS or self.ShowPing
-		Watermark.Size = UDim2.new(0, 250, 0, hasInfo and 80 or baseHeight)
+		Watermark.Size = UDim2.new(0, 280, 0, hasInfo and 70 or 45)
 	end
 	
 	-- FPS Counter
