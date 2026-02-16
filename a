@@ -1,5 +1,5 @@
 -- SpareStack UI Library - ENHANCED VERSION WITH IMPROVED CONFIG SYSTEM
--- Features: Advanced search, settings, centered cards, improved config management
+-- F12412dd
 
 local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
@@ -237,6 +237,9 @@ function SpareStackLib:CreateWindow(title)
 	self.ShowPing = true
 	self.ShowPlayers = true
 	
+	-- Tooltip system
+	self:CreateTooltip()
+	
 	-- Store drag flag reference
 	self.SetSliderDragging = function(value)
 		isDraggingSlider = value
@@ -281,6 +284,71 @@ function SpareStackLib:CreateWindow(title)
 	end)
 	
 	return self
+end
+
+-- Create Tooltip System
+function SpareStackLib:CreateTooltip()
+	local Tooltip = Instance.new("Frame")
+	Tooltip.Name = "Tooltip"
+	Tooltip.Parent = self.Gui
+	Tooltip.BackgroundColor3 = Color3.fromRGB(20, 20, 27)
+	Tooltip.BorderSizePixel = 0
+	Tooltip.Size = UDim2.new(0, 200, 0, 0)
+	Tooltip.ZIndex = 500
+	Tooltip.Visible = false
+	Tooltip.AutomaticSize = Enum.AutomaticSize.Y
+	
+	local TooltipCorner = Instance.new("UICorner")
+	TooltipCorner.CornerRadius = UDim.new(0, 5)
+	TooltipCorner.Parent = Tooltip
+	
+	local TooltipPadding = Instance.new("UIPadding")
+	TooltipPadding.Parent = Tooltip
+	TooltipPadding.PaddingTop = UDim.new(0, 8)
+	TooltipPadding.PaddingBottom = UDim.new(0, 8)
+	TooltipPadding.PaddingLeft = UDim.new(0, 10)
+	TooltipPadding.PaddingRight = UDim.new(0, 10)
+	
+	local TooltipText = Instance.new("TextLabel")
+	TooltipText.Parent = Tooltip
+	TooltipText.BackgroundTransparency = 1
+	TooltipText.Size = UDim2.new(1, -20, 0, 0)
+	TooltipText.Font = Enum.Font.Gotham
+	TooltipText.Text = ""
+	TooltipText.TextColor3 = Color3.fromRGB(255, 255, 255)
+	TooltipText.TextSize = 12
+	TooltipText.TextXAlignment = Enum.TextXAlignment.Left
+	TooltipText.TextYAlignment = Enum.TextYAlignment.Top
+	TooltipText.TextWrapped = true
+	TooltipText.AutomaticSize = Enum.AutomaticSize.Y
+	TooltipText.ZIndex = 501
+	
+	self.Tooltip = Tooltip
+	self.TooltipText = TooltipText
+	
+	-- Update position on mouse move
+	UIS.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement and Tooltip.Visible then
+			local mousePos = UIS:GetMouseLocation()
+			Tooltip.Position = UDim2.new(0, mousePos.X + 15, 0, mousePos.Y + 15)
+		end
+	end)
+end
+
+-- Show Tooltip
+function SpareStackLib:ShowTooltip(element, text)
+	if not text or text == "" then return end
+	
+	element.MouseEnter:Connect(function()
+		self.TooltipText.Text = text
+		self.Tooltip.Visible = true
+		local mousePos = UIS:GetMouseLocation()
+		self.Tooltip.Position = UDim2.new(0, mousePos.X + 15, 0, mousePos.Y + 15)
+	end)
+	
+	element.MouseLeave:Connect(function()
+		self.Tooltip.Visible = false
+	end)
 end
 
 -- Advanced Search - Searches across ALL tabs and features
@@ -500,7 +568,7 @@ function SpareStackLib:SetupCard(Card, title)
 	CardTitleLabel.Parent = Card
 	CardTitleLabel.BackgroundTransparency = 1
 	CardTitleLabel.Position = UDim2.new(0.129, 0, 0, 0)
-	CardTitleLabel.Size = UDim2.new(0.87, 0, 0, 50)
+	CardTitleLabel.Size = UDim2.new(0.77, 0, 0, 50)
 	CardTitleLabel.Font = Enum.Font.GothamBold
 	CardTitleLabel.Text = title
 	CardTitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -515,6 +583,19 @@ function SpareStackLib:SetupCard(Card, title)
 	Placard.ZIndex = 0
 	Placard.Image = "rbxassetid://91296368223791"
 	Placard.ScaleType = Enum.ScaleType.Stretch
+	
+	-- Collapse/Expand Button
+	local CollapseButton = Instance.new("TextButton")
+	CollapseButton.Name = "CollapseButton"
+	CollapseButton.Parent = Card
+	CollapseButton.BackgroundTransparency = 1
+	CollapseButton.Position = UDim2.new(0.9, 0, 0.015, 0)
+	CollapseButton.Size = UDim2.new(0, 30, 0, 30)
+	CollapseButton.Font = Enum.Font.GothamBold
+	CollapseButton.Text = "-"
+	CollapseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	CollapseButton.TextSize = 20
+	CollapseButton.ZIndex = 2
 	
 	local ElementsHolder = Instance.new("ScrollingFrame")
 	ElementsHolder.Name = "ElementsHolder"
@@ -534,6 +615,32 @@ function SpareStackLib:SetupCard(Card, title)
 	
 	ElementsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 		ElementsHolder.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 10)
+	end)
+	
+	-- Collapse/Expand functionality
+	local collapsed = false
+	local originalSize = Card.Size
+	
+	CollapseButton.MouseButton1Click:Connect(function()
+		collapsed = not collapsed
+		
+		local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+		
+		if collapsed then
+			CollapseButton.Text = "+"
+			TweenService:Create(Card, tweenInfo, {
+				Size = UDim2.new(originalSize.X.Scale, originalSize.X.Offset, 0, 55)
+			}):Play()
+			ElementsHolder.Visible = false
+			CardBackground.Visible = false
+		else
+			CollapseButton.Text = "-"
+			TweenService:Create(Card, tweenInfo, {
+				Size = originalSize
+			}):Play()
+			ElementsHolder.Visible = true
+			CardBackground.Visible = true
+		end
 	end)
 end
 
@@ -714,23 +821,51 @@ function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
 	return {
 		Card = Card,
 		ElementsHolder = ElementsHolder,
-		AddToggle = function(_, name, default, callback, settings)
-			return self:AddToggle(ElementsHolder, name, default, callback, settings)
+		AddToggle = function(_, name, default, callback, settings, tooltip)
+			local toggle = self:AddToggle(ElementsHolder, name, default, callback, settings)
+			if tooltip then self:ShowTooltip(toggle.Element, tooltip) end
+			return toggle
 		end,
-		AddSlider = function(_, name, min, max, default, callback)
-			return self:AddSlider(ElementsHolder, name, min, max, default, callback)
+		AddSlider = function(_, name, min, max, default, callback, tooltip)
+			local slider = self:AddSlider(ElementsHolder, name, min, max, default, callback)
+			if tooltip then self:ShowTooltip(slider.Element, tooltip) end
+			return slider
 		end,
-		AddDropdown = function(_, name, options, default, callback)
-			return self:AddDropdown(ElementsHolder, name, options, default, callback)
+		AddDropdown = function(_, name, options, default, callback, tooltip)
+			local dropdown = self:AddDropdown(ElementsHolder, name, options, default, callback)
+			if tooltip then self:ShowTooltip(dropdown.Element, tooltip) end
+			return dropdown
 		end,
-		AddButton = function(_, name, callback)
-			return self:AddButton(ElementsHolder, name, callback)
+		AddButton = function(_, name, callback, tooltip)
+			local button = self:AddButton(ElementsHolder, name, callback)
+			if tooltip then self:ShowTooltip(button, tooltip) end
+			return button
 		end,
-		AddInput = function(_, name, placeholder, default, callback)
-			return self:AddInput(ElementsHolder, name, placeholder, default, callback)
+		AddInput = function(_, name, placeholder, default, callback, tooltip)
+			local input = self:AddInput(ElementsHolder, name, placeholder, default, callback)
+			if tooltip then self:ShowTooltip(input.Element, tooltip) end
+			return input
 		end,
-		AddColorPicker = function(_, name, default, callback)
-			return self:AddColorPicker(ElementsHolder, name, default, callback)
+		AddColorPicker = function(_, name, default, callback, tooltip)
+			local picker = self:AddColorPicker(ElementsHolder, name, default, callback)
+			if tooltip then self:ShowTooltip(picker.Element, tooltip) end
+			return picker
+		end,
+		AddKeybind = function(_, name, default, callback, tooltip)
+			local keybind = self:AddKeybind(ElementsHolder, name, default, callback)
+			if tooltip then self:ShowTooltip(keybind.Element, tooltip) end
+			return keybind
+		end,
+		AddLabel = function(_, text, size)
+			return self:AddLabel(ElementsHolder, text, size)
+		end,
+		AddDivider = function(_)
+			return self:AddDivider(ElementsHolder)
+		end,
+		AddMultiDropdown = function(_, name, options, defaults, callback, tooltip)
+			local multi = self:AddMultiDropdown(ElementsHolder, name, options, defaults, callback)
+			if tooltip then self:ShowTooltip(multi.Element, tooltip) end
+			return multi
 		end,
 	}
 end
@@ -1295,6 +1430,337 @@ function SpareStackLib:AddInput(parent, name, placeholder, default, callback)
 	self.ConfigData[name] = inputData
 	
 	return inputData
+end
+
+-- Add Keybind Picker
+function SpareStackLib:AddKeybind(parent, name, default, callback)
+	callback = callback or function() end
+	default = default or "None"
+	
+	local KeybindFrame = Instance.new("Frame")
+	KeybindFrame.Name = "Keybind_" .. name
+	KeybindFrame.Parent = parent
+	KeybindFrame.BackgroundTransparency = 1
+	KeybindFrame.Size = UDim2.new(1, 0, 0, 50)
+	
+	local Title = Instance.new("TextLabel")
+	Title.Parent = KeybindFrame
+	Title.BackgroundTransparency = 1
+	Title.Size = UDim2.new(0.6, 0, 1, 0)
+	Title.Font = Enum.Font.GothamBold
+	Title.Text = name
+	Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+	Title.TextSize = 14
+	Title.TextXAlignment = Enum.TextXAlignment.Left
+	
+	local KeybindButton = Instance.new("TextButton")
+	KeybindButton.Parent = KeybindFrame
+	KeybindButton.BackgroundColor3 = Color3.fromRGB(20, 20, 27)
+	KeybindButton.BorderSizePixel = 0
+	KeybindButton.Position = UDim2.new(0.62, 0, 0.2, 0)
+	KeybindButton.Size = UDim2.new(0.38, 0, 0, 30)
+	KeybindButton.Font = Enum.Font.GothamBold
+	KeybindButton.Text = default
+	KeybindButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	KeybindButton.TextSize = 13
+	
+	local KeybindCorner = Instance.new("UICorner")
+	KeybindCorner.CornerRadius = UDim.new(0, 5)
+	KeybindCorner.Parent = KeybindButton
+	
+	local currentKey = default
+	local listening = false
+	
+	KeybindButton.MouseButton1Click:Connect(function()
+		if listening then return end
+		listening = true
+		KeybindButton.Text = "..."
+		KeybindButton.BackgroundColor3 = Color3.fromRGB(51, 105, 255)
+		
+		local connection
+		connection = UIS.InputBegan:Connect(function(input, gameProcessed)
+			if input.UserInputType == Enum.UserInputType.Keyboard then
+				local keyName = input.KeyCode.Name
+				currentKey = keyName
+				KeybindButton.Text = keyName
+				KeybindButton.BackgroundColor3 = Color3.fromRGB(20, 20, 27)
+				listening = false
+				connection:Disconnect()
+				
+				pcall(function()
+					callback(keyName)
+				end)
+			end
+		end)
+	end)
+	
+	local keybindData = {
+		Type = "Keybind",
+		Name = name,
+		Element = KeybindFrame,
+		GetValue = function() return currentKey end,
+		SetValue = function(key)
+			currentKey = key
+			KeybindButton.Text = key
+		end
+	}
+	
+	self.ConfigData[name] = keybindData
+	
+	return keybindData
+end
+
+-- Add Label
+function SpareStackLib:AddLabel(parent, text, size)
+	size = size or 14
+	
+	local Label = Instance.new("TextLabel")
+	Label.Name = "Label_" .. text
+	Label.Parent = parent
+	Label.BackgroundTransparency = 1
+	Label.Size = UDim2.new(1, 0, 0, 25)
+	Label.Font = Enum.Font.GothamBold
+	Label.Text = text
+	Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	Label.TextSize = size
+	Label.TextXAlignment = Enum.TextXAlignment.Left
+	Label.TextWrapped = true
+	
+	return Label
+end
+
+-- Add Divider
+function SpareStackLib:AddDivider(parent)
+	local DividerFrame = Instance.new("Frame")
+	DividerFrame.Name = "Divider"
+	DividerFrame.Parent = parent
+	DividerFrame.BackgroundTransparency = 1
+	DividerFrame.Size = UDim2.new(1, 0, 0, 15)
+	
+	local Line = Instance.new("Frame")
+	Line.Parent = DividerFrame
+	Line.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+	Line.BorderSizePixel = 0
+	Line.Position = UDim2.new(0, 0, 0.5, 0)
+	Line.Size = UDim2.new(1, 0, 0, 1)
+	
+	return DividerFrame
+end
+
+-- Add Multi-Dropdown
+function SpareStackLib:AddMultiDropdown(parent, name, options, defaults, callback)
+	callback = callback or function() end
+	options = options or {"Option 1", "Option 2"}
+	defaults = defaults or {}
+	
+	local DropdownFrame = Instance.new("Frame")
+	DropdownFrame.Name = "MultiDropdown_" .. name
+	DropdownFrame.Parent = parent
+	DropdownFrame.BackgroundTransparency = 1
+	DropdownFrame.Size = UDim2.new(1, 0, 0, 45)
+	DropdownFrame.ClipsDescendants = false
+	DropdownFrame.ZIndex = 5
+	
+	local Dropdown = Instance.new("TextButton")
+	Dropdown.Name = "Button"
+	Dropdown.Parent = DropdownFrame
+	Dropdown.BackgroundColor3 = Color3.fromRGB(20, 20, 27)
+	Dropdown.BorderSizePixel = 0
+	Dropdown.Size = UDim2.new(1, 0, 0, 36)
+	Dropdown.Font = Enum.Font.Gotham
+	Dropdown.Text = "  " .. name .. " (" .. #defaults .. " selected)"
+	Dropdown.TextColor3 = Color3.fromRGB(255, 255, 255)
+	Dropdown.TextSize = 14
+	Dropdown.TextXAlignment = Enum.TextXAlignment.Left
+	
+	local DropdownCorner = Instance.new("UICorner")
+	DropdownCorner.CornerRadius = UDim.new(0, 3)
+	DropdownCorner.Parent = Dropdown
+	
+	local DropdownPadding = Instance.new("UIPadding")
+	DropdownPadding.Parent = Dropdown
+	DropdownPadding.PaddingLeft = UDim.new(0, 10)
+	
+	local Arrow = Instance.new("ImageLabel")
+	Arrow.Name = "Arrow"
+	Arrow.Parent = Dropdown
+	Arrow.BackgroundTransparency = 1
+	Arrow.Position = UDim2.new(0.88, 0, 0.22, 0)
+	Arrow.Size = UDim2.new(0, 20, 0, 20)
+	Arrow.Image = "rbxassetid://134116754541554"
+	
+	local OptionsHolder = Instance.new("ScrollingFrame")
+	OptionsHolder.Name = "Options"
+	OptionsHolder.Parent = DropdownFrame
+	OptionsHolder.BackgroundColor3 = Color3.fromRGB(20, 20, 27)
+	OptionsHolder.BorderSizePixel = 0
+	OptionsHolder.Position = UDim2.new(0, 0, 0, 41)
+	OptionsHolder.Size = UDim2.new(1, 0, 0, 0)
+	OptionsHolder.Visible = false
+	OptionsHolder.ScrollBarThickness = 0
+	OptionsHolder.ClipsDescendants = true
+	OptionsHolder.ZIndex = 10
+	
+	local OptionsCorner = Instance.new("UICorner")
+	OptionsCorner.CornerRadius = UDim.new(0, 3)
+	OptionsCorner.Parent = OptionsHolder
+	
+	local OptionsList = Instance.new("UIListLayout")
+	OptionsList.Parent = OptionsHolder
+	OptionsList.SortOrder = Enum.SortOrder.LayoutOrder
+	OptionsList.Padding = UDim.new(0, 5)
+	
+	local OptionsPadding = Instance.new("UIPadding")
+	OptionsPadding.Parent = OptionsHolder
+	OptionsPadding.PaddingLeft = UDim.new(0, 10)
+	OptionsPadding.PaddingRight = UDim.new(0, 10)
+	OptionsPadding.PaddingTop = UDim.new(0, 10)
+	OptionsPadding.PaddingBottom = UDim.new(0, 10)
+	
+	local isOpen = false
+	local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+	local selectedOptions = {}
+	
+	-- Initialize defaults
+	for _, v in ipairs(defaults) do
+		selectedOptions[v] = true
+	end
+	
+	local function updateText()
+		local count = 0
+		for _ in pairs(selectedOptions) do
+			count = count + 1
+		end
+		Dropdown.Text = "  " .. name .. " (" .. count .. " selected)"
+	end
+	
+	for i, optionText in ipairs(options) do
+		local Option = Instance.new("TextButton")
+		Option.Name = "Option_" .. i
+		Option.Parent = OptionsHolder
+		Option.BackgroundColor3 = Color3.fromRGB(27, 27, 36)
+		Option.BackgroundTransparency = 1
+		Option.BorderSizePixel = 0
+		Option.Size = UDim2.new(1, -20, 0, 30)
+		Option.Font = Enum.Font.Gotham
+		Option.Text = ""
+		Option.TextColor3 = Color3.fromRGB(255, 255, 255)
+		Option.TextSize = 13
+		Option.TextXAlignment = Enum.TextXAlignment.Left
+		Option.ZIndex = 11
+		
+		local OptionCorner = Instance.new("UICorner")
+		OptionCorner.CornerRadius = UDim.new(0, 3)
+		OptionCorner.Parent = Option
+		
+		-- Checkbox
+		local Checkbox = Instance.new("Frame")
+		Checkbox.Parent = Option
+		Checkbox.BackgroundColor3 = Color3.fromRGB(20, 20, 27)
+		Checkbox.BorderSizePixel = 0
+		Checkbox.Position = UDim2.new(0, 5, 0.5, -8)
+		Checkbox.Size = UDim2.new(0, 16, 0, 16)
+		Checkbox.ZIndex = 12
+		
+		local CheckboxCorner = Instance.new("UICorner")
+		CheckboxCorner.CornerRadius = UDim.new(0, 3)
+		CheckboxCorner.Parent = Checkbox
+		
+		local Checkmark = Instance.new("ImageLabel")
+		Checkmark.Parent = Checkbox
+		Checkmark.BackgroundTransparency = 1
+		Checkmark.Position = UDim2.new(0.5, 0, 0.5, 0)
+		Checkmark.AnchorPoint = Vector2.new(0.5, 0.5)
+		Checkmark.Size = UDim2.new(0, 12, 0, 12)
+		Checkmark.Image = "rbxassetid://96462596892775"
+		Checkmark.ImageColor3 = Color3.fromRGB(51, 105, 255)
+		Checkmark.Visible = selectedOptions[optionText] or false
+		Checkmark.ZIndex = 13
+		
+		local OptionText = Instance.new("TextLabel")
+		OptionText.Parent = Option
+		OptionText.BackgroundTransparency = 1
+		OptionText.Position = UDim2.new(0, 28, 0, 0)
+		OptionText.Size = UDim2.new(1, -28, 1, 0)
+		OptionText.Font = Enum.Font.Gotham
+		OptionText.Text = optionText
+		OptionText.TextColor3 = Color3.fromRGB(255, 255, 255)
+		OptionText.TextSize = 13
+		OptionText.TextXAlignment = Enum.TextXAlignment.Left
+		OptionText.ZIndex = 12
+		
+		Option.MouseButton1Click:Connect(function()
+			selectedOptions[optionText] = not selectedOptions[optionText]
+			Checkmark.Visible = selectedOptions[optionText]
+			updateText()
+			
+			local selected = {}
+			for opt, isSelected in pairs(selectedOptions) do
+				if isSelected then
+					table.insert(selected, opt)
+				end
+			end
+			
+			pcall(function()
+				callback(selected)
+			end)
+		end)
+		
+		Option.MouseEnter:Connect(function()
+			TweenService:Create(Option, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
+		end)
+		
+		Option.MouseLeave:Connect(function()
+			TweenService:Create(Option, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+		end)
+	end
+	
+	local dropdownHeight = math.min(#options * 35 + 20, 200)
+	
+	Dropdown.MouseButton1Click:Connect(function()
+		isOpen = not isOpen
+		
+		if isOpen then
+			OptionsHolder.Visible = true
+			OptionsHolder.CanvasSize = UDim2.new(0, 0, 0, #options * 35 + 20)
+			TweenService:Create(OptionsHolder, tweenInfo, {Size = UDim2.new(1, 0, 0, dropdownHeight)}):Play()
+			TweenService:Create(Arrow, tweenInfo, {Rotation = 180}):Play()
+		else
+			TweenService:Create(OptionsHolder, tweenInfo, {Size = UDim2.new(1, 0, 0, 0)}):Play()
+			TweenService:Create(Arrow, tweenInfo, {Rotation = 0}):Play()
+			task.wait(0.3)
+			if not isOpen then
+				OptionsHolder.Visible = false
+			end
+		end
+	end)
+	
+	local multiDropdownData = {
+		Type = "MultiDropdown",
+		Name = name,
+		Options = options,
+		Element = DropdownFrame,
+		GetValue = function()
+			local selected = {}
+			for opt, isSelected in pairs(selectedOptions) do
+				if isSelected then
+					table.insert(selected, opt)
+				end
+			end
+			return selected
+		end,
+		SetValue = function(vals)
+			selectedOptions = {}
+			for _, v in ipairs(vals) do
+				selectedOptions[v] = true
+			end
+			updateText()
+		end
+	}
+	
+	self.ConfigData[name] = multiDropdownData
+	
+	return multiDropdownData
 end
 
 -- Add Color Picker
