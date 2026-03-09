@@ -1,4 +1,4 @@
-local SpareStackLib = {}
+local SpareStackLib = {} -- 123123
 SpareStackLib.__index = SpareStackLib
 
 local TweenService = game:GetService("TweenService")
@@ -848,8 +848,10 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 			Popup.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
 			Popup.BorderSizePixel = 0
 			Popup.Position = UDim2.new(0, math.clamp(mousePos.X - 110, 8, 1000), 0, math.clamp(mousePos.Y, 8, 700))
-			Popup.Size = UDim2.new(0, 230, 0, 148)
+			Popup.Size = UDim2.new(0, 220, 0, 80)
 			Popup.ZIndex = 500
+			Popup.Active = true
+			Popup.Draggable = false
 
 			local PopupCorner = Instance.new("UICorner")
 			PopupCorner.CornerRadius = UDim.new(0, 8)
@@ -860,78 +862,42 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 			PopupStroke.Color = Color3.fromRGB(40, 40, 55)
 			PopupStroke.Thickness = 1
 
-			local PopupPadding = Instance.new("UIPadding")
-			PopupPadding.Parent = Popup
-			PopupPadding.PaddingLeft = UDim.new(0, 12)
-			PopupPadding.PaddingRight = UDim.new(0, 12)
-			PopupPadding.PaddingTop = UDim.new(0, 10)
-			PopupPadding.PaddingBottom = UDim.new(0, 10)
+			local TopHalf = Instance.new("Frame")
+			TopHalf.Parent = Popup
+			TopHalf.BackgroundTransparency = 1
+			TopHalf.Position = UDim2.new(0, 10, 0, 8)
+			TopHalf.Size = UDim2.new(1, -20, 0, 32)
+			TopHalf.ZIndex = 501
 
-			local PopupLayout = Instance.new("UIListLayout")
-			PopupLayout.Parent = Popup
-			PopupLayout.Padding = UDim.new(0, 8)
-			PopupLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-			local PopupTitle = Instance.new("TextLabel")
-			PopupTitle.Parent = Popup
-			PopupTitle.BackgroundTransparency = 1
-			PopupTitle.Size = UDim2.new(1, 0, 0, 18)
-			PopupTitle.Font = Enum.Font.GothamBold
-			PopupTitle.Text = name
-			PopupTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-			PopupTitle.TextSize = 13
-			PopupTitle.TextXAlignment = Enum.TextXAlignment.Left
-			PopupTitle.ZIndex = 501
-			PopupTitle.LayoutOrder = 1
-
-			local ModeFrame = Instance.new("Frame")
-			ModeFrame.Parent = Popup
-			ModeFrame.BackgroundTransparency = 1
-			ModeFrame.Size = UDim2.new(1, 0, 0, 32)
-			ModeFrame.ZIndex = 501
-			ModeFrame.LayoutOrder = 2
-
-			local ModeRowLayout = Instance.new("UIListLayout")
-			ModeRowLayout.Parent = ModeFrame
-			ModeRowLayout.FillDirection = Enum.FillDirection.Horizontal
-			ModeRowLayout.Padding = UDim.new(0, 6)
-			ModeRowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-			ModeRowLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-			local ModeLabel = Instance.new("TextLabel")
-			ModeLabel.Parent = ModeFrame
-			ModeLabel.BackgroundTransparency = 1
-			ModeLabel.Size = UDim2.new(0, 44, 1, 0)
-			ModeLabel.Font = Enum.Font.Gotham
-			ModeLabel.Text = "Mode:"
-			ModeLabel.TextColor3 = Color3.fromRGB(160, 160, 170)
-			ModeLabel.TextSize = 12
-			ModeLabel.TextXAlignment = Enum.TextXAlignment.Left
-			ModeLabel.ZIndex = 501
-			ModeLabel.LayoutOrder = 1
+			local TopLayout = Instance.new("UIListLayout")
+			TopLayout.Parent = TopHalf
+			TopLayout.FillDirection = Enum.FillDirection.Horizontal
+			TopLayout.Padding = UDim.new(0, 6)
+			TopLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+			TopLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 			local function makeModeBtn(label, modeValue, order)
 				local Btn = Instance.new("TextButton")
-				Btn.Parent = ModeFrame
+				Btn.Parent = TopHalf
 				Btn.BackgroundColor3 = toggleMode == modeValue and Color3.fromRGB(51, 105, 255) or Color3.fromRGB(28, 28, 38)
 				Btn.BorderSizePixel = 0
-				Btn.Size = UDim2.new(0, 68, 1, 0)
+				Btn.Size = UDim2.new(0.5, -3, 1, 0)
 				Btn.Font = Enum.Font.GothamBold
 				Btn.Text = label
 				Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-				Btn.TextSize = 12
+				Btn.TextSize = 13
 				Btn.ZIndex = 502
 				Btn.LayoutOrder = order
 
 				local BtnCorner = Instance.new("UICorner")
-				BtnCorner.CornerRadius = UDim.new(0, 4)
+				BtnCorner.CornerRadius = UDim.new(0, 5)
 				BtnCorner.Parent = Btn
 
 				return Btn
 			end
 
-			local ToggleModeBtn = makeModeBtn("Toggle", "toggle", 2)
-			local HoldModeBtn = makeModeBtn("Hold", "hold", 3)
+			local ToggleModeBtn = makeModeBtn("Toggle", "toggle", 1)
+			local HoldModeBtn = makeModeBtn("Hold", "hold", 2)
 
 			local function refreshModeBtns()
 				TweenService:Create(ToggleModeBtn, TweenInfo.new(0.15), {
@@ -954,32 +920,20 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 				setupKeybind()
 			end)
 
-			local KeyLabel = Instance.new("TextLabel")
-			KeyLabel.Parent = Popup
-			KeyLabel.BackgroundTransparency = 1
-			KeyLabel.Size = UDim2.new(1, 0, 0, 14)
-			KeyLabel.Font = Enum.Font.Gotham
-			KeyLabel.Text = "Keybind"
-			KeyLabel.TextColor3 = Color3.fromRGB(160, 160, 170)
-			KeyLabel.TextSize = 12
-			KeyLabel.TextXAlignment = Enum.TextXAlignment.Left
-			KeyLabel.ZIndex = 501
-			KeyLabel.LayoutOrder = 3
-
 			local KeyBtn = Instance.new("TextButton")
 			KeyBtn.Parent = Popup
 			KeyBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
 			KeyBtn.BorderSizePixel = 0
-			KeyBtn.Size = UDim2.new(1, 0, 0, 32)
+			KeyBtn.Position = UDim2.new(0, 10, 0, 46)
+			KeyBtn.Size = UDim2.new(1, -20, 0, 26)
 			KeyBtn.Font = Enum.Font.GothamBold
-			KeyBtn.Text = toggleKeybind or "None — click to bind"
+			KeyBtn.Text = toggleKeybind or "Click to bind"
 			KeyBtn.TextColor3 = toggleKeybind and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(100, 100, 120)
 			KeyBtn.TextSize = 13
 			KeyBtn.ZIndex = 502
-			KeyBtn.LayoutOrder = 4
 
 			local KeyBtnCorner = Instance.new("UICorner")
-			KeyBtnCorner.CornerRadius = UDim.new(0, 4)
+			KeyBtnCorner.CornerRadius = UDim.new(0, 5)
 			KeyBtnCorner.Parent = KeyBtn
 
 			local listeningForKey = false
@@ -993,30 +947,49 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 
 				keyConn = UIS.InputBegan:Connect(function(input)
 					if input.UserInputType == Enum.UserInputType.Keyboard then
+						listeningForKey = false
+						keyConn:Disconnect()
 						toggleKeybind = input.KeyCode.Name
 						KeyBtn.Text = toggleKeybind
 						KeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-						listeningForKey = false
-						keyConn:Disconnect()
 						setupKeybind()
 					end
 				end)
 			end)
 
-			local outsideConn
-			outsideConn = UIS.InputBegan:Connect(function(input)
+			local popupDragging = false
+			local popupDragStart, popupStartPos
+
+			Popup.InputBegan:Connect(function(input)
 				if input.UserInputType == Enum.UserInputType.MouseButton1 then
-					task.wait()
-					if listeningForKey then return end
 					local ml = UIS:GetMouseLocation()
 					local pp = Popup.AbsolutePosition
 					local ps = Popup.AbsoluteSize
-					if ml.X < pp.X or ml.X > pp.X + ps.X or ml.Y < pp.Y or ml.Y > pp.Y + ps.Y then
-						if Popup and Popup.Parent then
-							Popup:Destroy()
-						end
-						outsideConn:Disconnect()
+					local inKeyBtn = ml.X >= pp.X + 10 and ml.X <= pp.X + ps.X - 10 and ml.Y >= pp.Y + 46 and ml.Y <= pp.Y + 72
+					local inTopBtns = ml.Y >= pp.Y + 8 and ml.Y <= pp.Y + 40
+					if not inKeyBtn and not inTopBtns then
+						popupDragging = true
+						popupDragStart = input.Position
+						popupStartPos = Popup.Position
 					end
+				end
+			end)
+
+			UIS.InputChanged:Connect(function(input)
+				if popupDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+					local delta = input.Position - popupDragStart
+					Popup.Position = UDim2.new(
+						popupStartPos.X.Scale,
+						popupStartPos.X.Offset + delta.X,
+						popupStartPos.Y.Scale,
+						popupStartPos.Y.Offset + delta.Y
+					)
+				end
+			end)
+
+			UIS.InputEnded:Connect(function(input)
+				if input.UserInputType == Enum.UserInputType.MouseButton1 then
+					popupDragging = false
 				end
 			end)
 		end)
