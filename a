@@ -1,4 +1,4 @@
-local SpareStackLib = {}
+local SpareStackLib = {} -- 12312
 SpareStackLib.__index = SpareStackLib
 
 local TweenService = game:GetService("TweenService")
@@ -217,6 +217,7 @@ function SpareStackLib:CreateWindow(title)
 	self.SavedConfigs = {}
 	self.AutoLoadConfig = false
 	self.ToggleKey = "RightShift"
+	self._tabTransitioning = false
 
 	self.ShowWatermark = true
 	self.ShowFPS = false
@@ -546,14 +547,16 @@ function SpareStackLib:AddCategory(categoryName)
 	}
 
 	return {
-		AddTab = function(_, tabName, tabImage)
-			return self:AddTab(tabName, tabImage, categoryName)
+		AddTab = function(_, tabName, tabImage, imageSize)
+			return self:AddTab(tabName, tabImage, categoryName, imageSize)
 		end,
 	}
 end
 
-function SpareStackLib:AddTab(tabName, tabImage, categoryName)
+-- imageSize: optional pixel size for the tab icon (default 20). Increase/decrease to fix stretched icons.
+function SpareStackLib:AddTab(tabName, tabImage, categoryName, imageSize)
 	self.TabOrder = self.TabOrder + 1
+	imageSize = imageSize or 20
 
 	local Tab = Instance.new("Frame")
 	Tab.Name = "Tab_" .. tabName
@@ -563,6 +566,10 @@ function SpareStackLib:AddTab(tabName, tabImage, categoryName)
 	Tab.BorderSizePixel = 0
 	Tab.Size = UDim2.new(0, 238, 0, 41)
 	Tab.LayoutOrder = self.TabOrder
+
+	local TabCorner = Instance.new("UICorner")
+	TabCorner.CornerRadius = UDim.new(0, 6)
+	TabCorner.Parent = Tab
 
 	local TabButton = Instance.new("TextButton")
 	TabButton.Parent = Tab
@@ -583,13 +590,17 @@ function SpareStackLib:AddTab(tabName, tabImage, categoryName)
 	TabText.TextSize = 14
 	TabText.TextXAlignment = Enum.TextXAlignment.Left
 
+	-- Center the icon vertically and use explicit pixel size to prevent stretching
+	local iconOffset = math.floor((41 - imageSize) / 2)
+
 	local TabImage = Instance.new("ImageLabel")
 	TabImage.Name = "TabImage"
 	TabImage.Parent = Tab
 	TabImage.BackgroundTransparency = 1
-	TabImage.Position = UDim2.new(0.08, 0, 0.244, 0)
-	TabImage.Size = UDim2.new(0, 20, 0, 20)
+	TabImage.Position = UDim2.new(0, 16, 0, iconOffset)
+	TabImage.Size = UDim2.new(0, imageSize, 0, imageSize)
 	TabImage.Image = tabImage or "rbxassetid://97584948400851"
+	TabImage.ScaleType = Enum.ScaleType.Fit
 
 	TabButton.MouseButton1Click:Connect(function()
 		self:SwitchTab(tabName)
@@ -615,12 +626,34 @@ function SpareStackLib:AddTab(tabName, tabImage, categoryName)
 end
 
 function SpareStackLib:SwitchTab(tabName)
+	if self._tabTransitioning then return end
+	self._tabTransitioning = true
+
 	self.CurrentTab = tabName
 	self.SettingsMode = false
 	self.SearchBox.Text = ""
 
 	local tweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local fadeDuration = 0.18
 
+	-- Fade out CardHolder
+	TweenService:Create(self.CardHolder, TweenInfo.new(fadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		GroupTransparency = 1,
+	}):Play()
+
+	-- Slide cards out slightly
+	local slideOutOffset = 12
+	for _, card in pairs(self.AllCards) do
+		if card.Visible then
+			TweenService:Create(card, TweenInfo.new(fadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Position = UDim2.new(card.Position.X.Scale, card.Position.X.Offset + slideOutOffset, card.Position.Y.Scale, card.Position.Y.Offset),
+			}):Play()
+		end
+	end
+
+	task.wait(fadeDuration)
+
+	-- Update tab highlight
 	for name, tab in pairs(self.Tabs) do
 		if name == tabName then
 			TweenService:Create(tab.Frame, tweenInfo, {
@@ -634,18 +667,41 @@ function SpareStackLib:SwitchTab(tabName)
 		end
 	end
 
+	-- Hide settings cards
 	for _, card in pairs(self.SettingsCards) do
 		card.Visible = false
 	end
 
+	-- Reset card positions and set visibility, offset for slide-in
 	for _, card in pairs(self.AllCards) do
 		if card:GetAttribute("Tab") == tabName then
+			card.Position = UDim2.new(card.Position.X.Scale, -slideOutOffset, card.Position.Y.Scale, card.Position.Y.Offset)
 			card.Visible = true
 			card.LayoutOrder = card:GetAttribute("OriginalOrder")
 		else
 			card.Visible = false
+			card.Position = UDim2.new(0, 0, 0, 0)
 		end
 	end
+
+	-- Reset scroll position
+	self.CardHolder.CanvasPosition = Vector2.new(0, 0)
+
+	-- Slide in new cards + fade CardHolder back in
+	for _, card in pairs(self.AllCards) do
+		if card:GetAttribute("Tab") == tabName then
+			TweenService:Create(card, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+				Position = UDim2.new(card.Position.X.Scale, 0, card.Position.Y.Scale, card.Position.Y.Offset),
+			}):Play()
+		end
+	end
+
+	TweenService:Create(self.CardHolder, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		GroupTransparency = 0,
+	}):Play()
+
+	task.wait(0.22)
+	self._tabTransitioning = false
 end
 
 function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
