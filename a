@@ -1,4 +1,4 @@
-local SpareStackLib = {}
+local SpareStackLib = {} -- 123
 SpareStackLib.__index = SpareStackLib
 
 local TweenService = game:GetService("TweenService")
@@ -223,6 +223,9 @@ function SpareStackLib:CreateWindow(title)
 	self.ShowFPS = false
 	self.ShowPing = false
 	self.ShowPlayers = true
+
+	self._activeNotifs = {}   -- notification stacking
+	self._tooltip = nil       -- shared tooltip frame (created on first use)
 
 	self.SetSliderDragging = function(value)
 		isDraggingSlider = value
@@ -530,22 +533,72 @@ function SpareStackLib:AddCategory(categoryName)
 	CategoryFrame.BackgroundTransparency = 1
 	CategoryFrame.Size = UDim2.new(0, 200, 0, 31)
 	CategoryFrame.LayoutOrder = self.SideOrder
+	CategoryFrame.ClipsDescendants = false
+
+	local CategoryButton = Instance.new("TextButton")
+	CategoryButton.Parent = CategoryFrame
+	CategoryButton.BackgroundTransparency = 1
+	CategoryButton.Size = UDim2.new(1, 0, 1, 0)
+	CategoryButton.Text = ""
+	CategoryButton.ZIndex = 2
 
 	local CategoryText = Instance.new("TextLabel")
 	CategoryText.Name = "CategoryText"
 	CategoryText.Parent = CategoryFrame
 	CategoryText.BackgroundTransparency = 1
-	CategoryText.Size = UDim2.new(1, 0, 1, 0)
+	CategoryText.Size = UDim2.new(0.85, 0, 1, 0)
 	CategoryText.Font = Enum.Font.GothamBold
 	CategoryText.Text = categoryName
 	CategoryText.TextColor3 = Color3.fromRGB(58, 58, 73)
 	CategoryText.TextSize = 14
 	CategoryText.TextXAlignment = Enum.TextXAlignment.Left
 
+	-- Collapse arrow
+	local CollapseArrow = Instance.new("TextLabel")
+	CollapseArrow.Name = "Arrow"
+	CollapseArrow.Parent = CategoryFrame
+	CollapseArrow.BackgroundTransparency = 1
+	CollapseArrow.Position = UDim2.new(0.88, 0, 0.1, 0)
+	CollapseArrow.Size = UDim2.new(0, 16, 0, 16)
+	CollapseArrow.Font = Enum.Font.GothamBold
+	CollapseArrow.Text = "▾"
+	CollapseArrow.TextColor3 = Color3.fromRGB(58, 58, 73)
+	CollapseArrow.TextSize = 14
+	CollapseArrow.ZIndex = 2
+
+	local collapsed = false
+
 	self.Categories[categoryName] = {
 		Frame = CategoryFrame,
 		Tabs = {},
+		Collapsed = false,
 	}
+
+	CategoryButton.MouseButton1Click:Connect(function()
+		collapsed = not collapsed
+		self.Categories[categoryName].Collapsed = collapsed
+
+		local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+		TweenService:Create(CollapseArrow, tweenInfo, {
+			Rotation = collapsed and -90 or 0,
+		}):Play()
+
+		for _, tabName in pairs(self.Categories[categoryName].Tabs) do
+			local tabData = self.Tabs[tabName]
+			if tabData then
+				local frame = tabData.Frame
+				if collapsed then
+					TweenService:Create(frame, tweenInfo, { Size = UDim2.new(0, 238, 0, 0) }):Play()
+					task.delay(0.2, function() frame.Visible = false end)
+				else
+					frame.Visible = true
+					frame.Size = UDim2.new(0, 238, 0, 0)
+					TweenService:Create(frame, tweenInfo, { Size = UDim2.new(0, 238, 0, 41) }):Play()
+				end
+			end
+		end
+	end)
 
 	return {
 		AddTab = function(_, tabName, tabImage, imageSize)
@@ -604,6 +657,20 @@ function SpareStackLib:AddTab(tabName, tabImage, categoryName, imageSize)
 	TabImage.Image = tabImage or "rbxassetid://97584948400851"
 	TabImage.ScaleType = Enum.ScaleType.Fit
 
+	-- Left accent bar shown when this tab is active
+	local AccentBar = Instance.new("Frame")
+	AccentBar.Name = "AccentBar"
+	AccentBar.Parent = Tab
+	AccentBar.BackgroundColor3 = Color3.fromRGB(51, 105, 255)
+	AccentBar.BorderSizePixel = 0
+	AccentBar.Position = UDim2.new(0, 0, 0.15, 0)
+	AccentBar.Size = UDim2.new(0, 3, 0.7, 0)
+	AccentBar.BackgroundTransparency = 1
+
+	local AccentCorner = Instance.new("UICorner")
+	AccentCorner.CornerRadius = UDim.new(1, 0)
+	AccentCorner.Parent = AccentBar
+
 	TabButton.MouseButton1Click:Connect(function()
 		self:SwitchTab(tabName)
 	end)
@@ -634,17 +701,24 @@ function SpareStackLib:SwitchTab(tabName)
 
 	local tabTweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-	-- Update tab highlight
+	-- Update tab highlight + accent bar
 	for name, tab in pairs(self.Tabs) do
+		local accentBar = tab.Frame:FindFirstChild("AccentBar")
 		if name == tabName then
 			TweenService:Create(tab.Frame, tabTweenInfo, {
 				BackgroundTransparency = 0,
 				BackgroundColor3 = Color3.fromRGB(20, 20, 27),
 			}):Play()
+			if accentBar then
+				TweenService:Create(accentBar, tabTweenInfo, { BackgroundTransparency = 0 }):Play()
+			end
 		else
 			TweenService:Create(tab.Frame, tabTweenInfo, {
 				BackgroundTransparency = 1,
 			}):Play()
+			if accentBar then
+				TweenService:Create(accentBar, tabTweenInfo, { BackgroundTransparency = 1 }):Play()
+			end
 		end
 	end
 
@@ -720,22 +794,97 @@ function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
 	return {
 		Card = Card,
 		ElementsHolder = ElementsHolder,
-		AddToggle = function(_, name, default, callback, settings)
-			return self:AddToggle(ElementsHolder, name, default, callback, settings)
+		AddToggle = function(_, name, default, callback, settings, tooltip)
+			return self:AddToggle(ElementsHolder, name, default, callback, settings, tooltip)
 		end,
-		AddSlider = function(_, name, min, max, default, callback)
-			return self:AddSlider(ElementsHolder, name, min, max, default, callback)
+		AddSlider = function(_, name, min, max, default, callback, tooltip)
+			return self:AddSlider(ElementsHolder, name, min, max, default, callback, tooltip)
 		end,
-		AddDropdown = function(_, name, options, default, callback)
-			return self:AddDropdown(ElementsHolder, name, options, default, callback)
+		AddDropdown = function(_, name, options, default, callback, tooltip)
+			return self:AddDropdown(ElementsHolder, name, options, default, callback, tooltip)
 		end,
-		AddButton = function(_, name, callback)
-			return self:AddButton(ElementsHolder, name, callback)
+		AddButton = function(_, name, callback, tooltip)
+			return self:AddButton(ElementsHolder, name, callback, tooltip)
 		end,
 	}
 end
 
-function SpareStackLib:AddToggle(parent, name, default, callback, settings)
+-- Attaches a hover tooltip to any GuiObject. tip = string text.
+function SpareStackLib:_attachTooltip(element, tip)
+	if not tip or tip == "" then return end
+
+	element.MouseEnter:Connect(function()
+		-- Create tooltip frame on first use
+		if not self._tooltip or not self._tooltip.Parent then
+			local t = Instance.new("Frame")
+			t.Name = "_Tooltip"
+			t.Parent = self.Gui
+			t.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
+			t.BorderSizePixel = 0
+			t.ZIndex = 600
+			t.AutomaticSize = Enum.AutomaticSize.XY
+			t.Size = UDim2.new(0, 0, 0, 0)
+
+			local tc = Instance.new("UICorner")
+			tc.CornerRadius = UDim.new(0, 5)
+			tc.Parent = t
+
+			local ts = Instance.new("UIStroke")
+			ts.Color = Color3.fromRGB(40, 40, 58)
+			ts.Thickness = 1
+			ts.Parent = t
+
+			local tp = Instance.new("UIPadding")
+			tp.PaddingLeft  = UDim.new(0, 8)
+			tp.PaddingRight = UDim.new(0, 8)
+			tp.PaddingTop   = UDim.new(0, 5)
+			tp.PaddingBottom = UDim.new(0, 5)
+			tp.Parent = t
+
+			local tl = Instance.new("TextLabel")
+			tl.Name = "Text"
+			tl.Parent = t
+			tl.BackgroundTransparency = 1
+			tl.Font = Enum.Font.Gotham
+			tl.TextSize = 12
+			tl.TextColor3 = Color3.fromRGB(200, 200, 215)
+			tl.TextXAlignment = Enum.TextXAlignment.Left
+			tl.AutomaticSize = Enum.AutomaticSize.XY
+			tl.ZIndex = 601
+
+			self._tooltip = t
+		end
+
+		self._tooltip:FindFirstChild("Text").Text = tip
+		self._tooltip.Visible = true
+
+		-- Follow mouse
+		if self._tooltipMoveConn then self._tooltipMoveConn:Disconnect() end
+		self._tooltipMoveConn = UIS.InputChanged:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseMovement then
+				local mx = input.Position.X + 14
+				local my = input.Position.Y + 14
+				self._tooltip.Position = UDim2.new(0, mx, 0, my)
+			end
+		end)
+
+		-- Initial position
+		local mp = UIS:GetMouseLocation()
+		self._tooltip.Position = UDim2.new(0, mp.X + 14, 0, mp.Y + 14)
+	end)
+
+	element.MouseLeave:Connect(function()
+		if self._tooltip then
+			self._tooltip.Visible = false
+		end
+		if self._tooltipMoveConn then
+			self._tooltipMoveConn:Disconnect()
+			self._tooltipMoveConn = nil
+		end
+	end)
+end
+
+function SpareStackLib:AddToggle(parent, name, default, callback, settings, tooltip)
 	callback = callback or function() end
 	default = default or false
 	settings = settings == nil and false or settings
@@ -1061,10 +1210,12 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings)
 
 	self.ConfigData[name] = toggleData
 
+	self:_attachTooltip(Title, tooltip)
+
 	return toggleData
 end
 
-function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
+function SpareStackLib:AddSlider(parent, name, min, max, default, callback, tooltip)
 	callback = callback or function() end
 	min = min or 0
 	max = max or 100
@@ -1240,10 +1391,12 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback)
 
 	self.ConfigData[name] = sliderData
 
+	self:_attachTooltip(SliderFrame, tooltip)
+
 	return sliderData
 end
 
-function SpareStackLib:AddDropdown(parent, name, options, default, callback)
+function SpareStackLib:AddDropdown(parent, name, options, default, callback, tooltip)
 	callback = callback or function() end
 	options = options or { "Option 1", "Option 2" }
 	default = default or options[1]
@@ -1397,10 +1550,12 @@ function SpareStackLib:AddDropdown(parent, name, options, default, callback)
 
 	self.ConfigData[name] = dropdownData
 
+	self:_attachTooltip(DropdownFrame, tooltip)
+
 	return dropdownData
 end
 
-function SpareStackLib:AddButton(parent, name, callback)
+function SpareStackLib:AddButton(parent, name, callback, tooltip)
 	callback = callback or function() end
 
 	local Button = Instance.new("TextButton")
@@ -1431,6 +1586,8 @@ function SpareStackLib:AddButton(parent, name, callback)
 			BackgroundColor3 = Color3.fromRGB(51, 105, 255),
 		}):Play()
 	end)
+
+	self:_attachTooltip(Button, tooltip)
 
 	return Button
 end
@@ -2111,6 +2268,10 @@ function SpareStackLib:Notify(title, text, duration, notifType, position)
 	notifType = notifType or "info"
 	position = position or "topright"
 
+	local NOTIF_H = 95
+	local NOTIF_GAP = 8
+	local NOTIF_STEP = NOTIF_H + NOTIF_GAP  -- 103px per slot
+
 	local iconId, fillerColor
 	if notifType == "success" then
 		iconId = "rbxassetid://96462596892775"
@@ -2126,37 +2287,53 @@ function SpareStackLib:Notify(title, text, duration, notifType, position)
 		fillerColor = Color3.fromRGB(51, 105, 255)
 	end
 
-	local startPos, endPos
-	if position == "topright" then
-		startPos = UDim2.new(1, 100, 0, 20)
-		endPos = UDim2.new(1, -360, 0, 20)
-	elseif position == "topleft" then
-		startPos = UDim2.new(0, -400, 0, 20)
-		endPos = UDim2.new(0, 14, 0, 20)
-	elseif position == "bottomright" then
-		startPos = UDim2.new(1, 100, 1, -115)
-		endPos = UDim2.new(1, -360, 1, -115)
-	else
-		startPos = UDim2.new(0, -400, 1, -115)
-		endPos = UDim2.new(0, 14, 1, -115)
+	-- Base anchors per position (off-screen start, on-screen base Y)
+	local isRight = (position == "topright" or position == "bottomright")
+	local isBottom = (position == "bottomright" or position == "bottomleft")
+
+	local function getEndPos(slotIndex)
+		local yBase = isBottom and -115 or 20
+		local yOffset = isBottom
+			and (yBase - (slotIndex - 1) * NOTIF_STEP)
+			or  (yBase + (slotIndex - 1) * NOTIF_STEP)
+		local xScale = isRight and 1 or 0
+		local xOffset = isRight and -360 or 14
+		local yScale = isBottom and 1 or 0
+		return UDim2.new(xScale, xOffset, yScale, yOffset)
+	end
+
+	local function getStartPos()
+		local xScale = isRight and 1 or 0
+		local xOffset = isRight and 100 or -400
+		local yScale = isBottom and 1 or 0
+		local yOffset = isBottom and -115 or 20
+		return UDim2.new(xScale, xOffset, yScale, yOffset)
+	end
+
+	-- Assign a slot: first gap in the stack, or append
+	local slotIndex = #self._activeNotifs + 1
+	for i, entry in ipairs(self._activeNotifs) do
+		if entry == false then
+			slotIndex = i
+			break
+		end
 	end
 
 	local Holder = createInstance("Frame", {
 		Name = "NotificationHolder",
-		Position = startPos,
-		Size = UDim2.new(0, 346, 0, 95),
+		Position = getStartPos(),
+		Size = UDim2.new(0, 346, 0, NOTIF_H),
 		Parent = self.Gui,
 		BackgroundColor3 = Color3.fromRGB(16, 16, 21),
 		BorderSizePixel = 0,
 		ZIndex = 100,
 	})
 
-	local UICorner = createInstance("UICorner", {
-		Parent = Holder,
-		CornerRadius = UDim.new(0, 5),
-	})
+	self._activeNotifs[slotIndex] = Holder
 
-	local Label = createInstance("TextLabel", {
+	createInstance("UICorner", { Parent = Holder, CornerRadius = UDim.new(0, 5) })
+
+	createInstance("TextLabel", {
 		Name = "Label",
 		Position = UDim2.new(0.12, 0, 0.05, 0),
 		Size = UDim2.new(0, 150, 0, 40),
@@ -2175,13 +2352,13 @@ function SpareStackLib:Notify(title, text, duration, notifType, position)
 		ZIndex = 101,
 	})
 
-	local UITextSizeConstraint = createInstance("UITextSizeConstraint", {
-		Parent = Label,
+	createInstance("UITextSizeConstraint", {
+		Parent = Holder:FindFirstChild("Label"),
 		MaxTextSize = 15,
 		MinTextSize = 1,
 	})
 
-	local Image = createInstance("ImageLabel", {
+	createInstance("ImageLabel", {
 		Name = "Image",
 		Position = UDim2.new(0.035, 0, 0.158, 0),
 		Size = UDim2.new(0, 20, 0, 20),
@@ -2203,10 +2380,7 @@ function SpareStackLib:Notify(title, text, duration, notifType, position)
 		BorderSizePixel = 0,
 		ZIndex = 101,
 	})
-
-	local UICorner_1 = createInstance("UICorner", {
-		Parent = BarHolder,
-	})
+	createInstance("UICorner", { Parent = BarHolder })
 
 	local Filler = createInstance("Frame", {
 		Name = "Filler",
@@ -2217,12 +2391,9 @@ function SpareStackLib:Notify(title, text, duration, notifType, position)
 		BorderSizePixel = 0,
 		ZIndex = 102,
 	})
+	createInstance("UICorner", { Parent = Filler })
 
-	local UICorner_2 = createInstance("UICorner", {
-		Parent = Filler,
-	})
-
-	local Description = createInstance("TextLabel", {
+	local Desc = createInstance("TextLabel", {
 		Name = "Description",
 		Position = UDim2.new(0.035, 0, 0.358, 0),
 		Size = UDim2.new(0, 300, 0, 32),
@@ -2240,12 +2411,7 @@ function SpareStackLib:Notify(title, text, duration, notifType, position)
 		BorderSizePixel = 0,
 		ZIndex = 101,
 	})
-
-	local UITextSizeConstraint_2 = createInstance("UITextSizeConstraint", {
-		Parent = Description,
-		MaxTextSize = 11,
-		MinTextSize = 1,
-	})
+	createInstance("UITextSizeConstraint", { Parent = Desc, MaxTextSize = 11, MinTextSize = 1 })
 
 	local Close = createInstance("ImageButton", {
 		Name = "Close",
@@ -2260,46 +2426,55 @@ function SpareStackLib:Notify(title, text, duration, notifType, position)
 		ZIndex = 101,
 	})
 
-	local slideIn = TweenService:Create(
-		Holder,
+	local function repositionAll()
+		for i, entry in ipairs(self._activeNotifs) do
+			if entry and entry ~= false and entry.Parent then
+				TweenService:Create(entry, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+					Position = getEndPos(i),
+				}):Play()
+			end
+		end
+	end
+
+	local function dismiss()
+		self._activeNotifs[slotIndex] = false
+		-- Trim trailing false entries
+		while #self._activeNotifs > 0 and self._activeNotifs[#self._activeNotifs] == false do
+			table.remove(self._activeNotifs)
+		end
+		repositionAll()
+	end
+
+	local slideIn = TweenService:Create(Holder,
 		TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-		{ Position = endPos }
-	)
+		{ Position = getEndPos(slotIndex) })
 
-	local slideOut = TweenService:Create(
-		Holder,
-		TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
-		{ Position = startPos }
-	)
+	local slideOut = TweenService:Create(Holder,
+		TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
+		{ Position = getStartPos() })
 
-	local barTween = TweenService:Create(
-		Filler,
+	local barTween = TweenService:Create(Filler,
 		TweenInfo.new(duration, Enum.EasingStyle.Linear),
-		{ Size = UDim2.new(0, 0, 0, 13) }
-	)
+		{ Size = UDim2.new(0, 0, 0, 13) })
 
 	local closed = false
-	Close.MouseButton1Click:Connect(function()
-		if not closed then
-			closed = true
-			barTween:Cancel()
-			slideOut:Play()
-			task.wait(0.5)
-			Holder:Destroy()
-		end
-	end)
+	local function close()
+		if closed then return end
+		closed = true
+		barTween:Cancel()
+		dismiss()
+		slideOut:Play()
+		task.wait(0.4)
+		if Holder and Holder.Parent then Holder:Destroy() end
+	end
+
+	Close.MouseButton1Click:Connect(close)
 
 	slideIn:Play()
 	task.wait(0.5)
 	barTween:Play()
-
 	task.wait(duration)
-	if not closed then
-		closed = true
-		slideOut:Play()
-		task.wait(0.5)
-		Holder:Destroy()
-	end
+	close()
 end
 
 return SpareStackLib
