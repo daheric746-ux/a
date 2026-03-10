@@ -1,4 +1,4 @@
-local SpareStackLib = {} -- 123
+local SpareStackLib = {} -- 123a
 SpareStackLib.__index = SpareStackLib
 
 local TweenService = game:GetService("TweenService")
@@ -357,12 +357,7 @@ function SpareStackLib:CreateSettingsCards()
 
 	self:AddSlider(UIElements, "UI Scale", 50, 150, 100, function(value)
 		local scale = value / 100
-		if not self.OriginalSize then
-			self.OriginalSize = self.Background.Size
-		end
 		self.Background.Size = UDim2.new(0, 1011 * scale, 0, 630 * scale)
-		self.Background.AnchorPoint = Vector2.new(0.5, 0.5)
-		self.Background.Position = UDim2.new(0.5, 0, 0.5, 0)
 	end)
 
 	local KeybindLabel = Instance.new("TextLabel")
@@ -553,7 +548,7 @@ function SpareStackLib:AddCategory(categoryName)
 	CategoryText.TextSize = 14
 	CategoryText.TextXAlignment = Enum.TextXAlignment.Left
 
-	-- Collapse arrow
+	-- Collapse indicator
 	local CollapseArrow = Instance.new("TextLabel")
 	CollapseArrow.Name = "Arrow"
 	CollapseArrow.Parent = CategoryFrame
@@ -561,9 +556,9 @@ function SpareStackLib:AddCategory(categoryName)
 	CollapseArrow.Position = UDim2.new(0.88, 0, 0.1, 0)
 	CollapseArrow.Size = UDim2.new(0, 16, 0, 16)
 	CollapseArrow.Font = Enum.Font.GothamBold
-	CollapseArrow.Text = "▾"
+	CollapseArrow.Text = "-"
 	CollapseArrow.TextColor3 = Color3.fromRGB(58, 58, 73)
-	CollapseArrow.TextSize = 14
+	CollapseArrow.TextSize = 16
 	CollapseArrow.ZIndex = 2
 
 	local collapsed = false
@@ -580,9 +575,7 @@ function SpareStackLib:AddCategory(categoryName)
 
 		local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-		TweenService:Create(CollapseArrow, tweenInfo, {
-			Rotation = collapsed and -90 or 0,
-		}):Play()
+		CollapseArrow.Text = collapsed and "+" or "-"
 
 		for _, tabName in pairs(self.Categories[categoryName].Tabs) do
 			local tabData = self.Tabs[tabName]
