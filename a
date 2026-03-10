@@ -1,4 +1,4 @@
-local SpareStackLib = {} --12 312
+local SpareStackLib = {} -- aaaaa
 SpareStackLib.__index = SpareStackLib
 
 local TweenService = game:GetService("TweenService")
@@ -217,7 +217,6 @@ function SpareStackLib:CreateWindow(title)
 	self.SavedConfigs = {}
 	self.AutoLoadConfig = false
 	self.ToggleKey = "RightShift"
-	self._tabTransitioning = false
 
 	self.ShowWatermark = true
 	self.ShowFPS = false
@@ -646,24 +645,23 @@ function SpareStackLib:SwitchTab(tabName)
 		end
 	end
 
-	-- Use an overlay Frame to fake a fade transition (ScrollingFrame has no GroupTransparency)
-	local overlay = self.CardHolder:FindFirstChild("_FadeOverlay")
+	-- Overlay sits on Background (not CardHolder) so UIGridLayout ignores it
+	local overlay = self.Background:FindFirstChild("_FadeOverlay")
 	if not overlay then
 		overlay = Instance.new("Frame")
 		overlay.Name = "_FadeOverlay"
-		overlay.Parent = self.CardHolder
+		overlay.Parent = self.Background
 		overlay.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
 		overlay.BorderSizePixel = 0
-		overlay.Size = UDim2.new(1, 0, 1, 0)
-		overlay.Position = UDim2.new(0, 0, 0, 0)
-		overlay.ZIndex = 500
+		overlay.Position = UDim2.new(0.23, 0, 0.12, 0)
+		overlay.Size = UDim2.new(0, 745, 0, 520)
+		overlay.ZIndex = 50
 		overlay.BackgroundTransparency = 1
-		-- Keep it above cards but not interactive
 		overlay.Active = false
 	end
 
-	-- Fade overlay in
-	overlay.BackgroundTransparency = 0.3
+	-- Fade overlay in over the card area
+	overlay.BackgroundTransparency = 1
 	TweenService:Create(overlay, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		BackgroundTransparency = 0,
 	}):Play()
@@ -687,7 +685,7 @@ function SpareStackLib:SwitchTab(tabName)
 	self.CardHolder.CanvasPosition = Vector2.new(0, 0)
 
 	-- Fade overlay back out
-	TweenService:Create(overlay, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+	TweenService:Create(overlay, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		BackgroundTransparency = 1,
 	}):Play()
 end
