@@ -1,4 +1,4 @@
-local SpareStackLib = {} -- aaaaa
+local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
 
 local TweenService = game:GetService("TweenService")
@@ -211,6 +211,7 @@ function SpareStackLib:CreateWindow(title)
 	self.CurrentTab = nil
 	self.CategoryOrder = 0
 	self.TabOrder = 0
+	self.SideOrder = 0
 	self.SettingsMode = false
 	self.CardLayoutOrder = 0
 	self.ConfigData = {}
@@ -520,14 +521,15 @@ function SpareStackLib:ShowSettings()
 end
 
 function SpareStackLib:AddCategory(categoryName)
-	self.CategoryOrder = self.CategoryOrder + 1
+	self.SideOrder = self.SideOrder + 1
+	self.CategoryOrder = self.SideOrder
 
 	local CategoryFrame = Instance.new("Frame")
 	CategoryFrame.Name = "Category_" .. categoryName
 	CategoryFrame.Parent = self.SideHolder
 	CategoryFrame.BackgroundTransparency = 1
 	CategoryFrame.Size = UDim2.new(0, 200, 0, 31)
-	CategoryFrame.LayoutOrder = self.CategoryOrder
+	CategoryFrame.LayoutOrder = self.SideOrder
 
 	local CategoryText = Instance.new("TextLabel")
 	CategoryText.Name = "CategoryText"
@@ -554,7 +556,8 @@ end
 
 -- imageSize: optional pixel size for the tab icon (default 20). Increase/decrease to fix stretched icons.
 function SpareStackLib:AddTab(tabName, tabImage, categoryName, imageSize)
-	self.TabOrder = self.TabOrder + 1
+	self.SideOrder = self.SideOrder + 1
+	self.TabOrder = self.SideOrder
 	imageSize = imageSize or 20
 
 	local Tab = Instance.new("Frame")
@@ -564,7 +567,7 @@ function SpareStackLib:AddTab(tabName, tabImage, categoryName, imageSize)
 	Tab.BackgroundTransparency = 1
 	Tab.BorderSizePixel = 0
 	Tab.Size = UDim2.new(0, 238, 0, 41)
-	Tab.LayoutOrder = self.TabOrder
+	Tab.LayoutOrder = self.SideOrder
 
 	local TabCorner = Instance.new("UICorner")
 	TabCorner.CornerRadius = UDim.new(0, 6)
@@ -1433,8 +1436,15 @@ function SpareStackLib:AddButton(parent, name, callback)
 end
 
 function SpareStackLib:CreateConfigTab()
+	-- Push config items to the very end of the sidebar regardless of call order
+	local savedSideOrder = self.SideOrder
+	self.SideOrder = 99000
+
 	local ConfigCategory = self:AddCategory("CONFIGS")
 	local ConfigTab = ConfigCategory:AddTab("Config Manager", "rbxassetid://97584948400851")
+
+	-- Restore so any tabs added after this call continue from where they left off
+	self.SideOrder = savedSideOrder
 
 	local CreateCard = self:CreateCard("Create Config", ConfigTab)
 
