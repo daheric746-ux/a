@@ -1,4 +1,4 @@
-local SpareStackLib = {} -- 123
+local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
 
 local TweenService = game:GetService("TweenService")
@@ -553,8 +553,8 @@ function SpareStackLib:AddCategory(categoryName)
 	CollapseArrow.Name = "Arrow"
 	CollapseArrow.Parent = CategoryFrame
 	CollapseArrow.BackgroundTransparency = 1
-	CollapseArrow.AnchorPoint = Vector2.new(1, 0.5)
-	CollapseArrow.Position = UDim2.new(1, -22, 0.5, 0)
+	CollapseArrow.AnchorPoint = Vector2.new(0, 0.5)
+	CollapseArrow.Position = UDim2.new(0, 185, 0.5, 0)
 	CollapseArrow.Size = UDim2.new(0, 7, 0, 7)
 	CollapseArrow.ZIndex = 2
 
@@ -3427,7 +3427,6 @@ function SpareStackLib:AddMultiDropdown(parent, name, options, defaults, callbac
 	OptionsHolder.ClipsDescendants = true
 	OptionsHolder.ZIndex = 10
 	local OHC = Instance.new("UICorner"); OHC.CornerRadius = UDim.new(0, 6); OHC.Parent = OptionsHolder
-	local OHS = Instance.new("UIStroke"); OHS.Color = Color3.fromRGB(40, 40, 55); OHS.Thickness = 1; OHS.Parent = OptionsHolder
 
 	local OHP = Instance.new("UIPadding")
 	OHP.PaddingTop    = UDim.new(0, 5)
@@ -3467,10 +3466,6 @@ function SpareStackLib:AddMultiDropdown(parent, name, options, defaults, callbac
 		Check.Size = UDim2.new(0, 14, 0, 14)
 		Check.ZIndex = 12
 		local CC = Instance.new("UICorner"); CC.CornerRadius = UDim.new(0, 3); CC.Parent = Check
-		local CS = Instance.new("UIStroke")
-		CS.Color = Color3.fromRGB(51, 105, 255)
-		CS.Thickness = 1.5
-		CS.Parent = Check
 
 		-- Option text
 		local RowLabel = Instance.new("TextLabel")
