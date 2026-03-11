@@ -1,4 +1,4 @@
-local SpareStackLib = {}
+local SpareStackLib = {} --123312312
 SpareStackLib.__index = SpareStackLib
 
 local TweenService = game:GetService("TweenService")
@@ -548,33 +548,33 @@ function SpareStackLib:AddCategory(categoryName)
 	CategoryText.TextSize = 14
 	CategoryText.TextXAlignment = Enum.TextXAlignment.Left
 
-	-- Collapse indicator — small crisp dash/plus
+	-- Collapse indicator — tiny subtle dash/plus
 	local CollapseArrow = Instance.new("Frame")
 	CollapseArrow.Name = "Arrow"
 	CollapseArrow.Parent = CategoryFrame
 	CollapseArrow.BackgroundTransparency = 1
-	CollapseArrow.Position = UDim2.new(0, 185, 0.5, -5)
-	CollapseArrow.Size = UDim2.new(0, 10, 0, 10)
+	CollapseArrow.Position = UDim2.new(0, 187, 0.5, -3)
+	CollapseArrow.Size = UDim2.new(0, 7, 0, 7)
 	CollapseArrow.ZIndex = 2
 
 	local DashH = Instance.new("Frame")
 	DashH.Name = "DashH"
 	DashH.Parent = CollapseArrow
-	DashH.BackgroundColor3 = Color3.fromRGB(90, 90, 110)
+	DashH.BackgroundColor3 = Color3.fromRGB(55, 55, 70)
 	DashH.BorderSizePixel = 0
 	DashH.AnchorPoint = Vector2.new(0.5, 0.5)
 	DashH.Position = UDim2.new(0.5, 0, 0.5, 0)
-	DashH.Size = UDim2.new(1, 0, 0, 2)
+	DashH.Size = UDim2.new(1, 0, 0, 1)
 	local dhc = Instance.new("UICorner"); dhc.CornerRadius = UDim.new(1,0); dhc.Parent = DashH
 
 	local DashV = Instance.new("Frame")
 	DashV.Name = "DashV"
 	DashV.Parent = CollapseArrow
-	DashV.BackgroundColor3 = Color3.fromRGB(90, 90, 110)
+	DashV.BackgroundColor3 = Color3.fromRGB(55, 55, 70)
 	DashV.BorderSizePixel = 0
 	DashV.AnchorPoint = Vector2.new(0.5, 0.5)
 	DashV.Position = UDim2.new(0.5, 0, 0.5, 0)
-	DashV.Size = UDim2.new(0, 2, 1, 0)
+	DashV.Size = UDim2.new(0, 1, 1, 0)
 	DashV.Visible = false
 	local dvc = Instance.new("UICorner"); dvc.CornerRadius = UDim.new(1,0); dvc.Parent = DashV
 
@@ -760,10 +760,13 @@ function SpareStackLib:SwitchTab(tabName)
 		card.Visible = false
 	end
 
+	local visibleCards = {}
 	for _, card in pairs(self.AllCards) do
 		if card:GetAttribute("Tab") == tabName then
 			card.Visible = true
 			card.LayoutOrder = card:GetAttribute("OriginalOrder")
+			card.BackgroundTransparency = 1
+			table.insert(visibleCards, card)
 		else
 			card.Visible = false
 		end
@@ -775,16 +778,50 @@ function SpareStackLib:SwitchTab(tabName)
 	TweenService:Create(overlay, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		BackgroundTransparency = 1,
 	}):Play()
+
+	-- Animate cards in with staggered fade
+	task.spawn(function()
+		table.sort(visibleCards, function(a,b) return a.LayoutOrder < b.LayoutOrder end)
+		for i, card in ipairs(visibleCards) do
+			task.delay((i - 1) * 0.04, function()
+				if card and card.Parent then
+					TweenService:Create(card, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+						BackgroundTransparency = 1,
+					}):Play()
+					-- fade in the card background image child
+					local bg = card:FindFirstChild("Background")
+					if bg then
+						bg.ImageTransparency = 1
+						TweenService:Create(bg, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+							ImageTransparency = 0,
+						}):Play()
+					end
+					local placard = card:FindFirstChild("Placard")
+					if placard then
+						placard.ImageTransparency = 1
+						TweenService:Create(placard, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+							ImageTransparency = 0,
+						}):Play()
+					end
+				end
+			end)
+		end
+	end)
 end
 
-function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
+function SpareStackLib:CreateCard(cardTitle, tabName, size)
+	size = size or "default"
+	local cardW = size == "wide" and 730 or 356
+	local cardH = size == "small" and 260 or 420
+
 	local Card = Instance.new("Frame")
 	Card.Name = "Card_" .. cardTitle
 	Card.Parent = self.CardHolder
 	Card.BackgroundTransparency = 1
 	Card.BorderSizePixel = 0
-	Card.Size = UDim2.new(0, 356, 0, 420)
+	Card.Size = UDim2.new(0, cardW, 0, cardH)
 	Card:SetAttribute("Tab", tabName)
+	Card:SetAttribute("CardSize", size)
 	Card.Visible = (self.CurrentTab == tabName)
 
 	self.CardLayoutOrder = self.CardLayoutOrder + 1
@@ -802,41 +839,132 @@ function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
 	end
 
 	local cardTitleLabel = Card:FindFirstChild("CardTitle")
+	local cardObj = {}
+	cardObj.Card = Card
+	cardObj.ElementsHolder = ElementsHolder
 
-	return {
-		Card = Card,
-		ElementsHolder = ElementsHolder,
-		SetTitle = function(_, newTitle)
-			if cardTitleLabel then cardTitleLabel.Text = newTitle end
-		end,
-		AddToggle = function(_, name, default, callback, settings, tooltip)
-			return self:AddToggle(ElementsHolder, name, default, callback, settings, tooltip)
-		end,
-		AddSlider = function(_, name, min, max, default, callback, tooltip)
-			return self:AddSlider(ElementsHolder, name, min, max, default, callback, tooltip)
-		end,
-		AddDropdown = function(_, name, options, default, callback, tooltip)
-			return self:AddDropdown(ElementsHolder, name, options, default, callback, tooltip)
-		end,
-		AddButton = function(_, name, callback, tooltip)
-			return self:AddButton(ElementsHolder, name, callback, tooltip)
-		end,
-		AddColorPicker = function(_, name, default, callback, tooltip)
-			return self:AddColorPicker(ElementsHolder, name, default, callback, tooltip)
-		end,
-		AddKeybind = function(_, name, default, callback, tooltip)
-			return self:AddKeybind(ElementsHolder, name, default, callback, tooltip)
-		end,
-		AddTextInput = function(_, name, placeholder, default, callback, tooltip)
-			return self:AddTextInput(ElementsHolder, name, placeholder, default, callback, tooltip)
-		end,
-		AddLabel = function(_, text)
-			return self:AddLabel(ElementsHolder, text)
-		end,
-		AddSeparator = function(_)
-			return self:AddSeparator(ElementsHolder)
-		end,
-	}
+	cardObj.SetTitle = function(_, newTitle)
+		if cardTitleLabel then cardTitleLabel.Text = newTitle end
+	end
+
+	cardObj.AddSection = function(_, sectionTitle)
+		local SectionFrame = Instance.new("Frame")
+		SectionFrame.Name = "Section_" .. sectionTitle
+		SectionFrame.Parent = ElementsHolder
+		SectionFrame.BackgroundTransparency = 1
+		SectionFrame.Size = UDim2.new(1, 0, 0, 26)
+		SectionFrame.ClipsDescendants = false
+
+		local HeaderBtn = Instance.new("TextButton")
+		HeaderBtn.Parent = SectionFrame
+		HeaderBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+		HeaderBtn.BorderSizePixel = 0
+		HeaderBtn.Size = UDim2.new(1, 0, 0, 24)
+		HeaderBtn.Text = ""
+		HeaderBtn.ZIndex = 2
+		local HdrCorner = Instance.new("UICorner"); HdrCorner.CornerRadius = UDim.new(0,4); HdrCorner.Parent = HeaderBtn
+
+		local HdrLabel = Instance.new("TextLabel")
+		HdrLabel.Parent = HeaderBtn
+		HdrLabel.BackgroundTransparency = 1
+		HdrLabel.Position = UDim2.new(0, 10, 0, 0)
+		HdrLabel.Size = UDim2.new(0.85, 0, 1, 0)
+		HdrLabel.Font = Enum.Font.GothamBold
+		HdrLabel.Text = sectionTitle
+		HdrLabel.TextColor3 = Color3.fromRGB(130, 130, 155)
+		HdrLabel.TextSize = 11
+		HdrLabel.TextXAlignment = Enum.TextXAlignment.Left
+		HdrLabel.ZIndex = 3
+
+		local SArrowH = Instance.new("Frame")
+		SArrowH.Parent = HeaderBtn
+		SArrowH.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+		SArrowH.BorderSizePixel = 0
+		SArrowH.AnchorPoint = Vector2.new(1, 0.5)
+		SArrowH.Position = UDim2.new(1, -10, 0.5, 0)
+		SArrowH.Size = UDim2.new(0, 7, 0, 1)
+		SArrowH.ZIndex = 3
+		local sac1 = Instance.new("UICorner"); sac1.CornerRadius = UDim.new(1,0); sac1.Parent = SArrowH
+
+		local SArrowV = Instance.new("Frame")
+		SArrowV.Parent = HeaderBtn
+		SArrowV.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+		SArrowV.BorderSizePixel = 0
+		SArrowV.AnchorPoint = Vector2.new(1, 0.5)
+		SArrowV.Position = UDim2.new(1, -10, 0.5, 0)
+		SArrowV.Size = UDim2.new(0, 1, 0, 7)
+		SArrowV.Visible = false
+		SArrowV.ZIndex = 3
+		local sac2 = Instance.new("UICorner"); sac2.CornerRadius = UDim.new(1,0); sac2.Parent = SArrowV
+
+		local ContentFrame = Instance.new("Frame")
+		ContentFrame.Parent = SectionFrame
+		ContentFrame.BackgroundTransparency = 1
+		ContentFrame.BorderSizePixel = 0
+		ContentFrame.Position = UDim2.new(0, 0, 0, 28)
+		ContentFrame.Size = UDim2.new(1, 0, 0, 0)
+		ContentFrame.ClipsDescendants = true
+
+		local ContentLayout = Instance.new("UIListLayout")
+		ContentLayout.Parent = ContentFrame
+		ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		ContentLayout.Padding = UDim.new(0, 8)
+
+		local sectionCollapsed = false
+		local contentHeight = 0
+
+		ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+			if not sectionCollapsed then
+				contentHeight = ContentLayout.AbsoluteContentSize.Y + 6
+				ContentFrame.Size = UDim2.new(1, 0, 0, contentHeight)
+				SectionFrame.Size = UDim2.new(1, 0, 0, 26 + contentHeight)
+			end
+		end)
+
+		HeaderBtn.MouseButton1Click:Connect(function()
+			sectionCollapsed = not sectionCollapsed
+			SArrowV.Visible = sectionCollapsed
+			local ti = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+			if sectionCollapsed then
+				TweenService:Create(ContentFrame, ti, { Size = UDim2.new(1, 0, 0, 0) }):Play()
+				TweenService:Create(SectionFrame, ti, { Size = UDim2.new(1, 0, 0, 26) }):Play()
+			else
+				TweenService:Create(ContentFrame, ti, { Size = UDim2.new(1, 0, 0, contentHeight) }):Play()
+				TweenService:Create(SectionFrame, ti, { Size = UDim2.new(1, 0, 0, 26 + contentHeight) }):Play()
+			end
+		end)
+
+		local sectionObj = {}
+		local function sw(fn) return function(_, ...) return fn(ContentFrame, ...) end end
+		sectionObj.AddToggle       = function(_, nm, d, cb, st, tip) return self:AddToggle(ContentFrame, nm, d, cb, st, tip) end
+		sectionObj.AddSlider       = function(_, nm, mn, mx, d, cb, tip) return self:AddSlider(ContentFrame, nm, mn, mx, d, cb, tip) end
+		sectionObj.AddDropdown     = function(_, nm, opts, d, cb, tip) return self:AddDropdown(ContentFrame, nm, opts, d, cb, tip) end
+		sectionObj.AddButton       = function(_, nm, cb, tip) return self:AddButton(ContentFrame, nm, cb, tip) end
+		sectionObj.AddColorPicker  = function(_, nm, d, cb, tip) return self:AddColorPicker(ContentFrame, nm, d, cb, tip) end
+		sectionObj.AddKeybind      = function(_, nm, d, cb, tip) return self:AddKeybind(ContentFrame, nm, d, cb, tip) end
+		sectionObj.AddTextInput    = function(_, nm, ph, d, cb, tip) return self:AddTextInput(ContentFrame, nm, ph, d, cb, tip) end
+		sectionObj.AddLabel        = function(_, text) return self:AddLabel(ContentFrame, text) end
+		sectionObj.AddSeparator    = function(_) return self:AddSeparator(ContentFrame) end
+		sectionObj.AddMultiDropdown = function(_, nm, opts, d, cb, tip) return self:AddMultiDropdown(ContentFrame, nm, opts, d, cb, tip) end
+		sectionObj.AddToggleSlider = function(_, nm, td, mn, mx, sd, cb, tip) return self:AddToggleSlider(ContentFrame, nm, td, mn, mx, sd, cb, tip) end
+		sectionObj.AddRadioGroup   = function(_, nm, opts, d, cb, tip) return self:AddRadioGroup(ContentFrame, nm, opts, d, cb, tip) end
+		return sectionObj
+	end
+
+	cardObj.AddToggle       = function(_, nm, d, cb, st, tip) return self:AddToggle(ElementsHolder, nm, d, cb, st, tip) end
+	cardObj.AddSlider       = function(_, nm, mn, mx, d, cb, tip) return self:AddSlider(ElementsHolder, nm, mn, mx, d, cb, tip) end
+	cardObj.AddDropdown     = function(_, nm, opts, d, cb, tip) return self:AddDropdown(ElementsHolder, nm, opts, d, cb, tip) end
+	cardObj.AddButton       = function(_, nm, cb, tip) return self:AddButton(ElementsHolder, nm, cb, tip) end
+	cardObj.AddColorPicker  = function(_, nm, d, cb, tip) return self:AddColorPicker(ElementsHolder, nm, d, cb, tip) end
+	cardObj.AddKeybind      = function(_, nm, d, cb, tip) return self:AddKeybind(ElementsHolder, nm, d, cb, tip) end
+	cardObj.AddTextInput    = function(_, nm, ph, d, cb, tip) return self:AddTextInput(ElementsHolder, nm, ph, d, cb, tip) end
+	cardObj.AddLabel        = function(_, text) return self:AddLabel(ElementsHolder, text) end
+	cardObj.AddSeparator    = function(_) return self:AddSeparator(ElementsHolder) end
+	cardObj.AddMultiDropdown = function(_, nm, opts, d, cb, tip) return self:AddMultiDropdown(ElementsHolder, nm, opts, d, cb, tip) end
+	cardObj.AddToggleSlider = function(_, nm, td, mn, mx, sd, cb, tip) return self:AddToggleSlider(ElementsHolder, nm, td, mn, mx, sd, cb, tip) end
+	cardObj.AddRadioGroup   = function(_, nm, opts, d, cb, tip) return self:AddRadioGroup(ElementsHolder, nm, opts, d, cb, tip) end
+
+	return cardObj
 end
 
 -- Attaches a hover tooltip to any GuiObject. tip = string text.
@@ -914,7 +1042,7 @@ function SpareStackLib:_attachTooltip(element, tip)
 	end)
 end
 
-function SpareStackLib:AddToggle(parent, name, default, callback, settings, tooltip)
+function SpareStackLib:AddToggle(parent, name, default, callback, settings, tooltip, icon)
 	callback = callback or function() end
 	default = default or false
 	settings = settings == nil and false or settings
@@ -925,11 +1053,25 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings, tool
 	Title.BackgroundTransparency = 1
 	Title.Size = UDim2.new(1, 0, 0, 50)
 
+	local labelOffsetX = 0
+
+	if icon and icon ~= "" then
+		local IconImg = Instance.new("ImageLabel")
+		IconImg.Parent = Title
+		IconImg.BackgroundTransparency = 1
+		IconImg.Position = UDim2.new(0, 0, 0.5, -8)
+		IconImg.Size = UDim2.new(0, 16, 0, 16)
+		IconImg.Image = icon
+		IconImg.ZIndex = 2
+		labelOffsetX = 22
+	end
+
 	local TitleLabel = Instance.new("TextLabel")
 	TitleLabel.Name = "TitleLabel"
 	TitleLabel.Parent = Title
 	TitleLabel.BackgroundTransparency = 1
-	TitleLabel.Size = UDim2.new(0.55, 0, 1, 0)
+	TitleLabel.Position = UDim2.new(0, labelOffsetX, 0, 0)
+	TitleLabel.Size = UDim2.new(0.55, -labelOffsetX, 1, 0)
 	TitleLabel.Font = Enum.Font.GothamBold
 	TitleLabel.Text = name
 	TitleLabel.TextColor3 = default and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(58, 58, 73)
@@ -1255,7 +1397,7 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings, tool
 	return toggleData
 end
 
-function SpareStackLib:AddSlider(parent, name, min, max, default, callback, tooltip)
+function SpareStackLib:AddSlider(parent, name, min, max, default, callback, tooltip, icon)
 	callback = callback or function() end
 	min = min or 0
 	max = max or 100
@@ -1267,10 +1409,23 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback, tool
 	SliderFrame.BackgroundTransparency = 1
 	SliderFrame.Size = UDim2.new(1, 0, 0, 60)
 
+	local labelOffsetX = 0
+	if icon and icon ~= "" then
+		local IconImg = Instance.new("ImageLabel")
+		IconImg.Parent = SliderFrame
+		IconImg.BackgroundTransparency = 1
+		IconImg.Position = UDim2.new(0, 0, 0, 4)
+		IconImg.Size = UDim2.new(0, 16, 0, 16)
+		IconImg.Image = icon
+		IconImg.ZIndex = 2
+		labelOffsetX = 22
+	end
+
 	local Title = Instance.new("TextLabel")
 	Title.Parent = SliderFrame
 	Title.BackgroundTransparency = 1
-	Title.Size = UDim2.new(0.5, 0, 0, 25)
+	Title.Position = UDim2.new(0, labelOffsetX, 0, 0)
+	Title.Size = UDim2.new(0.5, -labelOffsetX, 0, 25)
 	Title.Font = Enum.Font.GothamBold
 	Title.Text = name
 	Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -2898,6 +3053,7 @@ function SpareStackLib:AddColorPicker(parent, name, default, callback, tooltip)
 		SatOverlay.BorderSizePixel = 0
 		SatOverlay.Size = UDim2.new(1,0,1,0)
 		SatOverlay.ZIndex = 552
+		SatOverlay.Active = false
 
 		local SatGrad = Instance.new("UIGradient")
 		SatGrad.Color = ColorSequence.new({
@@ -2918,6 +3074,7 @@ function SpareStackLib:AddColorPicker(parent, name, default, callback, tooltip)
 		ValOverlay.BorderSizePixel = 0
 		ValOverlay.Size = UDim2.new(1,0,1,0)
 		ValOverlay.ZIndex = 553
+		ValOverlay.Active = false
 
 		local ValGrad = Instance.new("UIGradient")
 		ValGrad.Color = ColorSequence.new({
@@ -3023,14 +3180,27 @@ function SpareStackLib:AddColorPicker(parent, name, default, callback, tooltip)
 			pcall(function() callback(currentColor) end)
 		end
 
+		local function getSVFromMouse()
+			local mouse = UIS:GetMouseLocation()
+			local ap = SVBox.AbsolutePosition
+			local as = SVBox.AbsoluteSize
+			s = math.clamp((mouse.X - ap.X) / as.X, 0, 1)
+			v = 1 - math.clamp((mouse.Y - ap.Y) / as.Y, 0, 1)
+		end
+
+		local function getHueFromMouse()
+			local mouse = UIS:GetMouseLocation()
+			local ap = HueBar.AbsolutePosition
+			local as = HueBar.AbsoluteSize
+			h = 1 - math.clamp((mouse.Y - ap.Y) / as.Y, 0, 1)
+		end
+
 		-- ── SV drag ───────────────────────────────────────────────
 		local svDragging = false
 
-		local svConn = UIS.InputChanged:Connect(function(input)
-			if svDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-				local rel = input.Position - SVBox.AbsolutePosition
-				s = math.clamp(rel.X / SVBox.AbsoluteSize.X, 0, 1)
-				v = 1 - math.clamp(rel.Y / SVBox.AbsoluteSize.Y, 0, 1)
+		local svConn = game:GetService("RunService").RenderStepped:Connect(function()
+			if svDragging then
+				getSVFromMouse()
 				applyColor()
 			end
 		end)
@@ -3044,10 +3214,7 @@ function SpareStackLib:AddColorPicker(parent, name, default, callback, tooltip)
 		SVBox.InputBegan:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.MouseButton1 then
 				svDragging = true
-				-- also update on initial click
-				local rel = UIS:GetMouseLocation() - SVBox.AbsolutePosition
-				s = math.clamp(rel.X / SVBox.AbsoluteSize.X, 0, 1)
-				v = 1 - math.clamp(rel.Y / SVBox.AbsoluteSize.Y, 0, 1)
+				getSVFromMouse()
 				applyColor()
 			end
 		end)
@@ -3055,10 +3222,9 @@ function SpareStackLib:AddColorPicker(parent, name, default, callback, tooltip)
 		-- ── Hue drag ──────────────────────────────────────────────
 		local hueDragging = false
 
-		local hueConn = UIS.InputChanged:Connect(function(input)
-			if hueDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-				local rel = input.Position.Y - HueBar.AbsolutePosition.Y
-				h = 1 - math.clamp(rel / HueBar.AbsoluteSize.Y, 0, 1)
+		local hueConn = game:GetService("RunService").RenderStepped:Connect(function()
+			if hueDragging then
+				getHueFromMouse()
 				applyColor()
 			end
 		end)
@@ -3072,8 +3238,7 @@ function SpareStackLib:AddColorPicker(parent, name, default, callback, tooltip)
 		HueBar.InputBegan:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.MouseButton1 then
 				hueDragging = true
-				local rel = UIS:GetMouseLocation().Y - HueBar.AbsolutePosition.Y
-				h = 1 - math.clamp(rel / HueBar.AbsoluteSize.Y, 0, 1)
+				getHueFromMouse()
 				applyColor()
 			end
 		end)
@@ -3153,6 +3318,441 @@ function SpareStackLib:AddColorPicker(parent, name, default, callback, tooltip)
 
 	self:_attachTooltip(PickerFrame, tooltip)
 	return pickerData
+end
+
+-- ─────────────────────────────────────────────
+-- AddMultiDropdown  – multiple selectable options with checkboxes
+-- ─────────────────────────────────────────────
+function SpareStackLib:AddMultiDropdown(parent, name, options, defaults, callback, tooltip)
+	callback = callback or function() end
+	options = options or {}
+	local selected = {}
+	if defaults then
+		for _, v in ipairs(defaults) do selected[v] = true end
+	end
+
+	local MDFrame = Instance.new("Frame")
+	MDFrame.Name = "MultiDropdown_" .. name
+	MDFrame.Parent = parent
+	MDFrame.BackgroundTransparency = 1
+	MDFrame.Size = UDim2.new(1, 0, 0, 45)
+	MDFrame.ClipsDescendants = false
+	MDFrame.ZIndex = 5
+
+	local function getSelectedText()
+		local parts = {}
+		for _, opt in ipairs(options) do
+			if selected[opt] then table.insert(parts, opt) end
+		end
+		if #parts == 0 then return "  None" end
+		if #parts == #options then return "  All" end
+		return "  " .. table.concat(parts, ", ")
+	end
+
+	local Button = Instance.new("TextButton")
+	Button.Parent = MDFrame
+	Button.BackgroundColor3 = Color3.fromRGB(20, 20, 27)
+	Button.BorderSizePixel = 0
+	Button.Size = UDim2.new(1, 0, 0, 36)
+	Button.Font = Enum.Font.Gotham
+	Button.Text = getSelectedText()
+	Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+	Button.TextSize = 13
+	Button.TextXAlignment = Enum.TextXAlignment.Left
+	Button.TextTruncate = Enum.TextTruncate.AtEnd
+	local BC = Instance.new("UICorner"); BC.CornerRadius = UDim.new(0,3); BC.Parent = Button
+	local BP = Instance.new("UIPadding"); BP.PaddingLeft = UDim.new(0,10); BP.Parent = Button
+
+	local BtnLabel = Instance.new("TextLabel")
+	BtnLabel.Parent = MDFrame
+	BtnLabel.BackgroundTransparency = 1
+	BtnLabel.Position = UDim2.new(0, 0, 0, -20)
+	BtnLabel.Size = UDim2.new(1, 0, 0, 18)
+	BtnLabel.Font = Enum.Font.GothamBold
+	BtnLabel.Text = name
+	BtnLabel.TextColor3 = Color3.fromRGB(200, 200, 220)
+	BtnLabel.TextSize = 11
+	BtnLabel.TextXAlignment = Enum.TextXAlignment.Left
+	MDFrame.Size = UDim2.new(1, 0, 0, 60)
+	Button.Position = UDim2.new(0, 0, 0, 22)
+
+	local Arrow = Instance.new("ImageLabel")
+	Arrow.Parent = Button
+	Arrow.BackgroundTransparency = 1
+	Arrow.Position = UDim2.new(0.88, 0, 0.22, 0)
+	Arrow.Size = UDim2.new(0, 20, 0, 20)
+	Arrow.Image = "rbxassetid://134116754541554"
+
+	local OptionsHolder = Instance.new("ScrollingFrame")
+	OptionsHolder.Parent = MDFrame
+	OptionsHolder.BackgroundColor3 = Color3.fromRGB(20, 20, 27)
+	OptionsHolder.BorderSizePixel = 0
+	OptionsHolder.Position = UDim2.new(0, 0, 0, 63)
+	OptionsHolder.Size = UDim2.new(1, 0, 0, 0)
+	OptionsHolder.Visible = false
+	OptionsHolder.ScrollBarThickness = 0
+	OptionsHolder.ClipsDescendants = true
+	OptionsHolder.ZIndex = 10
+	local OHC = Instance.new("UICorner"); OHC.CornerRadius = UDim.new(0,3); OHC.Parent = OptionsHolder
+
+	local OptionsList = Instance.new("UIListLayout")
+	OptionsList.Parent = OptionsHolder
+	OptionsList.SortOrder = Enum.SortOrder.LayoutOrder
+	OptionsList.Padding = UDim.new(0, 4)
+
+	local OHP = Instance.new("UIPadding")
+	OHP.PaddingTop = UDim.new(0,8); OHP.PaddingBottom = UDim.new(0,8)
+	OHP.PaddingLeft = UDim.new(0,8); OHP.PaddingRight = UDim.new(0,8)
+	OHP.Parent = OptionsHolder
+
+	local tweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+	local isOpen = false
+	local dropH = math.min(#options * 34 + 20, 160)
+
+	local optionRows = {}
+
+	for i, optText in ipairs(options) do
+		local Row = Instance.new("TextButton")
+		Row.Parent = OptionsHolder
+		Row.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+		Row.BackgroundTransparency = 1
+		Row.BorderSizePixel = 0
+		Row.Size = UDim2.new(1, -16, 0, 28)
+		Row.Text = ""
+		Row.ZIndex = 11
+
+		local Check = Instance.new("Frame")
+		Check.Parent = Row
+		Check.BackgroundColor3 = selected[optText] and Color3.fromRGB(51,105,255) or Color3.fromRGB(30,30,42)
+		Check.BorderSizePixel = 0
+		Check.AnchorPoint = Vector2.new(0, 0.5)
+		Check.Position = UDim2.new(0, 0, 0.5, 0)
+		Check.Size = UDim2.new(0, 14, 0, 14)
+		Check.ZIndex = 12
+		local CC = Instance.new("UICorner"); CC.CornerRadius = UDim.new(0,3); CC.Parent = Check
+		local CS = Instance.new("UIStroke"); CS.Color = Color3.fromRGB(51,105,255); CS.Thickness = 1; CS.Parent = Check
+
+		local CheckMark = Instance.new("TextLabel")
+		CheckMark.Parent = Check
+		CheckMark.BackgroundTransparency = 1
+		CheckMark.Size = UDim2.new(1,0,1,0)
+		CheckMark.Font = Enum.Font.GothamBold
+		CheckMark.Text = "✓"
+		CheckMark.TextColor3 = Color3.fromRGB(255,255,255)
+		CheckMark.TextSize = 10
+		CheckMark.Visible = selected[optText] or false
+		CheckMark.ZIndex = 13
+
+		local RowLabel = Instance.new("TextLabel")
+		RowLabel.Parent = Row
+		RowLabel.BackgroundTransparency = 1
+		RowLabel.Position = UDim2.new(0, 22, 0, 0)
+		RowLabel.Size = UDim2.new(1, -22, 1, 0)
+		RowLabel.Font = Enum.Font.Gotham
+		RowLabel.Text = optText
+		RowLabel.TextColor3 = Color3.fromRGB(220, 220, 235)
+		RowLabel.TextSize = 13
+		RowLabel.TextXAlignment = Enum.TextXAlignment.Left
+		RowLabel.ZIndex = 12
+
+		Row.MouseButton1Click:Connect(function()
+			selected[optText] = not selected[optText]
+			TweenService:Create(Check, TweenInfo.new(0.15), {
+				BackgroundColor3 = selected[optText] and Color3.fromRGB(51,105,255) or Color3.fromRGB(30,30,42),
+			}):Play()
+			CheckMark.Visible = selected[optText]
+			Button.Text = getSelectedText()
+			local vals = {}
+			for _, opt in ipairs(options) do
+				if selected[opt] then table.insert(vals, opt) end
+			end
+			pcall(function() callback(vals) end)
+		end)
+
+		Row.MouseEnter:Connect(function() TweenService:Create(Row, TweenInfo.new(0.15), { BackgroundTransparency = 0 }):Play() end)
+		Row.MouseLeave:Connect(function() TweenService:Create(Row, TweenInfo.new(0.15), { BackgroundTransparency = 1 }):Play() end)
+		optionRows[optText] = { check = Check, mark = CheckMark }
+	end
+
+	Button.MouseButton1Click:Connect(function()
+		isOpen = not isOpen
+		if isOpen then
+			OptionsHolder.Visible = true
+			OptionsHolder.CanvasSize = UDim2.new(0,0,0, #options * 34 + 20)
+			TweenService:Create(OptionsHolder, tweenInfo, { Size = UDim2.new(1,0,0,dropH) }):Play()
+			TweenService:Create(Arrow, tweenInfo, { Rotation = 180 }):Play()
+		else
+			TweenService:Create(OptionsHolder, tweenInfo, { Size = UDim2.new(1,0,0,0) }):Play()
+			TweenService:Create(Arrow, tweenInfo, { Rotation = 0 }):Play()
+			task.delay(0.25, function() if not isOpen then OptionsHolder.Visible = false end end)
+		end
+	end)
+
+	local mdData = {
+		Type = "MultiDropdown", Name = name, Element = MDFrame,
+		GetValue = function()
+			local vals = {}
+			for _, opt in ipairs(options) do if selected[opt] then table.insert(vals, opt) end end
+			return vals
+		end,
+		SetValue = function(vals)
+			selected = {}
+			for _, v in ipairs(vals) do selected[v] = true end
+			for optText, row in pairs(optionRows) do
+				row.check.BackgroundColor3 = selected[optText] and Color3.fromRGB(51,105,255) or Color3.fromRGB(30,30,42)
+				row.mark.Visible = selected[optText] or false
+			end
+			Button.Text = getSelectedText()
+		end,
+	}
+
+	local configKey = name; local suffix = 2
+	while self.ConfigData[configKey] do configKey = name .. "_" .. suffix; suffix = suffix + 1 end
+	self.ConfigData[configKey] = mdData
+	self:_attachTooltip(MDFrame, tooltip)
+	return mdData
+end
+
+-- ─────────────────────────────────────────────
+-- AddToggleSlider  – toggle + slider in one row
+-- ─────────────────────────────────────────────
+function SpareStackLib:AddToggleSlider(parent, name, toggleDefault, sliderMin, sliderMax, sliderDefault, callback, tooltip)
+	callback = callback or function() end
+	toggleDefault = toggleDefault or false
+	sliderMin = sliderMin or 0
+	sliderMax = sliderMax or 100
+	sliderDefault = math.clamp(sliderDefault or sliderMin, sliderMin, sliderMax)
+
+	local TSFrame = Instance.new("Frame")
+	TSFrame.Name = "ToggleSlider_" .. name
+	TSFrame.Parent = parent
+	TSFrame.BackgroundTransparency = 1
+	TSFrame.Size = UDim2.new(1, 0, 0, 55)
+
+	local TitleLabel = Instance.new("TextLabel")
+	TitleLabel.Parent = TSFrame
+	TitleLabel.BackgroundTransparency = 1
+	TitleLabel.Size = UDim2.new(0.45, 0, 0, 22)
+	TitleLabel.Font = Enum.Font.GothamBold
+	TitleLabel.Text = name
+	TitleLabel.TextColor3 = toggleDefault and Color3.fromRGB(255,255,255) or Color3.fromRGB(58,58,73)
+	TitleLabel.TextSize = 13
+	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+	-- Toggle switch (right side of top row)
+	local TogBg = Instance.new("TextButton")
+	TogBg.Parent = TSFrame
+	TogBg.BackgroundColor3 = toggleDefault and Color3.fromRGB(28,48,103) or Color3.fromRGB(21,21,28)
+	TogBg.BorderSizePixel = 0
+	TogBg.AnchorPoint = Vector2.new(1, 0)
+	TogBg.Position = UDim2.new(1, 0, 0, 2)
+	TogBg.Size = UDim2.new(0, 35, 0, 18)
+	TogBg.Text = ""
+	local TBC = Instance.new("UICorner"); TBC.CornerRadius = UDim.new(1,0); TBC.Parent = TogBg
+
+	local Orb = Instance.new("Frame")
+	Orb.Parent = TogBg
+	Orb.BackgroundColor3 = toggleDefault and Color3.fromRGB(51,105,255) or Color3.fromRGB(37,37,57)
+	Orb.BorderSizePixel = 0
+	Orb.Position = toggleDefault and UDim2.new(0,18,0.15,0) or UDim2.new(0,4,0.15,0)
+	Orb.Size = UDim2.new(0,12,0,12)
+	local OC = Instance.new("UICorner"); OC.CornerRadius = UDim.new(1,0); OC.Parent = Orb
+
+	-- Slider bar (bottom row)
+	local SliderBar = Instance.new("Frame")
+	SliderBar.Parent = TSFrame
+	SliderBar.BackgroundColor3 = Color3.fromRGB(21,21,27)
+	SliderBar.BorderSizePixel = 0
+	SliderBar.Position = UDim2.new(0, 0, 0, 32)
+	SliderBar.Size = UDim2.new(0.98, 0, 0, 10)
+	local SBC = Instance.new("UICorner"); SBC.Parent = SliderBar
+
+	local Fill = Instance.new("Frame")
+	Fill.Parent = SliderBar
+	Fill.BackgroundColor3 = Color3.fromRGB(51,105,255)
+	Fill.BorderSizePixel = 0
+	Fill.Size = UDim2.new(0,0,1,0)
+	local FC = Instance.new("UICorner"); FC.Parent = Fill
+
+	local Knob = Instance.new("TextButton")
+	Knob.Parent = SliderBar
+	Knob.BackgroundColor3 = Color3.fromRGB(255,255,255)
+	Knob.BorderSizePixel = 0
+	Knob.AnchorPoint = Vector2.new(0.5,0.5)
+	Knob.Position = UDim2.new(0,0,0.5,0)
+	Knob.Size = UDim2.new(0,20,0,14)
+	Knob.ZIndex = 2
+	Knob.Text = ""
+	local KC = Instance.new("UICorner"); KC.CornerRadius = UDim.new(1,0); KC.Parent = Knob
+
+	local ValueLabel = Instance.new("TextLabel")
+	ValueLabel.Parent = TSFrame
+	ValueLabel.BackgroundTransparency = 1
+	ValueLabel.AnchorPoint = Vector2.new(1,0)
+	ValueLabel.Position = UDim2.new(1, 0, 0, 4)
+	ValueLabel.Size = UDim2.new(0.3, 0, 0, 18)
+	ValueLabel.Font = Enum.Font.Gotham
+	ValueLabel.TextSize = 12
+	ValueLabel.TextColor3 = Color3.fromRGB(180,180,200)
+	ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+	local toggled = toggleDefault
+	local currentValue = sliderDefault
+	local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local sliderEnabled = toggled
+
+	local function updateSlider(value)
+		value = math.clamp(value, sliderMin, sliderMax)
+		currentValue = math.floor(value)
+		local pct = (currentValue - sliderMin) / (sliderMax - sliderMin)
+		local bw = SliderBar.AbsoluteSize.X
+		local px = 10 + pct * (bw - 20)
+		TweenService:Create(Knob, tweenInfo, { Position = UDim2.new(0,px,0.5,0) }):Play()
+		TweenService:Create(Fill, tweenInfo, { Size = UDim2.new(0,px,1,0) }):Play()
+		ValueLabel.Text = tostring(currentValue)
+		if sliderEnabled then pcall(function() callback(toggled, currentValue) end) end
+	end
+
+	local function setToggle(val)
+		toggled = val
+		sliderEnabled = val
+		TweenService:Create(Orb, tweenInfo, { Position = val and UDim2.new(0,18,0.15,0) or UDim2.new(0,4,0.15,0) }):Play()
+		TweenService:Create(TogBg, tweenInfo, { BackgroundColor3 = val and Color3.fromRGB(28,48,103) or Color3.fromRGB(21,21,28) }):Play()
+		TweenService:Create(Orb, tweenInfo, { BackgroundColor3 = val and Color3.fromRGB(51,105,255) or Color3.fromRGB(37,37,57) }):Play()
+		TweenService:Create(TitleLabel, tweenInfo, { TextColor3 = val and Color3.fromRGB(255,255,255) or Color3.fromRGB(58,58,73) }):Play()
+		TweenService:Create(SliderBar, tweenInfo, { BackgroundColor3 = val and Color3.fromRGB(21,21,27) or Color3.fromRGB(16,16,20) }):Play()
+		pcall(function() callback(toggled, currentValue) end)
+	end
+
+	TogBg.MouseButton1Click:Connect(function() setToggle(not toggled) end)
+
+	local sliderDragging = false
+	Knob.MouseButton1Down:Connect(function()
+		if not sliderEnabled then return end
+		sliderDragging = true
+		self.SetSliderDragging(true)
+	end)
+	UIS.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			sliderDragging = false
+			self.SetSliderDragging(false)
+		end
+	end)
+	UIS.InputChanged:Connect(function(input)
+		if sliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+			local bp = SliderBar.AbsolutePosition.X
+			local bw = SliderBar.AbsoluteSize.X
+			local pct = math.clamp((input.Position.X - bp) / bw, 0, 1)
+			updateSlider(sliderMin + pct * (sliderMax - sliderMin))
+		end
+	end)
+	SliderBar.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 and sliderEnabled then
+			self.SetSliderDragging(true)
+			local pct = math.clamp((input.Position.X - SliderBar.AbsolutePosition.X) / SliderBar.AbsoluteSize.X, 0, 1)
+			updateSlider(sliderMin + pct * (sliderMax - sliderMin))
+		end
+	end)
+
+	task.spawn(function() task.wait(0.1); if SliderBar and SliderBar.Parent then updateSlider(sliderDefault) end end)
+
+	local tsData = {
+		Type = "ToggleSlider", Name = name, Element = TSFrame,
+		GetValue = function() return toggled, currentValue end,
+		SetToggle = function(val) setToggle(val) end,
+		SetSlider = updateSlider,
+		SetLabel = function(newName) TitleLabel.Text = newName end,
+	}
+	local configKey = name; local suffix = 2
+	while self.ConfigData[configKey] do configKey = name .. "_" .. suffix; suffix = suffix + 1 end
+	self.ConfigData[configKey] = tsData
+	self:_attachTooltip(TSFrame, tooltip)
+	return tsData
+end
+
+-- ─────────────────────────────────────────────
+-- AddRadioGroup  – segmented control, pick one
+-- ─────────────────────────────────────────────
+function SpareStackLib:AddRadioGroup(parent, name, options, default, callback, tooltip)
+	callback = callback or function() end
+	options = options or {}
+	default = default or options[1]
+
+	local RGFrame = Instance.new("Frame")
+	RGFrame.Name = "RadioGroup_" .. name
+	RGFrame.Parent = parent
+	RGFrame.BackgroundTransparency = 1
+	RGFrame.Size = UDim2.new(1, 0, 0, 58)
+
+	local TitleLabel = Instance.new("TextLabel")
+	TitleLabel.Parent = RGFrame
+	TitleLabel.BackgroundTransparency = 1
+	TitleLabel.Size = UDim2.new(1, 0, 0, 18)
+	TitleLabel.Font = Enum.Font.GothamBold
+	TitleLabel.Text = name
+	TitleLabel.TextColor3 = Color3.fromRGB(200, 200, 220)
+	TitleLabel.TextSize = 12
+	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+	local ButtonsRow = Instance.new("Frame")
+	ButtonsRow.Parent = RGFrame
+	ButtonsRow.BackgroundTransparency = 1
+	ButtonsRow.Position = UDim2.new(0, 0, 0, 22)
+	ButtonsRow.Size = UDim2.new(1, 0, 0, 32)
+
+	local ButtonsLayout = Instance.new("UIListLayout")
+	ButtonsLayout.Parent = ButtonsRow
+	ButtonsLayout.FillDirection = Enum.FillDirection.Horizontal
+	ButtonsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	ButtonsLayout.Padding = UDim.new(0, 4)
+
+	local selectedValue = default
+	local btnWidth = math.max(60, math.floor((320 - (#options - 1) * 4) / #options))
+	local tweenInfo = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local buttons = {}
+
+	for i, optText in ipairs(options) do
+		local Btn = Instance.new("TextButton")
+		Btn.Parent = ButtonsRow
+		Btn.BackgroundColor3 = (optText == default) and Color3.fromRGB(51,105,255) or Color3.fromRGB(22,22,30)
+		Btn.BorderSizePixel = 0
+		Btn.Size = UDim2.new(0, btnWidth, 1, 0)
+		Btn.Font = Enum.Font.GothamBold
+		Btn.Text = optText
+		Btn.TextColor3 = Color3.fromRGB(255,255,255)
+		Btn.TextSize = 12
+		Btn.LayoutOrder = i
+		local BC = Instance.new("UICorner"); BC.CornerRadius = UDim.new(0,5); BC.Parent = Btn
+
+		Btn.MouseButton1Click:Connect(function()
+			selectedValue = optText
+			for opt, btn in pairs(buttons) do
+				TweenService:Create(btn, tweenInfo, {
+					BackgroundColor3 = (opt == optText) and Color3.fromRGB(51,105,255) or Color3.fromRGB(22,22,30),
+				}):Play()
+			end
+			pcall(function() callback(selectedValue) end)
+		end)
+
+		buttons[optText] = Btn
+	end
+
+	local rgData = {
+		Type = "RadioGroup", Name = name, Element = RGFrame,
+		GetValue = function() return selectedValue end,
+		SetValue = function(val)
+			selectedValue = val
+			for opt, btn in pairs(buttons) do
+				btn.BackgroundColor3 = (opt == val) and Color3.fromRGB(51,105,255) or Color3.fromRGB(22,22,30)
+			end
+		end,
+		SetLabel = function(newName) TitleLabel.Text = newName end,
+	}
+	local configKey = name; local suffix = 2
+	while self.ConfigData[configKey] do configKey = name .. "_" .. suffix; suffix = suffix + 1 end
+	self.ConfigData[configKey] = rgData
+	self:_attachTooltip(RGFrame, tooltip)
+	return rgData
 end
 
 return SpareStackLib
