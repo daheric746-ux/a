@@ -1,4 +1,4 @@
-local SpareStackLib = {} -- kkakaksda
+local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
 
 local TweenService = game:GetService("TweenService")
@@ -548,33 +548,33 @@ function SpareStackLib:AddCategory(categoryName)
 	CategoryText.TextSize = 14
 	CategoryText.TextXAlignment = Enum.TextXAlignment.Left
 
-	-- Collapse indicator - thick dash/plus drawn as frames so it's always crisp
+	-- Collapse indicator — small crisp dash/plus
 	local CollapseArrow = Instance.new("Frame")
 	CollapseArrow.Name = "Arrow"
 	CollapseArrow.Parent = CategoryFrame
 	CollapseArrow.BackgroundTransparency = 1
-	CollapseArrow.Position = UDim2.new(0.88, 0, 0.5, -8)
-	CollapseArrow.Size = UDim2.new(0, 16, 0, 16)
+	CollapseArrow.Position = UDim2.new(0, 185, 0.5, -5)
+	CollapseArrow.Size = UDim2.new(0, 10, 0, 10)
 	CollapseArrow.ZIndex = 2
 
-	local DashH = Instance.new("Frame") -- horizontal bar (always visible)
+	local DashH = Instance.new("Frame")
 	DashH.Name = "DashH"
 	DashH.Parent = CollapseArrow
-	DashH.BackgroundColor3 = Color3.fromRGB(80, 80, 100)
+	DashH.BackgroundColor3 = Color3.fromRGB(90, 90, 110)
 	DashH.BorderSizePixel = 0
 	DashH.AnchorPoint = Vector2.new(0.5, 0.5)
 	DashH.Position = UDim2.new(0.5, 0, 0.5, 0)
-	DashH.Size = UDim2.new(1, 0, 0, 3)
+	DashH.Size = UDim2.new(1, 0, 0, 2)
 	local dhc = Instance.new("UICorner"); dhc.CornerRadius = UDim.new(1,0); dhc.Parent = DashH
 
-	local DashV = Instance.new("Frame") -- vertical bar (only shown when collapsed = "+")
+	local DashV = Instance.new("Frame")
 	DashV.Name = "DashV"
 	DashV.Parent = CollapseArrow
-	DashV.BackgroundColor3 = Color3.fromRGB(80, 80, 100)
+	DashV.BackgroundColor3 = Color3.fromRGB(90, 90, 110)
 	DashV.BorderSizePixel = 0
 	DashV.AnchorPoint = Vector2.new(0.5, 0.5)
 	DashV.Position = UDim2.new(0.5, 0, 0.5, 0)
-	DashV.Size = UDim2.new(0, 3, 1, 0)
+	DashV.Size = UDim2.new(0, 2, 1, 0)
 	DashV.Visible = false
 	local dvc = Instance.new("UICorner"); dvc.CornerRadius = UDim.new(1,0); dvc.Parent = DashV
 
@@ -2767,7 +2767,7 @@ function SpareStackLib:AddKeybind(parent, name, default, callback, tooltip)
 end
 
 -- ─────────────────────────────────────────────
--- AddColorPicker  – swatch button → HSV popup
+-- AddColorPicker  – swatch button → HSV popup (UIGradient-based, no asset IDs)
 -- ─────────────────────────────────────────────
 function SpareStackLib:AddColorPicker(parent, name, default, callback, tooltip)
 	callback = callback or function() end
@@ -2836,112 +2836,181 @@ function SpareStackLib:AddColorPicker(parent, name, default, callback, tooltip)
 		popupOpen = true
 
 		local mp = UIS:GetMouseLocation()
-		local px = math.clamp(mp.X - 10, 8, 900)
-		local py = math.clamp(mp.Y + 8, 8, 600)
+		local px = math.clamp(mp.X - 10, 8, 880)
+		local py = math.clamp(mp.Y + 8, 8, 560)
 
+		-- ── Popup container ───────────────────────────────────────
 		local Popup = Instance.new("Frame")
 		Popup.Name = "_ColorPopup_" .. name
 		Popup.Parent = self.Gui
 		Popup.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
 		Popup.BorderSizePixel = 0
 		Popup.Position = UDim2.new(0, px, 0, py)
-		Popup.Size = UDim2.new(0, 220, 0, 210)
+		Popup.Size = UDim2.new(0, 230, 0, 218)
 		Popup.ZIndex = 550
+		Popup.Active = true
+		Popup.ClipsDescendants = false
 
 		local PopCorner = Instance.new("UICorner")
 		PopCorner.CornerRadius = UDim.new(0, 8)
 		PopCorner.Parent = Popup
 
 		local PopStroke = Instance.new("UIStroke")
-		PopStroke.Color = Color3.fromRGB(40, 40, 58)
+		PopStroke.Color = Color3.fromRGB(45, 45, 65)
 		PopStroke.Thickness = 1
 		PopStroke.Parent = Popup
 
-		-- SV square (gradient)
-		local SVBox = Instance.new("ImageLabel")
+		-- Drag handle bar at top
+		local DragBar = Instance.new("TextButton")
+		DragBar.Parent = Popup
+		DragBar.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+		DragBar.BorderSizePixel = 0
+		DragBar.Size = UDim2.new(1, 0, 0, 22)
+		DragBar.Text = name
+		DragBar.Font = Enum.Font.GothamBold
+		DragBar.TextSize = 11
+		DragBar.TextColor3 = Color3.fromRGB(130, 130, 150)
+		DragBar.ZIndex = 560
+
+		local DBC = Instance.new("UICorner"); DBC.CornerRadius = UDim.new(0,8); DBC.Parent = DragBar
+
+		-- ── SV square (built with UIGradient — no assets needed) ──
+		-- Base: solid hue color
+		local SVBox = Instance.new("Frame")
 		SVBox.Name = "SVBox"
 		SVBox.Parent = Popup
 		SVBox.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
 		SVBox.BorderSizePixel = 0
-		SVBox.Position = UDim2.new(0, 10, 0, 10)
-		SVBox.Size = UDim2.new(0, 140, 0, 140)
-		SVBox.Image = "rbxassetid://4155801252"  -- white→transparent left-right
+		SVBox.Position = UDim2.new(0, 10, 0, 30)
+		SVBox.Size = UDim2.new(0, 148, 0, 148)
 		SVBox.ZIndex = 551
-
-		local SVBoxDark = Instance.new("ImageLabel")
-		SVBoxDark.Parent = SVBox
-		SVBoxDark.BackgroundTransparency = 1
-		SVBoxDark.BorderSizePixel = 0
-		SVBoxDark.Size = UDim2.new(1,0,1,0)
-		SVBoxDark.Image = "rbxassetid://4155801248"  -- transparent→black top-bottom
-		SVBoxDark.ZIndex = 552
+		SVBox.Active = true
+		SVBox.ClipsDescendants = true
 
 		local SVCorner = Instance.new("UICorner")
 		SVCorner.CornerRadius = UDim.new(0, 4)
 		SVCorner.Parent = SVBox
 
-		-- SV cursor
+		-- White saturation overlay (left=white, right=transparent)
+		local SatOverlay = Instance.new("Frame")
+		SatOverlay.Parent = SVBox
+		SatOverlay.BackgroundColor3 = Color3.fromRGB(255,255,255)
+		SatOverlay.BorderSizePixel = 0
+		SatOverlay.Size = UDim2.new(1,0,1,0)
+		SatOverlay.ZIndex = 552
+
+		local SatGrad = Instance.new("UIGradient")
+		SatGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,255)),
+		})
+		SatGrad.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		SatGrad.Rotation = 0
+		SatGrad.Parent = SatOverlay
+
+		-- Black value overlay (top=transparent, bottom=black)
+		local ValOverlay = Instance.new("Frame")
+		ValOverlay.Parent = SVBox
+		ValOverlay.BackgroundColor3 = Color3.fromRGB(0,0,0)
+		ValOverlay.BorderSizePixel = 0
+		ValOverlay.Size = UDim2.new(1,0,1,0)
+		ValOverlay.ZIndex = 553
+
+		local ValGrad = Instance.new("UIGradient")
+		ValGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(0,0,0)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(0,0,0)),
+		})
+		ValGrad.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(1, 0),
+		})
+		ValGrad.Rotation = 90
+		ValGrad.Parent = ValOverlay
+
+		-- SV cursor dot
 		local SVCursor = Instance.new("Frame")
 		SVCursor.Parent = SVBox
 		SVCursor.BackgroundColor3 = Color3.fromRGB(255,255,255)
 		SVCursor.BorderSizePixel = 0
-		SVCursor.AnchorPoint = Vector2.new(0.5,0.5)
-		SVCursor.Size = UDim2.new(0,10,0,10)
-		SVCursor.ZIndex = 553
+		SVCursor.AnchorPoint = Vector2.new(0.5, 0.5)
+		SVCursor.Size = UDim2.new(0, 12, 0, 12)
+		SVCursor.ZIndex = 560
 		SVCursor.Position = UDim2.new(s, 0, 1-v, 0)
-		local SVC2 = Instance.new("UICorner"); SVC2.CornerRadius = UDim.new(1,0); SVC2.Parent = SVCursor
 
-		-- Hue bar
-		local HueBar = Instance.new("ImageLabel")
+		local SVC2 = Instance.new("UICorner"); SVC2.CornerRadius = UDim.new(1,0); SVC2.Parent = SVCursor
+		local SVS = Instance.new("UIStroke"); SVS.Color = Color3.fromRGB(0,0,0); SVS.Thickness = 1; SVS.Parent = SVCursor
+
+		-- ── Hue bar (UIGradient rainbow) ─────────────────────────
+		local HueBar = Instance.new("Frame")
 		HueBar.Name = "HueBar"
 		HueBar.Parent = Popup
 		HueBar.BackgroundColor3 = Color3.fromRGB(255,255,255)
 		HueBar.BorderSizePixel = 0
-		HueBar.Position = UDim2.new(0, 158, 0, 10)
-		HueBar.Size = UDim2.new(0, 16, 0, 140)
-		HueBar.Image = "rbxassetid://4155801252"  -- reuse; we rotate
-		HueBar.Image = "rbxassetid://1531525421"  -- hue gradient vertical
+		HueBar.Position = UDim2.new(0, 166, 0, 30)
+		HueBar.Size = UDim2.new(0, 18, 0, 148)
 		HueBar.ZIndex = 551
+		HueBar.Active = true
 
 		local HueCorner = Instance.new("UICorner")
-		HueCorner.CornerRadius = UDim.new(0,4)
+		HueCorner.CornerRadius = UDim.new(0, 4)
 		HueCorner.Parent = HueBar
+
+		-- Build a 7-stop rainbow ColorSequence
+		local hueGrad = Instance.new("UIGradient")
+		hueGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0/6,  Color3.fromHSV(0,   1, 1)),
+			ColorSequenceKeypoint.new(1/6,  Color3.fromHSV(1/6, 1, 1)),
+			ColorSequenceKeypoint.new(2/6,  Color3.fromHSV(2/6, 1, 1)),
+			ColorSequenceKeypoint.new(3/6,  Color3.fromHSV(3/6, 1, 1)),
+			ColorSequenceKeypoint.new(4/6,  Color3.fromHSV(4/6, 1, 1)),
+			ColorSequenceKeypoint.new(5/6,  Color3.fromHSV(5/6, 1, 1)),
+			ColorSequenceKeypoint.new(1,    Color3.fromHSV(1,   1, 1)),
+		})
+		hueGrad.Rotation = 90  -- top = 0 hue, bottom = 1 hue (red→violet)
+		hueGrad.Parent = HueBar
 
 		local HueCursor = Instance.new("Frame")
 		HueCursor.Parent = HueBar
 		HueCursor.BackgroundColor3 = Color3.fromRGB(255,255,255)
 		HueCursor.BorderSizePixel = 0
 		HueCursor.AnchorPoint = Vector2.new(0.5, 0.5)
-		HueCursor.Size = UDim2.new(1.4, 0, 0, 4)
-		HueCursor.ZIndex = 553
-		HueCursor.Position = UDim2.new(0.5, 0, 1-h, 0)
-		local HC2 = Instance.new("UICorner"); HC2.CornerRadius = UDim.new(1,0); HC2.Parent = HueCursor
+		HueCursor.Size = UDim2.new(1.5, 0, 0, 4)
+		HueCursor.ZIndex = 560
+		HueCursor.Position = UDim2.new(0.5, 0, 1 - h, 0)
 
-		-- Result swatch + hex at bottom
+		local HC2 = Instance.new("UICorner"); HC2.CornerRadius = UDim.new(1,0); HC2.Parent = HueCursor
+		local HCS = Instance.new("UIStroke"); HCS.Color = Color3.fromRGB(0,0,0); HCS.Thickness = 1; HCS.Parent = HueCursor
+
+		-- ── Bottom row: result swatch + hex input ─────────────────
 		local ResultSwatch = Instance.new("Frame")
 		ResultSwatch.Parent = Popup
 		ResultSwatch.BackgroundColor3 = currentColor
 		ResultSwatch.BorderSizePixel = 0
-		ResultSwatch.Position = UDim2.new(0, 10, 0, 160)
-		ResultSwatch.Size = UDim2.new(0, 50, 0, 28)
+		ResultSwatch.Position = UDim2.new(0, 10, 0, 186)
+		ResultSwatch.Size = UDim2.new(0, 44, 0, 24)
 		ResultSwatch.ZIndex = 551
-		local RSC = Instance.new("UICorner"); RSC.CornerRadius = UDim.new(0,5); RSC.Parent = ResultSwatch
+		local RSC = Instance.new("UICorner"); RSC.CornerRadius = UDim.new(0,4); RSC.Parent = ResultSwatch
 
 		local HexBox = Instance.new("TextBox")
 		HexBox.Parent = Popup
 		HexBox.BackgroundColor3 = Color3.fromRGB(22,22,30)
 		HexBox.BorderSizePixel = 0
-		HexBox.Position = UDim2.new(0, 68, 0, 162)
-		HexBox.Size = UDim2.new(0, 142, 0, 24)
+		HexBox.Position = UDim2.new(0, 60, 0, 186)
+		HexBox.Size = UDim2.new(0, 162, 0, 24)
 		HexBox.Font = Enum.Font.Gotham
 		HexBox.Text = colorToHex(currentColor)
 		HexBox.TextColor3 = Color3.fromRGB(200,200,220)
 		HexBox.TextSize = 12
 		HexBox.ClearTextOnFocus = false
 		HexBox.ZIndex = 551
-		local HBC = Instance.new("UICorner"); HBC.CornerRadius = UDim.new(0,5); HBC.Parent = HexBox
+		local HBC = Instance.new("UICorner"); HBC.CornerRadius = UDim.new(0,4); HBC.Parent = HexBox
 		local HBP = Instance.new("UIPadding"); HBP.PaddingLeft = UDim.new(0,8); HBP.Parent = HexBox
 
+		-- ── applyColor ────────────────────────────────────────────
 		local function applyColor()
 			currentColor = Color3.fromHSV(h, s, v)
 			Swatch.BackgroundColor3 = currentColor
@@ -2949,18 +3018,13 @@ function SpareStackLib:AddColorPicker(parent, name, default, callback, tooltip)
 			SVBox.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
 			ResultSwatch.BackgroundColor3 = currentColor
 			HexBox.Text = colorToHex(currentColor)
-			SVCursor.Position = UDim2.new(s, 0, 1-v, 0)
-			HueCursor.Position = UDim2.new(0.5, 0, 1-h, 0)
+			SVCursor.Position = UDim2.new(s, 0, 1 - v, 0)
+			HueCursor.Position = UDim2.new(0.5, 0, 1 - h, 0)
 			pcall(function() callback(currentColor) end)
 		end
 
-		-- SV drag
+		-- ── SV drag ───────────────────────────────────────────────
 		local svDragging = false
-		SVBox.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 then
-				svDragging = true
-			end
-		end)
 
 		local svConn = UIS.InputChanged:Connect(function(input)
 			if svDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
@@ -2972,14 +3036,24 @@ function SpareStackLib:AddColorPicker(parent, name, default, callback, tooltip)
 		end)
 
 		local svEnd = UIS.InputEnded:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 then svDragging = false end
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				svDragging = false
+			end
 		end)
 
-		-- Hue drag
-		local hueDragging = false
-		HueBar.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 then hueDragging = true end
+		SVBox.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				svDragging = true
+				-- also update on initial click
+				local rel = UIS:GetMouseLocation() - SVBox.AbsolutePosition
+				s = math.clamp(rel.X / SVBox.AbsoluteSize.X, 0, 1)
+				v = 1 - math.clamp(rel.Y / SVBox.AbsoluteSize.Y, 0, 1)
+				applyColor()
+			end
 		end)
+
+		-- ── Hue drag ──────────────────────────────────────────────
+		local hueDragging = false
 
 		local hueConn = UIS.InputChanged:Connect(function(input)
 			if hueDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
@@ -2990,43 +3064,60 @@ function SpareStackLib:AddColorPicker(parent, name, default, callback, tooltip)
 		end)
 
 		local hueEnd = UIS.InputEnded:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 then hueDragging = false end
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				hueDragging = false
+			end
 		end)
 
-		-- Hex input
+		HueBar.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				hueDragging = true
+				local rel = UIS:GetMouseLocation().Y - HueBar.AbsolutePosition.Y
+				h = 1 - math.clamp(rel / HueBar.AbsoluteSize.Y, 0, 1)
+				applyColor()
+			end
+		end)
+
+		-- ── Hex input ─────────────────────────────────────────────
 		HexBox.FocusLost:Connect(function()
 			local hex = HexBox.Text:gsub("#","")
 			if #hex == 6 then
-				local r = tonumber(hex:sub(1,2),16)
-				local g = tonumber(hex:sub(3,4),16)
-				local b = tonumber(hex:sub(5,6),16)
+				local r = tonumber(hex:sub(1,2), 16)
+				local g = tonumber(hex:sub(3,4), 16)
+				local b = tonumber(hex:sub(5,6), 16)
 				if r and g and b then
-					local nc = Color3.fromRGB(r,g,b)
-					h,s,v = Color3.toHSV(nc)
+					local nc = Color3.fromRGB(r, g, b)
+					h, s, v = Color3.toHSV(nc)
 					applyColor()
 				end
 			end
 		end)
 
-		-- Popup drag
+		-- ── Popup drag (drag bar) ─────────────────────────────────
 		local popDrag, popDragStart, popStartPos2 = false, nil, nil
-		Popup.InputBegan:Connect(function(input)
+
+		DragBar.InputBegan:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.MouseButton1 then
-				local ml = UIS:GetMouseLocation()
-				local pp = Popup.AbsolutePosition
-				if ml.Y <= pp.Y + 10 then
-					popDrag = true; popDragStart = input.Position; popStartPos2 = Popup.Position
-				end
+				popDrag = true
+				popDragStart = input.Position
+				popStartPos2 = Popup.Position
 			end
 		end)
+
 		local pdConn = UIS.InputChanged:Connect(function(input)
 			if popDrag and input.UserInputType == Enum.UserInputType.MouseMovement then
 				local d = input.Position - popDragStart
-				Popup.Position = UDim2.new(popStartPos2.X.Scale, popStartPos2.X.Offset+d.X, popStartPos2.Y.Scale, popStartPos2.Y.Offset+d.Y)
+				Popup.Position = UDim2.new(
+					popStartPos2.X.Scale, popStartPos2.X.Offset + d.X,
+					popStartPos2.Y.Scale, popStartPos2.Y.Offset + d.Y
+				)
 			end
 		end)
+
 		local pdEnd = UIS.InputEnded:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 then popDrag = false end
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				popDrag = false
+			end
 		end)
 
 		Popup.AncestryChanged:Connect(function()
