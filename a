@@ -1,4 +1,4 @@
-local SpareStackLib = {} -- 123a
+local SpareStackLib = {} -- kkakaksda
 SpareStackLib.__index = SpareStackLib
 
 local TweenService = game:GetService("TweenService")
@@ -548,18 +548,35 @@ function SpareStackLib:AddCategory(categoryName)
 	CategoryText.TextSize = 14
 	CategoryText.TextXAlignment = Enum.TextXAlignment.Left
 
-	-- Collapse indicator
-	local CollapseArrow = Instance.new("TextLabel")
+	-- Collapse indicator - thick dash/plus drawn as frames so it's always crisp
+	local CollapseArrow = Instance.new("Frame")
 	CollapseArrow.Name = "Arrow"
 	CollapseArrow.Parent = CategoryFrame
 	CollapseArrow.BackgroundTransparency = 1
-	CollapseArrow.Position = UDim2.new(0.88, 0, 0.1, 0)
+	CollapseArrow.Position = UDim2.new(0.88, 0, 0.5, -8)
 	CollapseArrow.Size = UDim2.new(0, 16, 0, 16)
-	CollapseArrow.Font = Enum.Font.GothamBold
-	CollapseArrow.Text = "-"
-	CollapseArrow.TextColor3 = Color3.fromRGB(58, 58, 73)
-	CollapseArrow.TextSize = 16
 	CollapseArrow.ZIndex = 2
+
+	local DashH = Instance.new("Frame") -- horizontal bar (always visible)
+	DashH.Name = "DashH"
+	DashH.Parent = CollapseArrow
+	DashH.BackgroundColor3 = Color3.fromRGB(80, 80, 100)
+	DashH.BorderSizePixel = 0
+	DashH.AnchorPoint = Vector2.new(0.5, 0.5)
+	DashH.Position = UDim2.new(0.5, 0, 0.5, 0)
+	DashH.Size = UDim2.new(1, 0, 0, 3)
+	local dhc = Instance.new("UICorner"); dhc.CornerRadius = UDim.new(1,0); dhc.Parent = DashH
+
+	local DashV = Instance.new("Frame") -- vertical bar (only shown when collapsed = "+")
+	DashV.Name = "DashV"
+	DashV.Parent = CollapseArrow
+	DashV.BackgroundColor3 = Color3.fromRGB(80, 80, 100)
+	DashV.BorderSizePixel = 0
+	DashV.AnchorPoint = Vector2.new(0.5, 0.5)
+	DashV.Position = UDim2.new(0.5, 0, 0.5, 0)
+	DashV.Size = UDim2.new(0, 3, 1, 0)
+	DashV.Visible = false
+	local dvc = Instance.new("UICorner"); dvc.CornerRadius = UDim.new(1,0); dvc.Parent = DashV
 
 	local collapsed = false
 
@@ -575,7 +592,7 @@ function SpareStackLib:AddCategory(categoryName)
 
 		local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-		CollapseArrow.Text = collapsed and "+" or "-"
+		DashV.Visible = collapsed  -- show vertical bar when collapsed to make "+"
 
 		for _, tabName in pairs(self.Categories[categoryName].Tabs) do
 			local tabData = self.Tabs[tabName]
@@ -784,9 +801,14 @@ function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
 		table.insert(self.Tabs[tabName].Cards, Card)
 	end
 
+	local cardTitleLabel = Card:FindFirstChild("CardTitle")
+
 	return {
 		Card = Card,
 		ElementsHolder = ElementsHolder,
+		SetTitle = function(_, newTitle)
+			if cardTitleLabel then cardTitleLabel.Text = newTitle end
+		end,
 		AddToggle = function(_, name, default, callback, settings, tooltip)
 			return self:AddToggle(ElementsHolder, name, default, callback, settings, tooltip)
 		end,
@@ -798,6 +820,21 @@ function SpareStackLib:CreateCard(cardTitle, tabName, alignment)
 		end,
 		AddButton = function(_, name, callback, tooltip)
 			return self:AddButton(ElementsHolder, name, callback, tooltip)
+		end,
+		AddColorPicker = function(_, name, default, callback, tooltip)
+			return self:AddColorPicker(ElementsHolder, name, default, callback, tooltip)
+		end,
+		AddKeybind = function(_, name, default, callback, tooltip)
+			return self:AddKeybind(ElementsHolder, name, default, callback, tooltip)
+		end,
+		AddTextInput = function(_, name, placeholder, default, callback, tooltip)
+			return self:AddTextInput(ElementsHolder, name, placeholder, default, callback, tooltip)
+		end,
+		AddLabel = function(_, text)
+			return self:AddLabel(ElementsHolder, text)
+		end,
+		AddSeparator = function(_)
+			return self:AddSeparator(ElementsHolder)
 		end,
 	}
 end
@@ -1194,6 +1231,9 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings, tool
 				toggle()
 			end
 		end,
+		SetLabel = function(newName)
+			TitleLabel.Text = newName
+		end,
 		Toggle = toggle,
 		AddDependent = function(element)
 			table.insert(dependentElements, element)
@@ -1201,7 +1241,14 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings, tool
 		end,
 	}
 
-	self.ConfigData[name] = toggleData
+	-- Duplicate name protection: append suffix if key already taken
+	local configKey = name
+	local suffix = 2
+	while self.ConfigData[configKey] do
+		configKey = name .. "_" .. suffix
+		suffix = suffix + 1
+	end
+	self.ConfigData[configKey] = toggleData
 
 	self:_attachTooltip(Title, tooltip)
 
@@ -1377,12 +1424,21 @@ function SpareStackLib:AddSlider(parent, name, min, max, default, callback, tool
 			return currentValue
 		end,
 		SetValue = updateSlider,
+		SetLabel = function(newName)
+			Title.Text = newName
+		end,
 		SetEnabled = function(state)
 			toggleEnabled = state
 		end,
 	}
 
-	self.ConfigData[name] = sliderData
+	local configKey = name
+	local suffix = 2
+	while self.ConfigData[configKey] do
+		configKey = name .. "_" .. suffix
+		suffix = suffix + 1
+	end
+	self.ConfigData[configKey] = sliderData
 
 	self:_attachTooltip(SliderFrame, tooltip)
 
@@ -1541,7 +1597,13 @@ function SpareStackLib:AddDropdown(parent, name, options, default, callback, too
 		end,
 	}
 
-	self.ConfigData[name] = dropdownData
+	local configKey = name
+	local suffix = 2
+	while self.ConfigData[configKey] do
+		configKey = name .. "_" .. suffix
+		suffix = suffix + 1
+	end
+	self.ConfigData[configKey] = dropdownData
 
 	self:_attachTooltip(DropdownFrame, tooltip)
 
@@ -2468,6 +2530,538 @@ function SpareStackLib:Notify(title, text, duration, notifType, position)
 	barTween:Play()
 	task.wait(duration)
 	close()
+end
+
+-- ─────────────────────────────────────────────
+-- Window:Destroy()
+-- ─────────────────────────────────────────────
+function SpareStackLib:Destroy()
+	if self.Gui and self.Gui.Parent then
+		self.Gui:Destroy()
+	end
+	if self.Watermark and self.Watermark.Parent then
+		self.Watermark:Destroy()
+	end
+	if self.MobileToggle and self.MobileToggle.Parent then
+		self.MobileToggle:Destroy()
+	end
+end
+
+-- ─────────────────────────────────────────────
+-- AddLabel  – static styled text block
+-- ─────────────────────────────────────────────
+function SpareStackLib:AddLabel(parent, text)
+	local LabelFrame = Instance.new("Frame")
+	LabelFrame.Name = "Label_" .. text:sub(1, 20)
+	LabelFrame.Parent = parent
+	LabelFrame.BackgroundTransparency = 1
+	LabelFrame.Size = UDim2.new(1, 0, 0, 30)
+
+	local LabelText = Instance.new("TextLabel")
+	LabelText.Name = "LabelText"
+	LabelText.Parent = LabelFrame
+	LabelText.BackgroundTransparency = 1
+	LabelText.Size = UDim2.new(1, 0, 1, 0)
+	LabelText.Font = Enum.Font.Gotham
+	LabelText.Text = text
+	LabelText.TextColor3 = Color3.fromRGB(130, 130, 150)
+	LabelText.TextSize = 12
+	LabelText.TextXAlignment = Enum.TextXAlignment.Left
+	LabelText.TextWrapped = true
+
+	return {
+		Element = LabelFrame,
+		SetText = function(newText) LabelText.Text = newText end,
+	}
+end
+
+-- ─────────────────────────────────────────────
+-- AddSeparator  – thin horizontal divider
+-- ─────────────────────────────────────────────
+function SpareStackLib:AddSeparator(parent)
+	local Sep = Instance.new("Frame")
+	Sep.Name = "Separator"
+	Sep.Parent = parent
+	Sep.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
+	Sep.BorderSizePixel = 0
+	Sep.Size = UDim2.new(1, 0, 0, 1)
+
+	local SepCorner = Instance.new("UICorner")
+	SepCorner.CornerRadius = UDim.new(1, 0)
+	SepCorner.Parent = Sep
+
+	return Sep
+end
+
+-- ─────────────────────────────────────────────
+-- AddTextInput  – labeled textbox, saves to config
+-- ─────────────────────────────────────────────
+function SpareStackLib:AddTextInput(parent, name, placeholder, default, callback, tooltip)
+	callback = callback or function() end
+	placeholder = placeholder or "Enter text..."
+	default = default or ""
+
+	local InputFrame = Instance.new("Frame")
+	InputFrame.Name = "TextInput_" .. name
+	InputFrame.Parent = parent
+	InputFrame.BackgroundTransparency = 1
+	InputFrame.Size = UDim2.new(1, 0, 0, 60)
+
+	local TitleLabel = Instance.new("TextLabel")
+	TitleLabel.Parent = InputFrame
+	TitleLabel.BackgroundTransparency = 1
+	TitleLabel.Size = UDim2.new(1, 0, 0, 22)
+	TitleLabel.Font = Enum.Font.GothamBold
+	TitleLabel.Text = name
+	TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	TitleLabel.TextSize = 13
+	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+	local Box = Instance.new("TextBox")
+	Box.Name = "Box"
+	Box.Parent = InputFrame
+	Box.BackgroundColor3 = Color3.fromRGB(20, 20, 27)
+	Box.BorderSizePixel = 0
+	Box.Position = UDim2.new(0, 0, 0, 26)
+	Box.Size = UDim2.new(1, 0, 0, 32)
+	Box.Font = Enum.Font.Gotham
+	Box.PlaceholderText = placeholder
+	Box.Text = default
+	Box.TextColor3 = Color3.fromRGB(255, 255, 255)
+	Box.PlaceholderColor3 = Color3.fromRGB(80, 80, 100)
+	Box.TextSize = 13
+	Box.TextXAlignment = Enum.TextXAlignment.Left
+	Box.ClearTextOnFocus = false
+
+	local BoxCorner = Instance.new("UICorner")
+	BoxCorner.CornerRadius = UDim.new(0, 5)
+	BoxCorner.Parent = Box
+
+	local BoxPad = Instance.new("UIPadding")
+	BoxPad.PaddingLeft = UDim.new(0, 10)
+	BoxPad.Parent = Box
+
+	Box.FocusLost:Connect(function()
+		pcall(function() callback(Box.Text) end)
+	end)
+
+	local inputData = {
+		Type = "TextInput",
+		Name = name,
+		Element = InputFrame,
+		GetValue = function() return Box.Text end,
+		SetValue = function(v) Box.Text = tostring(v) end,
+		SetLabel = function(newName) TitleLabel.Text = newName end,
+	}
+
+	local configKey = name
+	local suffix = 2
+	while self.ConfigData[configKey] do
+		configKey = name .. "_" .. suffix
+		suffix = suffix + 1
+	end
+	self.ConfigData[configKey] = inputData
+
+	self:_attachTooltip(InputFrame, tooltip)
+	return inputData
+end
+
+-- ─────────────────────────────────────────────
+-- AddKeybind  – standalone keybind element
+-- ─────────────────────────────────────────────
+function SpareStackLib:AddKeybind(parent, name, default, callback, tooltip)
+	callback = callback or function() end
+	default = default or "None"
+
+	local KeyFrame = Instance.new("Frame")
+	KeyFrame.Name = "Keybind_" .. name
+	KeyFrame.Parent = parent
+	KeyFrame.BackgroundTransparency = 1
+	KeyFrame.Size = UDim2.new(1, 0, 0, 50)
+
+	local TitleLabel = Instance.new("TextLabel")
+	TitleLabel.Parent = KeyFrame
+	TitleLabel.BackgroundTransparency = 1
+	TitleLabel.Size = UDim2.new(0.55, 0, 1, 0)
+	TitleLabel.Font = Enum.Font.GothamBold
+	TitleLabel.Text = name
+	TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	TitleLabel.TextSize = 14
+	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+	local KeyBtn = Instance.new("TextButton")
+	KeyBtn.Parent = KeyFrame
+	KeyBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 27)
+	KeyBtn.BorderSizePixel = 0
+	KeyBtn.AnchorPoint = Vector2.new(1, 0.5)
+	KeyBtn.Position = UDim2.new(1, 0, 0.5, 0)
+	KeyBtn.Size = UDim2.new(0, 90, 0, 28)
+	KeyBtn.Font = Enum.Font.GothamBold
+	KeyBtn.Text = default
+	KeyBtn.TextColor3 = Color3.fromRGB(200, 200, 220)
+	KeyBtn.TextSize = 13
+
+	local KeyCorner = Instance.new("UICorner")
+	KeyCorner.CornerRadius = UDim.new(0, 5)
+	KeyCorner.Parent = KeyBtn
+
+	local KeyStroke = Instance.new("UIStroke")
+	KeyStroke.Color = Color3.fromRGB(40, 40, 58)
+	KeyStroke.Thickness = 1
+	KeyStroke.Parent = KeyBtn
+
+	local currentKey = default
+	local listening = false
+	local keyConn
+
+	KeyBtn.MouseButton1Click:Connect(function()
+		if listening then return end
+		listening = true
+		KeyBtn.Text = "..."
+		KeyBtn.TextColor3 = Color3.fromRGB(51, 105, 255)
+		TweenService:Create(KeyStroke, TweenInfo.new(0.15), { Color = Color3.fromRGB(51, 105, 255) }):Play()
+
+		keyConn = UIS.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.Keyboard then
+				listening = false
+				keyConn:Disconnect()
+				currentKey = input.KeyCode.Name
+				KeyBtn.Text = currentKey
+				KeyBtn.TextColor3 = Color3.fromRGB(200, 200, 220)
+				TweenService:Create(KeyStroke, TweenInfo.new(0.15), { Color = Color3.fromRGB(40, 40, 58) }):Play()
+				pcall(function() callback(currentKey) end)
+			end
+		end)
+	end)
+
+	-- Right-click to clear
+	KeyBtn.MouseButton2Click:Connect(function()
+		if listening then return end
+		currentKey = "None"
+		KeyBtn.Text = "None"
+		pcall(function() callback(currentKey) end)
+	end)
+
+	local keybindData = {
+		Type = "Keybind",
+		Name = name,
+		Element = KeyFrame,
+		GetValue = function() return currentKey end,
+		SetValue = function(v)
+			currentKey = v or "None"
+			KeyBtn.Text = currentKey
+		end,
+		SetLabel = function(newName) TitleLabel.Text = newName end,
+	}
+
+	local configKey = name
+	local suffix = 2
+	while self.ConfigData[configKey] do
+		configKey = name .. "_" .. suffix
+		suffix = suffix + 1
+	end
+	self.ConfigData[configKey] = keybindData
+
+	self:_attachTooltip(KeyFrame, tooltip)
+	return keybindData
+end
+
+-- ─────────────────────────────────────────────
+-- AddColorPicker  – swatch button → HSV popup
+-- ─────────────────────────────────────────────
+function SpareStackLib:AddColorPicker(parent, name, default, callback, tooltip)
+	callback = callback or function() end
+	default = default or Color3.fromRGB(255, 255, 255)
+
+	local h, s, v = Color3.toHSV(default)
+	local currentColor = default
+
+	local PickerFrame = Instance.new("Frame")
+	PickerFrame.Name = "ColorPicker_" .. name
+	PickerFrame.Parent = parent
+	PickerFrame.BackgroundTransparency = 1
+	PickerFrame.Size = UDim2.new(1, 0, 0, 50)
+
+	local TitleLabel = Instance.new("TextLabel")
+	TitleLabel.Parent = PickerFrame
+	TitleLabel.BackgroundTransparency = 1
+	TitleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+	TitleLabel.Font = Enum.Font.GothamBold
+	TitleLabel.Text = name
+	TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	TitleLabel.TextSize = 14
+	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+	-- Swatch preview button
+	local Swatch = Instance.new("TextButton")
+	Swatch.Parent = PickerFrame
+	Swatch.BackgroundColor3 = currentColor
+	Swatch.BorderSizePixel = 0
+	Swatch.AnchorPoint = Vector2.new(1, 0.5)
+	Swatch.Position = UDim2.new(1, 0, 0.5, 0)
+	Swatch.Size = UDim2.new(0, 40, 0, 28)
+	Swatch.Text = ""
+
+	local SwatchCorner = Instance.new("UICorner")
+	SwatchCorner.CornerRadius = UDim.new(0, 5)
+	SwatchCorner.Parent = Swatch
+
+	local SwatchStroke = Instance.new("UIStroke")
+	SwatchStroke.Color = Color3.fromRGB(50, 50, 70)
+	SwatchStroke.Thickness = 1
+	SwatchStroke.Parent = Swatch
+
+	-- Hex label next to swatch
+	local HexLabel = Instance.new("TextLabel")
+	HexLabel.Parent = PickerFrame
+	HexLabel.BackgroundTransparency = 1
+	HexLabel.AnchorPoint = Vector2.new(1, 0.5)
+	HexLabel.Position = UDim2.new(1, -48, 0.5, 0)
+	HexLabel.Size = UDim2.new(0, 70, 0, 20)
+	HexLabel.Font = Enum.Font.Gotham
+	HexLabel.TextColor3 = Color3.fromRGB(120, 120, 140)
+	HexLabel.TextSize = 11
+	HexLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+	local function colorToHex(c)
+		return string.format("#%02X%02X%02X", math.floor(c.R*255), math.floor(c.G*255), math.floor(c.B*255))
+	end
+	HexLabel.Text = colorToHex(currentColor)
+
+	local popupOpen = false
+
+	Swatch.MouseButton1Click:Connect(function()
+		local existing = self.Gui:FindFirstChild("_ColorPopup_" .. name)
+		if existing then existing:Destroy(); popupOpen = false; return end
+		popupOpen = true
+
+		local mp = UIS:GetMouseLocation()
+		local px = math.clamp(mp.X - 10, 8, 900)
+		local py = math.clamp(mp.Y + 8, 8, 600)
+
+		local Popup = Instance.new("Frame")
+		Popup.Name = "_ColorPopup_" .. name
+		Popup.Parent = self.Gui
+		Popup.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
+		Popup.BorderSizePixel = 0
+		Popup.Position = UDim2.new(0, px, 0, py)
+		Popup.Size = UDim2.new(0, 220, 0, 210)
+		Popup.ZIndex = 550
+
+		local PopCorner = Instance.new("UICorner")
+		PopCorner.CornerRadius = UDim.new(0, 8)
+		PopCorner.Parent = Popup
+
+		local PopStroke = Instance.new("UIStroke")
+		PopStroke.Color = Color3.fromRGB(40, 40, 58)
+		PopStroke.Thickness = 1
+		PopStroke.Parent = Popup
+
+		-- SV square (gradient)
+		local SVBox = Instance.new("ImageLabel")
+		SVBox.Name = "SVBox"
+		SVBox.Parent = Popup
+		SVBox.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+		SVBox.BorderSizePixel = 0
+		SVBox.Position = UDim2.new(0, 10, 0, 10)
+		SVBox.Size = UDim2.new(0, 140, 0, 140)
+		SVBox.Image = "rbxassetid://4155801252"  -- white→transparent left-right
+		SVBox.ZIndex = 551
+
+		local SVBoxDark = Instance.new("ImageLabel")
+		SVBoxDark.Parent = SVBox
+		SVBoxDark.BackgroundTransparency = 1
+		SVBoxDark.BorderSizePixel = 0
+		SVBoxDark.Size = UDim2.new(1,0,1,0)
+		SVBoxDark.Image = "rbxassetid://4155801248"  -- transparent→black top-bottom
+		SVBoxDark.ZIndex = 552
+
+		local SVCorner = Instance.new("UICorner")
+		SVCorner.CornerRadius = UDim.new(0, 4)
+		SVCorner.Parent = SVBox
+
+		-- SV cursor
+		local SVCursor = Instance.new("Frame")
+		SVCursor.Parent = SVBox
+		SVCursor.BackgroundColor3 = Color3.fromRGB(255,255,255)
+		SVCursor.BorderSizePixel = 0
+		SVCursor.AnchorPoint = Vector2.new(0.5,0.5)
+		SVCursor.Size = UDim2.new(0,10,0,10)
+		SVCursor.ZIndex = 553
+		SVCursor.Position = UDim2.new(s, 0, 1-v, 0)
+		local SVC2 = Instance.new("UICorner"); SVC2.CornerRadius = UDim.new(1,0); SVC2.Parent = SVCursor
+
+		-- Hue bar
+		local HueBar = Instance.new("ImageLabel")
+		HueBar.Name = "HueBar"
+		HueBar.Parent = Popup
+		HueBar.BackgroundColor3 = Color3.fromRGB(255,255,255)
+		HueBar.BorderSizePixel = 0
+		HueBar.Position = UDim2.new(0, 158, 0, 10)
+		HueBar.Size = UDim2.new(0, 16, 0, 140)
+		HueBar.Image = "rbxassetid://4155801252"  -- reuse; we rotate
+		HueBar.Image = "rbxassetid://1531525421"  -- hue gradient vertical
+		HueBar.ZIndex = 551
+
+		local HueCorner = Instance.new("UICorner")
+		HueCorner.CornerRadius = UDim.new(0,4)
+		HueCorner.Parent = HueBar
+
+		local HueCursor = Instance.new("Frame")
+		HueCursor.Parent = HueBar
+		HueCursor.BackgroundColor3 = Color3.fromRGB(255,255,255)
+		HueCursor.BorderSizePixel = 0
+		HueCursor.AnchorPoint = Vector2.new(0.5, 0.5)
+		HueCursor.Size = UDim2.new(1.4, 0, 0, 4)
+		HueCursor.ZIndex = 553
+		HueCursor.Position = UDim2.new(0.5, 0, 1-h, 0)
+		local HC2 = Instance.new("UICorner"); HC2.CornerRadius = UDim.new(1,0); HC2.Parent = HueCursor
+
+		-- Result swatch + hex at bottom
+		local ResultSwatch = Instance.new("Frame")
+		ResultSwatch.Parent = Popup
+		ResultSwatch.BackgroundColor3 = currentColor
+		ResultSwatch.BorderSizePixel = 0
+		ResultSwatch.Position = UDim2.new(0, 10, 0, 160)
+		ResultSwatch.Size = UDim2.new(0, 50, 0, 28)
+		ResultSwatch.ZIndex = 551
+		local RSC = Instance.new("UICorner"); RSC.CornerRadius = UDim.new(0,5); RSC.Parent = ResultSwatch
+
+		local HexBox = Instance.new("TextBox")
+		HexBox.Parent = Popup
+		HexBox.BackgroundColor3 = Color3.fromRGB(22,22,30)
+		HexBox.BorderSizePixel = 0
+		HexBox.Position = UDim2.new(0, 68, 0, 162)
+		HexBox.Size = UDim2.new(0, 142, 0, 24)
+		HexBox.Font = Enum.Font.Gotham
+		HexBox.Text = colorToHex(currentColor)
+		HexBox.TextColor3 = Color3.fromRGB(200,200,220)
+		HexBox.TextSize = 12
+		HexBox.ClearTextOnFocus = false
+		HexBox.ZIndex = 551
+		local HBC = Instance.new("UICorner"); HBC.CornerRadius = UDim.new(0,5); HBC.Parent = HexBox
+		local HBP = Instance.new("UIPadding"); HBP.PaddingLeft = UDim.new(0,8); HBP.Parent = HexBox
+
+		local function applyColor()
+			currentColor = Color3.fromHSV(h, s, v)
+			Swatch.BackgroundColor3 = currentColor
+			HexLabel.Text = colorToHex(currentColor)
+			SVBox.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+			ResultSwatch.BackgroundColor3 = currentColor
+			HexBox.Text = colorToHex(currentColor)
+			SVCursor.Position = UDim2.new(s, 0, 1-v, 0)
+			HueCursor.Position = UDim2.new(0.5, 0, 1-h, 0)
+			pcall(function() callback(currentColor) end)
+		end
+
+		-- SV drag
+		local svDragging = false
+		SVBox.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				svDragging = true
+			end
+		end)
+
+		local svConn = UIS.InputChanged:Connect(function(input)
+			if svDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+				local rel = input.Position - SVBox.AbsolutePosition
+				s = math.clamp(rel.X / SVBox.AbsoluteSize.X, 0, 1)
+				v = 1 - math.clamp(rel.Y / SVBox.AbsoluteSize.Y, 0, 1)
+				applyColor()
+			end
+		end)
+
+		local svEnd = UIS.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then svDragging = false end
+		end)
+
+		-- Hue drag
+		local hueDragging = false
+		HueBar.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then hueDragging = true end
+		end)
+
+		local hueConn = UIS.InputChanged:Connect(function(input)
+			if hueDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+				local rel = input.Position.Y - HueBar.AbsolutePosition.Y
+				h = 1 - math.clamp(rel / HueBar.AbsoluteSize.Y, 0, 1)
+				applyColor()
+			end
+		end)
+
+		local hueEnd = UIS.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then hueDragging = false end
+		end)
+
+		-- Hex input
+		HexBox.FocusLost:Connect(function()
+			local hex = HexBox.Text:gsub("#","")
+			if #hex == 6 then
+				local r = tonumber(hex:sub(1,2),16)
+				local g = tonumber(hex:sub(3,4),16)
+				local b = tonumber(hex:sub(5,6),16)
+				if r and g and b then
+					local nc = Color3.fromRGB(r,g,b)
+					h,s,v = Color3.toHSV(nc)
+					applyColor()
+				end
+			end
+		end)
+
+		-- Popup drag
+		local popDrag, popDragStart, popStartPos2 = false, nil, nil
+		Popup.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				local ml = UIS:GetMouseLocation()
+				local pp = Popup.AbsolutePosition
+				if ml.Y <= pp.Y + 10 then
+					popDrag = true; popDragStart = input.Position; popStartPos2 = Popup.Position
+				end
+			end
+		end)
+		local pdConn = UIS.InputChanged:Connect(function(input)
+			if popDrag and input.UserInputType == Enum.UserInputType.MouseMovement then
+				local d = input.Position - popDragStart
+				Popup.Position = UDim2.new(popStartPos2.X.Scale, popStartPos2.X.Offset+d.X, popStartPos2.Y.Scale, popStartPos2.Y.Offset+d.Y)
+			end
+		end)
+		local pdEnd = UIS.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then popDrag = false end
+		end)
+
+		Popup.AncestryChanged:Connect(function()
+			svConn:Disconnect(); svEnd:Disconnect()
+			hueConn:Disconnect(); hueEnd:Disconnect()
+			pdConn:Disconnect(); pdEnd:Disconnect()
+			popupOpen = false
+		end)
+	end)
+
+	local pickerData = {
+		Type = "ColorPicker",
+		Name = name,
+		Element = PickerFrame,
+		GetValue = function() return currentColor end,
+		SetValue = function(c)
+			currentColor = c
+			h, s, v = Color3.toHSV(c)
+			Swatch.BackgroundColor3 = c
+			HexLabel.Text = colorToHex(c)
+			pcall(function() callback(c) end)
+		end,
+		SetLabel = function(newName) TitleLabel.Text = newName end,
+	}
+
+	local configKey = name
+	local suffix = 2
+	while self.ConfigData[configKey] do
+		configKey = name .. "_" .. suffix
+		suffix = suffix + 1
+	end
+	self.ConfigData[configKey] = pickerData
+
+	self:_attachTooltip(PickerFrame, tooltip)
+	return pickerData
 end
 
 return SpareStackLib
