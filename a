@@ -1,4 +1,4 @@
-local SpareStackLib = {} --123312312
+local SpareStackLib = {}
 SpareStackLib.__index = SpareStackLib
 
 local TweenService = game:GetService("TweenService")
@@ -548,12 +548,13 @@ function SpareStackLib:AddCategory(categoryName)
 	CategoryText.TextSize = 14
 	CategoryText.TextXAlignment = Enum.TextXAlignment.Left
 
-	-- Collapse indicator — tiny subtle dash/plus
+	-- Collapse indicator — tiny subtle dash/plus, anchored to right edge
 	local CollapseArrow = Instance.new("Frame")
 	CollapseArrow.Name = "Arrow"
 	CollapseArrow.Parent = CategoryFrame
 	CollapseArrow.BackgroundTransparency = 1
-	CollapseArrow.Position = UDim2.new(0, 187, 0.5, -3)
+	CollapseArrow.AnchorPoint = Vector2.new(1, 0.5)
+	CollapseArrow.Position = UDim2.new(1, -6, 0.5, 0)
 	CollapseArrow.Size = UDim2.new(0, 7, 0, 7)
 	CollapseArrow.ZIndex = 2
 
@@ -1132,7 +1133,9 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings, tool
 		}):Play()
 
 		for _, element in pairs(dependentElements) do
-			element.SetEnabled(toggled)
+			if element and element.SetEnabled then
+				element.SetEnabled(toggled)
+			end
 		end
 
 		pcall(function()
@@ -1379,7 +1382,9 @@ function SpareStackLib:AddToggle(parent, name, default, callback, settings, tool
 		Toggle = toggle,
 		AddDependent = function(element)
 			table.insert(dependentElements, element)
-			element.SetEnabled(toggled)
+			if element and element.SetEnabled then
+				element.SetEnabled(toggled)
+			end
 		end,
 	}
 
@@ -3331,146 +3336,190 @@ function SpareStackLib:AddMultiDropdown(parent, name, options, defaults, callbac
 		for _, v in ipairs(defaults) do selected[v] = true end
 	end
 
+	-- MDFrame grows to include the open list — no clipping issues with ElementsHolder
+	local CLOSED_H = 62
+	local ROW_H    = 32
+	local LIST_PAD = 10  -- top+bottom padding inside list
+	local dropH    = math.min(#options * ROW_H + LIST_PAD, 180)
+	local OPEN_H   = CLOSED_H + dropH + 4
+
 	local MDFrame = Instance.new("Frame")
 	MDFrame.Name = "MultiDropdown_" .. name
 	MDFrame.Parent = parent
 	MDFrame.BackgroundTransparency = 1
-	MDFrame.Size = UDim2.new(1, 0, 0, 45)
+	MDFrame.Size = UDim2.new(1, 0, 0, CLOSED_H)
 	MDFrame.ClipsDescendants = false
-	MDFrame.ZIndex = 5
 
-	local function getSelectedText()
-		local parts = {}
-		for _, opt in ipairs(options) do
-			if selected[opt] then table.insert(parts, opt) end
-		end
-		if #parts == 0 then return "  None" end
-		if #parts == #options then return "  All" end
-		return "  " .. table.concat(parts, ", ")
-	end
-
-	local Button = Instance.new("TextButton")
-	Button.Parent = MDFrame
-	Button.BackgroundColor3 = Color3.fromRGB(20, 20, 27)
-	Button.BorderSizePixel = 0
-	Button.Size = UDim2.new(1, 0, 0, 36)
-	Button.Font = Enum.Font.Gotham
-	Button.Text = getSelectedText()
-	Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-	Button.TextSize = 13
-	Button.TextXAlignment = Enum.TextXAlignment.Left
-	Button.TextTruncate = Enum.TextTruncate.AtEnd
-	local BC = Instance.new("UICorner"); BC.CornerRadius = UDim.new(0,3); BC.Parent = Button
-	local BP = Instance.new("UIPadding"); BP.PaddingLeft = UDim.new(0,10); BP.Parent = Button
-
+	-- Label above button
 	local BtnLabel = Instance.new("TextLabel")
 	BtnLabel.Parent = MDFrame
 	BtnLabel.BackgroundTransparency = 1
-	BtnLabel.Position = UDim2.new(0, 0, 0, -20)
+	BtnLabel.Position = UDim2.new(0, 0, 0, 0)
 	BtnLabel.Size = UDim2.new(1, 0, 0, 18)
 	BtnLabel.Font = Enum.Font.GothamBold
 	BtnLabel.Text = name
 	BtnLabel.TextColor3 = Color3.fromRGB(200, 200, 220)
 	BtnLabel.TextSize = 11
 	BtnLabel.TextXAlignment = Enum.TextXAlignment.Left
-	MDFrame.Size = UDim2.new(1, 0, 0, 60)
-	Button.Position = UDim2.new(0, 0, 0, 22)
 
-	local Arrow = Instance.new("ImageLabel")
+	local function getSelectedText()
+		local parts = {}
+		for _, opt in ipairs(options) do
+			if selected[opt] then table.insert(parts, opt) end
+		end
+		if #parts == 0 then return "None" end
+		if #parts == #options then return "All" end
+		return table.concat(parts, ", ")
+	end
+
+	-- Main dropdown button
+	local Button = Instance.new("TextButton")
+	Button.Parent = MDFrame
+	Button.BackgroundColor3 = Color3.fromRGB(20, 20, 27)
+	Button.BorderSizePixel = 0
+	Button.Position = UDim2.new(0, 0, 0, 22)
+	Button.Size = UDim2.new(1, 0, 0, 36)
+	Button.Font = Enum.Font.Gotham
+	Button.Text = ""
+	Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+	Button.TextSize = 13
+	Button.ZIndex = 2
+	local BC = Instance.new("UICorner"); BC.CornerRadius = UDim.new(0, 6); BC.Parent = Button
+
+	-- Value text inside button (left side, leaves room for arrow)
+	local ValLabel = Instance.new("TextLabel")
+	ValLabel.Parent = Button
+	ValLabel.BackgroundTransparency = 1
+	ValLabel.Position = UDim2.new(0, 10, 0, 0)
+	ValLabel.Size = UDim2.new(1, -36, 1, 0)
+	ValLabel.Font = Enum.Font.Gotham
+	ValLabel.Text = getSelectedText()
+	ValLabel.TextColor3 = Color3.fromRGB(180, 180, 200)
+	ValLabel.TextSize = 13
+	ValLabel.TextXAlignment = Enum.TextXAlignment.Left
+	ValLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	ValLabel.ZIndex = 3
+
+	-- Arrow chevron (right side of button)
+	local Arrow = Instance.new("TextLabel")
 	Arrow.Parent = Button
 	Arrow.BackgroundTransparency = 1
-	Arrow.Position = UDim2.new(0.88, 0, 0.22, 0)
-	Arrow.Size = UDim2.new(0, 20, 0, 20)
-	Arrow.Image = "rbxassetid://134116754541554"
+	Arrow.AnchorPoint = Vector2.new(1, 0.5)
+	Arrow.Position = UDim2.new(1, -10, 0.5, 0)
+	Arrow.Size = UDim2.new(0, 18, 0, 18)
+	Arrow.Font = Enum.Font.GothamBold
+	Arrow.Text = "▾"
+	Arrow.TextColor3 = Color3.fromRGB(100, 100, 130)
+	Arrow.TextSize = 14
+	Arrow.ZIndex = 3
 
+	-- Options list (parented inside MDFrame, revealed by growing MDFrame)
 	local OptionsHolder = Instance.new("ScrollingFrame")
 	OptionsHolder.Parent = MDFrame
-	OptionsHolder.BackgroundColor3 = Color3.fromRGB(20, 20, 27)
+	OptionsHolder.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
 	OptionsHolder.BorderSizePixel = 0
-	OptionsHolder.Position = UDim2.new(0, 0, 0, 63)
-	OptionsHolder.Size = UDim2.new(1, 0, 0, 0)
+	OptionsHolder.Position = UDim2.new(0, 0, 0, CLOSED_H + 2)
+	OptionsHolder.Size = UDim2.new(1, 0, 0, dropH)
 	OptionsHolder.Visible = false
-	OptionsHolder.ScrollBarThickness = 0
+	OptionsHolder.ScrollBarThickness = 2
+	OptionsHolder.ScrollBarImageColor3 = Color3.fromRGB(51, 105, 255)
+	OptionsHolder.CanvasSize = UDim2.new(0, 0, 0, #options * ROW_H + LIST_PAD)
 	OptionsHolder.ClipsDescendants = true
 	OptionsHolder.ZIndex = 10
-	local OHC = Instance.new("UICorner"); OHC.CornerRadius = UDim.new(0,3); OHC.Parent = OptionsHolder
+	local OHC = Instance.new("UICorner"); OHC.CornerRadius = UDim.new(0, 6); OHC.Parent = OptionsHolder
+	local OHS = Instance.new("UIStroke"); OHS.Color = Color3.fromRGB(40, 40, 55); OHS.Thickness = 1; OHS.Parent = OptionsHolder
+
+	local OHP = Instance.new("UIPadding")
+	OHP.PaddingTop    = UDim.new(0, 5)
+	OHP.PaddingBottom = UDim.new(0, 5)
+	OHP.PaddingLeft   = UDim.new(0, 6)
+	OHP.PaddingRight  = UDim.new(0, 6)
+	OHP.Parent = OptionsHolder
 
 	local OptionsList = Instance.new("UIListLayout")
 	OptionsList.Parent = OptionsHolder
 	OptionsList.SortOrder = Enum.SortOrder.LayoutOrder
-	OptionsList.Padding = UDim.new(0, 4)
+	OptionsList.Padding = UDim.new(0, 2)
 
-	local OHP = Instance.new("UIPadding")
-	OHP.PaddingTop = UDim.new(0,8); OHP.PaddingBottom = UDim.new(0,8)
-	OHP.PaddingLeft = UDim.new(0,8); OHP.PaddingRight = UDim.new(0,8)
-	OHP.Parent = OptionsHolder
-
-	local tweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+	local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 	local isOpen = false
-	local dropH = math.min(#options * 34 + 20, 160)
-
 	local optionRows = {}
 
-	for i, optText in ipairs(options) do
+	for _, optText in ipairs(options) do
 		local Row = Instance.new("TextButton")
 		Row.Parent = OptionsHolder
-		Row.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+		Row.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
 		Row.BackgroundTransparency = 1
 		Row.BorderSizePixel = 0
-		Row.Size = UDim2.new(1, -16, 0, 28)
+		Row.Size = UDim2.new(1, 0, 0, ROW_H - 2)
 		Row.Text = ""
 		Row.ZIndex = 11
+		local RowC = Instance.new("UICorner"); RowC.CornerRadius = UDim.new(0, 4); RowC.Parent = Row
 
+		-- Checkbox square
 		local Check = Instance.new("Frame")
 		Check.Parent = Row
-		Check.BackgroundColor3 = selected[optText] and Color3.fromRGB(51,105,255) or Color3.fromRGB(30,30,42)
+		Check.BackgroundColor3 = selected[optText] and Color3.fromRGB(51, 105, 255) or Color3.fromRGB(28, 28, 40)
 		Check.BorderSizePixel = 0
 		Check.AnchorPoint = Vector2.new(0, 0.5)
-		Check.Position = UDim2.new(0, 0, 0.5, 0)
-		Check.Size = UDim2.new(0, 14, 0, 14)
+		Check.Position = UDim2.new(0, 6, 0.5, 0)
+		Check.Size = UDim2.new(0, 16, 0, 16)
 		Check.ZIndex = 12
-		local CC = Instance.new("UICorner"); CC.CornerRadius = UDim.new(0,3); CC.Parent = Check
-		local CS = Instance.new("UIStroke"); CS.Color = Color3.fromRGB(51,105,255); CS.Thickness = 1; CS.Parent = Check
+		local CC = Instance.new("UICorner"); CC.CornerRadius = UDim.new(0, 3); CC.Parent = Check
+		local CS = Instance.new("UIStroke")
+		CS.Color = Color3.fromRGB(51, 105, 255)
+		CS.Thickness = 1.5
+		CS.Parent = Check
 
+		-- Checkmark tick (ImageLabel so it's not font-dependent)
 		local CheckMark = Instance.new("TextLabel")
 		CheckMark.Parent = Check
 		CheckMark.BackgroundTransparency = 1
-		CheckMark.Size = UDim2.new(1,0,1,0)
+		CheckMark.AnchorPoint = Vector2.new(0.5, 0.5)
+		CheckMark.Position = UDim2.new(0.5, 0, 0.5, 0)
+		CheckMark.Size = UDim2.new(1, 0, 1, 0)
 		CheckMark.Font = Enum.Font.GothamBold
 		CheckMark.Text = "✓"
-		CheckMark.TextColor3 = Color3.fromRGB(255,255,255)
-		CheckMark.TextSize = 10
-		CheckMark.Visible = selected[optText] or false
+		CheckMark.TextColor3 = Color3.fromRGB(255, 255, 255)
+		CheckMark.TextSize = 11
+		CheckMark.Visible = selected[optText] == true
 		CheckMark.ZIndex = 13
 
+		-- Option text
 		local RowLabel = Instance.new("TextLabel")
 		RowLabel.Parent = Row
 		RowLabel.BackgroundTransparency = 1
-		RowLabel.Position = UDim2.new(0, 22, 0, 0)
-		RowLabel.Size = UDim2.new(1, -22, 1, 0)
+		RowLabel.Position = UDim2.new(0, 30, 0, 0)
+		RowLabel.Size = UDim2.new(1, -34, 1, 0)
 		RowLabel.Font = Enum.Font.Gotham
 		RowLabel.Text = optText
-		RowLabel.TextColor3 = Color3.fromRGB(220, 220, 235)
+		RowLabel.TextColor3 = Color3.fromRGB(210, 210, 230)
 		RowLabel.TextSize = 13
 		RowLabel.TextXAlignment = Enum.TextXAlignment.Left
 		RowLabel.ZIndex = 12
 
 		Row.MouseButton1Click:Connect(function()
-			selected[optText] = not selected[optText]
-			TweenService:Create(Check, TweenInfo.new(0.15), {
-				BackgroundColor3 = selected[optText] and Color3.fromRGB(51,105,255) or Color3.fromRGB(30,30,42),
+			selected[optText] = not (selected[optText] == true)
+			local isNowSelected = selected[optText] == true
+			TweenService:Create(Check, TweenInfo.new(0.12), {
+				BackgroundColor3 = isNowSelected and Color3.fromRGB(51, 105, 255) or Color3.fromRGB(28, 28, 40),
 			}):Play()
-			CheckMark.Visible = selected[optText]
-			Button.Text = getSelectedText()
+			CheckMark.Visible = isNowSelected
+			ValLabel.Text = getSelectedText()
 			local vals = {}
 			for _, opt in ipairs(options) do
-				if selected[opt] then table.insert(vals, opt) end
+				if selected[opt] == true then table.insert(vals, opt) end
 			end
 			pcall(function() callback(vals) end)
 		end)
 
-		Row.MouseEnter:Connect(function() TweenService:Create(Row, TweenInfo.new(0.15), { BackgroundTransparency = 0 }):Play() end)
-		Row.MouseLeave:Connect(function() TweenService:Create(Row, TweenInfo.new(0.15), { BackgroundTransparency = 1 }):Play() end)
+		Row.MouseEnter:Connect(function()
+			TweenService:Create(Row, TweenInfo.new(0.1), { BackgroundTransparency = 0 }):Play()
+		end)
+		Row.MouseLeave:Connect(function()
+			TweenService:Create(Row, TweenInfo.new(0.1), { BackgroundTransparency = 1 }):Play()
+		end)
+
 		optionRows[optText] = { check = Check, mark = CheckMark }
 	end
 
@@ -3478,13 +3527,15 @@ function SpareStackLib:AddMultiDropdown(parent, name, options, defaults, callbac
 		isOpen = not isOpen
 		if isOpen then
 			OptionsHolder.Visible = true
-			OptionsHolder.CanvasSize = UDim2.new(0,0,0, #options * 34 + 20)
-			TweenService:Create(OptionsHolder, tweenInfo, { Size = UDim2.new(1,0,0,dropH) }):Play()
+			-- Grow MDFrame to make room — ElementsHolder canvas auto-expands
+			TweenService:Create(MDFrame, tweenInfo, { Size = UDim2.new(1, 0, 0, OPEN_H) }):Play()
 			TweenService:Create(Arrow, tweenInfo, { Rotation = 180 }):Play()
 		else
-			TweenService:Create(OptionsHolder, tweenInfo, { Size = UDim2.new(1,0,0,0) }):Play()
+			TweenService:Create(MDFrame, tweenInfo, { Size = UDim2.new(1, 0, 0, CLOSED_H) }):Play()
 			TweenService:Create(Arrow, tweenInfo, { Rotation = 0 }):Play()
-			task.delay(0.25, function() if not isOpen then OptionsHolder.Visible = false end end)
+			task.delay(0.22, function()
+				if not isOpen then OptionsHolder.Visible = false end
+			end)
 		end
 	end)
 
@@ -3492,17 +3543,25 @@ function SpareStackLib:AddMultiDropdown(parent, name, options, defaults, callbac
 		Type = "MultiDropdown", Name = name, Element = MDFrame,
 		GetValue = function()
 			local vals = {}
-			for _, opt in ipairs(options) do if selected[opt] then table.insert(vals, opt) end end
+			for _, opt in ipairs(options) do
+				if selected[opt] == true then table.insert(vals, opt) end
+			end
 			return vals
 		end,
 		SetValue = function(vals)
 			selected = {}
 			for _, v in ipairs(vals) do selected[v] = true end
 			for optText, row in pairs(optionRows) do
-				row.check.BackgroundColor3 = selected[optText] and Color3.fromRGB(51,105,255) or Color3.fromRGB(30,30,42)
-				row.mark.Visible = selected[optText] or false
+				local sel = selected[optText] == true
+				row.check.BackgroundColor3 = sel and Color3.fromRGB(51,105,255) or Color3.fromRGB(28,28,40)
+				row.mark.Visible = sel
 			end
-			Button.Text = getSelectedText()
+			ValLabel.Text = getSelectedText()
+		end,
+		SetLabel = function(newName) BtnLabel.Text = newName end,
+		SetEnabled = function(state)
+			Button.Active = state
+			Button.AutoButtonColor = state
 		end,
 	}
 
@@ -3513,9 +3572,6 @@ function SpareStackLib:AddMultiDropdown(parent, name, options, defaults, callbac
 	return mdData
 end
 
--- ─────────────────────────────────────────────
--- AddToggleSlider  – toggle + slider in one row
--- ─────────────────────────────────────────────
 function SpareStackLib:AddToggleSlider(parent, name, toggleDefault, sliderMin, sliderMax, sliderDefault, callback, tooltip)
 	callback = callback or function() end
 	toggleDefault = toggleDefault or false
@@ -3523,23 +3579,41 @@ function SpareStackLib:AddToggleSlider(parent, name, toggleDefault, sliderMin, s
 	sliderMax = sliderMax or 100
 	sliderDefault = math.clamp(sliderDefault or sliderMin, sliderMin, sliderMax)
 
+	-- Layout:  [Title...........] [Val] [Toggle]
+	--          [===Slider bar============]
 	local TSFrame = Instance.new("Frame")
 	TSFrame.Name = "ToggleSlider_" .. name
 	TSFrame.Parent = parent
 	TSFrame.BackgroundTransparency = 1
-	TSFrame.Size = UDim2.new(1, 0, 0, 55)
+	TSFrame.Size = UDim2.new(1, 0, 0, 58)
 
+	-- Title – leaves 80px on right for value+toggle
 	local TitleLabel = Instance.new("TextLabel")
 	TitleLabel.Parent = TSFrame
 	TitleLabel.BackgroundTransparency = 1
-	TitleLabel.Size = UDim2.new(0.45, 0, 0, 22)
+	TitleLabel.Position = UDim2.new(0, 0, 0, 0)
+	TitleLabel.Size = UDim2.new(1, -82, 0, 22)
 	TitleLabel.Font = Enum.Font.GothamBold
 	TitleLabel.Text = name
 	TitleLabel.TextColor3 = toggleDefault and Color3.fromRGB(255,255,255) or Color3.fromRGB(58,58,73)
 	TitleLabel.TextSize = 13
 	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	TitleLabel.TextTruncate = Enum.TextTruncate.AtEnd
 
-	-- Toggle switch (right side of top row)
+	-- Value label – sits to the left of the toggle, right-aligned
+	local ValueLabel = Instance.new("TextLabel")
+	ValueLabel.Parent = TSFrame
+	ValueLabel.BackgroundTransparency = 1
+	ValueLabel.AnchorPoint = Vector2.new(1, 0)
+	ValueLabel.Position = UDim2.new(1, -42, 0, 3)
+	ValueLabel.Size = UDim2.new(0, 36, 0, 16)
+	ValueLabel.Font = Enum.Font.Gotham
+	ValueLabel.TextSize = 11
+	ValueLabel.TextColor3 = Color3.fromRGB(140, 140, 165)
+	ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+	ValueLabel.Text = tostring(sliderDefault)
+
+	-- Toggle switch – far right
 	local TogBg = Instance.new("TextButton")
 	TogBg.Parent = TSFrame
 	TogBg.BackgroundColor3 = toggleDefault and Color3.fromRGB(28,48,103) or Color3.fromRGB(21,21,28)
@@ -3558,13 +3632,13 @@ function SpareStackLib:AddToggleSlider(parent, name, toggleDefault, sliderMin, s
 	Orb.Size = UDim2.new(0,12,0,12)
 	local OC = Instance.new("UICorner"); OC.CornerRadius = UDim.new(1,0); OC.Parent = Orb
 
-	-- Slider bar (bottom row)
+	-- Slider bar – full width, below
 	local SliderBar = Instance.new("Frame")
 	SliderBar.Parent = TSFrame
 	SliderBar.BackgroundColor3 = Color3.fromRGB(21,21,27)
 	SliderBar.BorderSizePixel = 0
-	SliderBar.Position = UDim2.new(0, 0, 0, 32)
-	SliderBar.Size = UDim2.new(0.98, 0, 0, 10)
+	SliderBar.Position = UDim2.new(0, 0, 0, 34)
+	SliderBar.Size = UDim2.new(1, -2, 0, 10)
 	local SBC = Instance.new("UICorner"); SBC.Parent = SliderBar
 
 	local Fill = Instance.new("Frame")
@@ -3584,17 +3658,6 @@ function SpareStackLib:AddToggleSlider(parent, name, toggleDefault, sliderMin, s
 	Knob.ZIndex = 2
 	Knob.Text = ""
 	local KC = Instance.new("UICorner"); KC.CornerRadius = UDim.new(1,0); KC.Parent = Knob
-
-	local ValueLabel = Instance.new("TextLabel")
-	ValueLabel.Parent = TSFrame
-	ValueLabel.BackgroundTransparency = 1
-	ValueLabel.AnchorPoint = Vector2.new(1,0)
-	ValueLabel.Position = UDim2.new(1, 0, 0, 4)
-	ValueLabel.Size = UDim2.new(0.3, 0, 0, 18)
-	ValueLabel.Font = Enum.Font.Gotham
-	ValueLabel.TextSize = 12
-	ValueLabel.TextColor3 = Color3.fromRGB(180,180,200)
-	ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
 
 	local toggled = toggleDefault
 	local currentValue = sliderDefault
@@ -3620,7 +3683,7 @@ function SpareStackLib:AddToggleSlider(parent, name, toggleDefault, sliderMin, s
 		TweenService:Create(TogBg, tweenInfo, { BackgroundColor3 = val and Color3.fromRGB(28,48,103) or Color3.fromRGB(21,21,28) }):Play()
 		TweenService:Create(Orb, tweenInfo, { BackgroundColor3 = val and Color3.fromRGB(51,105,255) or Color3.fromRGB(37,37,57) }):Play()
 		TweenService:Create(TitleLabel, tweenInfo, { TextColor3 = val and Color3.fromRGB(255,255,255) or Color3.fromRGB(58,58,73) }):Play()
-		TweenService:Create(SliderBar, tweenInfo, { BackgroundColor3 = val and Color3.fromRGB(21,21,27) or Color3.fromRGB(16,16,20) }):Play()
+		TweenService:Create(ValueLabel, tweenInfo, { TextColor3 = val and Color3.fromRGB(140,140,165) or Color3.fromRGB(55,55,70) }):Play()
 		pcall(function() callback(toggled, currentValue) end)
 	end
 
@@ -3654,14 +3717,22 @@ function SpareStackLib:AddToggleSlider(parent, name, toggleDefault, sliderMin, s
 		end
 	end)
 
-	task.spawn(function() task.wait(0.1); if SliderBar and SliderBar.Parent then updateSlider(sliderDefault) end end)
+	task.spawn(function()
+		task.wait(0.1)
+		if SliderBar and SliderBar.Parent then updateSlider(sliderDefault) end
+	end)
 
 	local tsData = {
 		Type = "ToggleSlider", Name = name, Element = TSFrame,
 		GetValue = function() return toggled, currentValue end,
-		SetToggle = function(val) setToggle(val) end,
+		SetToggle = setToggle,
 		SetSlider = updateSlider,
 		SetLabel = function(newName) TitleLabel.Text = newName end,
+		SetEnabled = function(state)
+			-- allow it to be used as a dependent
+			TogBg.Active = state
+			SliderBar.Active = state
+		end,
 	}
 	local configKey = name; local suffix = 2
 	while self.ConfigData[configKey] do configKey = name .. "_" .. suffix; suffix = suffix + 1 end
