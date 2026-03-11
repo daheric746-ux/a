@@ -1,4 +1,4 @@
-local SpareStackLib = {}
+local SpareStackLib = {} -- 123
 SpareStackLib.__index = SpareStackLib
 
 local TweenService = game:GetService("TweenService")
@@ -554,7 +554,7 @@ function SpareStackLib:AddCategory(categoryName)
 	CollapseArrow.Parent = CategoryFrame
 	CollapseArrow.BackgroundTransparency = 1
 	CollapseArrow.AnchorPoint = Vector2.new(1, 0.5)
-	CollapseArrow.Position = UDim2.new(1, -6, 0.5, 0)
+	CollapseArrow.Position = UDim2.new(1, -22, 0.5, 0)
 	CollapseArrow.Size = UDim2.new(0, 7, 0, 7)
 	CollapseArrow.ZIndex = 2
 
@@ -3456,34 +3456,21 @@ function SpareStackLib:AddMultiDropdown(parent, name, options, defaults, callbac
 		Row.ZIndex = 11
 		local RowC = Instance.new("UICorner"); RowC.CornerRadius = UDim.new(0, 4); RowC.Parent = Row
 
-		-- Checkbox square
+		-- Checkbox square — solid blue fill when selected, transparent + border when not
 		local Check = Instance.new("Frame")
 		Check.Parent = Row
-		Check.BackgroundColor3 = selected[optText] and Color3.fromRGB(51, 105, 255) or Color3.fromRGB(28, 28, 40)
+		Check.BackgroundColor3 = Color3.fromRGB(51, 105, 255)
+		Check.BackgroundTransparency = selected[optText] == true and 0 or 1
 		Check.BorderSizePixel = 0
 		Check.AnchorPoint = Vector2.new(0, 0.5)
 		Check.Position = UDim2.new(0, 6, 0.5, 0)
-		Check.Size = UDim2.new(0, 16, 0, 16)
+		Check.Size = UDim2.new(0, 14, 0, 14)
 		Check.ZIndex = 12
 		local CC = Instance.new("UICorner"); CC.CornerRadius = UDim.new(0, 3); CC.Parent = Check
 		local CS = Instance.new("UIStroke")
 		CS.Color = Color3.fromRGB(51, 105, 255)
 		CS.Thickness = 1.5
 		CS.Parent = Check
-
-		-- Checkmark tick (ImageLabel so it's not font-dependent)
-		local CheckMark = Instance.new("TextLabel")
-		CheckMark.Parent = Check
-		CheckMark.BackgroundTransparency = 1
-		CheckMark.AnchorPoint = Vector2.new(0.5, 0.5)
-		CheckMark.Position = UDim2.new(0.5, 0, 0.5, 0)
-		CheckMark.Size = UDim2.new(1, 0, 1, 0)
-		CheckMark.Font = Enum.Font.GothamBold
-		CheckMark.Text = "✓"
-		CheckMark.TextColor3 = Color3.fromRGB(255, 255, 255)
-		CheckMark.TextSize = 11
-		CheckMark.Visible = selected[optText] == true
-		CheckMark.ZIndex = 13
 
 		-- Option text
 		local RowLabel = Instance.new("TextLabel")
@@ -3502,9 +3489,8 @@ function SpareStackLib:AddMultiDropdown(parent, name, options, defaults, callbac
 			selected[optText] = not (selected[optText] == true)
 			local isNowSelected = selected[optText] == true
 			TweenService:Create(Check, TweenInfo.new(0.12), {
-				BackgroundColor3 = isNowSelected and Color3.fromRGB(51, 105, 255) or Color3.fromRGB(28, 28, 40),
+				BackgroundTransparency = isNowSelected and 0 or 1,
 			}):Play()
-			CheckMark.Visible = isNowSelected
 			ValLabel.Text = getSelectedText()
 			local vals = {}
 			for _, opt in ipairs(options) do
@@ -3520,7 +3506,7 @@ function SpareStackLib:AddMultiDropdown(parent, name, options, defaults, callbac
 			TweenService:Create(Row, TweenInfo.new(0.1), { BackgroundTransparency = 1 }):Play()
 		end)
 
-		optionRows[optText] = { check = Check, mark = CheckMark }
+		optionRows[optText] = { check = Check }
 	end
 
 	Button.MouseButton1Click:Connect(function()
@@ -3553,8 +3539,7 @@ function SpareStackLib:AddMultiDropdown(parent, name, options, defaults, callbac
 			for _, v in ipairs(vals) do selected[v] = true end
 			for optText, row in pairs(optionRows) do
 				local sel = selected[optText] == true
-				row.check.BackgroundColor3 = sel and Color3.fromRGB(51,105,255) or Color3.fromRGB(28,28,40)
-				row.mark.Visible = sel
+				row.check.BackgroundTransparency = sel and 0 or 1
 			end
 			ValLabel.Text = getSelectedText()
 		end,
