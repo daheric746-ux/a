@@ -1,4 +1,4 @@
--- // 1111
+-- //
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -2609,121 +2609,128 @@ function Nova:SetPage(pageLabel)
 	end
 	return false
 end
--- ─────────────────────────────────────────────────────────────────────────────
--- CONFIG SYSTEM (built-in)
--- ─────────────────────────────────────────────────────────────────────────────
-
-local HttpService = game:GetService("HttpService")
-local NOVA_FOLDER = "Nova"
-
-local function _ensureFolder()
-	if not isfolder(NOVA_FOLDER) then makefolder(NOVA_FOLDER) end
-end
-
-local function _cfgPath(name)
-	return NOVA_FOLDER .. "/" .. name .. ".json"
-end
-
-local function _listConfigs()
-	_ensureFolder()
-	local out = {}
-	for _, f in ipairs(listfiles(NOVA_FOLDER)) do
-		local n = f:match("[\\/]([^\\/]+)%.json$")
-		if n then out[#out+1] = n end
-	end
-	return out
-end
-
-local function _saveConfig(name, data)
-	_ensureFolder()
-	writefile(_cfgPath(name), HttpService:JSONEncode(data))
-end
-
-local function _loadConfig(name)
-	local p = _cfgPath(name)
-	if not isfile(p) then return nil end
-	local ok, t = pcall(function() return HttpService:JSONDecode(readfile(p)) end)
-	return ok and t or nil
-end
-
-local function _deleteConfig(name)
-	local p = _cfgPath(name)
-	if isfile(p) then delfile(p) return true end
-	return false
-end
-
--- ── Nova:BuildConfig(page, refs, state) ──────────────────────────────────────
--- page  : a NovPage returned by Window:NewPage(...)
--- refs  : table of { key = elementObj } — all your UI element refs
--- state : table holding serializable state values (strings/numbers/bools/tables)
---
--- It auto-builds two tabs ("Save / Load" and "Manage") on `page` and wires
--- everything up. Call applyFn(data) to re-apply a loaded state table to
--- your Refs — see the example for how to pass that in.
--- ─────────────────────────────────────────────────────────────────────────────
-function Nova:BuildConfig(page, refs, state, applyFn)
-	assert(page,    "Nova:BuildConfig — page is required")
-	assert(refs,    "Nova:BuildConfig — refs table is required")
-	assert(state,   "Nova:BuildConfig — state table is required")
-	assert(applyFn, "Nova:BuildConfig — applyFn is required")
-
+function Nova:BuildConfig(page, refs, state)
 	local win = self
 
-	-- ── Tab 1: Save / Load ───────────────────────────────────────────────────
+	local function getConfigs()
+		local ok, list = pcall(_listConfigs)
+		return (ok and list) or {}
+	end
 
-	local slTab     = page:NewTab("Configs")
-	local saveSection = slTab:NewSection("Save Config")
+	local loadDropAPI = nil
+	local delDropAPI  = nil
 
-	local nameInput = saveSection:NewTextInput("Config Name", "", "e.g. my_settings", "", nil)
+	local loadWrap = newFrame({
+		Size                   = UDim2.new(1, 0, 0, 0),
+		AutomaticSize          = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		LayoutOrder            = 999,
+		Parent                 = nil, -- set after tabs built
+	})
+
+	local delWrap = newFrame({
+		Size                   = UDim2.new(1, 0, 0, 0),
+		AutomaticSize          = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		LayoutOrder            = 999,
+		Parent                 = nil,
+	})
+
+	local function rebuildDropdowns()
+		local cfgs   = getConfigs()
+		local opts   = #cfgs > 0 and cfgs or { "(no configs)" }
+		local hasReal = #cfgs > 0
+
+		for _, ch in ipairs(loadWrap:GetChildren()) do ch:Destroy() end
+		for _, ch in ipairs(delWrap:GetChildren())  do ch:Destroy() end
+
+		local lf, la = win:_createDropdown(loadWrap, "Select Config", opts, opts[1], false, nil)
+		lf.Size = UDim2.new(1, 0, 0, TOTAL_H)
+		loadDropAPI = hasReal and la or nil
+
+		local df, da = win:_createDropdown(delWrap, "Select Config", opts, opts[1], false, nil)
+		df.Size = UDim2.new(1, 0, 0, TOTAL_H)
+		delDropAPI = hasReal and da or nil
+	end
+
+	-- ── Save: snapshot every state key ──────────────────────────────────────
+	local function doSave(name)
+		local snap = {}
+		for k, v in pairs(state) do snap[k] = v end
+		_saveConfig(name, snap)
+	end
+
+	-- ── Load: write back into state AND all refs automatically ───────────────
+	local function doLoad(name)
+		local data = _loadConfig(name)
+		if not data then win:Toast("Config '" .. name .. "' not found!", "error"); return end
+
+		for k, v in pairs(data) do
+			state[k] = v
+			local ref = refs[k]
+			if ref and ref.SetValue then
+				-- color values are stored as {r,g,b} tables
+				if type(v) == "table" and v.r and v.g and v.b then
+					pcall(function() ref:SetValue(Color3.fromRGB(v.r, v.g, v.b)) end)
+				else
+					pcall(function() ref:SetValue(v) end)
+				end
+			end
+		end
+
+		-- accent color is a special case — also call SetAccentColor
+		if data.accentColor then
+			local ac = data.accentColor
+			pcall(function()
+				win:SetAccentColor(Color3.fromRGB(ac.r, ac.g, ac.b))
+			end)
+		end
+
+		win:Toast("Loaded '" .. name .. "'", "success")
+	end
+
+	-- ── Build tabs ───────────────────────────────────────────────────────────
+	local cfgTab     = page:NewTab("Configs")
+	local manTab     = page:NewTab("Manage")
+
+	local saveSection = cfgTab:NewSection("Save Config")
+	local nameInput   = saveSection:NewTextInput("Config Name", "", "e.g. my_settings", "", nil)
 
 	saveSection:NewPrimaryButton("Save", "", function()
 		local name = nameInput:GetValue():match("^%s*(.-)%s*$")
 		if name == "" then win:Toast("Enter a config name first!", "error"); return end
-		local snap = {}
-		for k, v in pairs(state) do snap[k] = v end
-		_saveConfig(name, snap)
+		doSave(name)
+		rebuildDropdowns()
+		if loadDropAPI then pcall(function() loadDropAPI:SetValue(name) end) end
+		if delDropAPI  then pcall(function() delDropAPI:SetValue(name)  end) end
 		win:Toast("Saved '" .. name .. "'", "success")
 	end)
 
-	local loadSection = slTab:NewSection("Load Config")
-	local loadInput   = loadSection:NewTextInput("Config Name", "", "e.g. my_settings", "", nil)
+	local loadSection = manTab:NewSection("Load Config")
+	loadWrap.Parent   = loadSection._sc
 
-	loadSection:NewPrimaryButton("Load", "", function()
-		local name = loadInput:GetValue():match("^%s*(.-)%s*$")
-		if name == "" then win:Toast("Enter a config name first!", "error"); return end
-		local data = _loadConfig(name)
-		if not data then win:Toast("Config '" .. name .. "' not found!", "error"); return end
-		applyFn(data)
-		win:Toast("Loaded '" .. name .. "'", "success")
-	end)
-
-	-- ── Tab 2: Manage ────────────────────────────────────────────────────────
-
-	local manTab        = page:NewTab("Manage")
-	local listSection   = manTab:NewSection("List Configs")
-
-	listSection:NewButton("Print All to Console", "", function()
-		local cfgs = _listConfigs()
-		if #cfgs == 0 then
-			win:Toast("No configs found in Nova/", "warning")
-			return
-		end
-		print("[Nova Configs] " .. #cfgs .. " found:")
-		for _, n in ipairs(cfgs) do print("  •", n) end
-		win:Toast(#cfgs .. " config(s) — check console", "info")
+	loadSection:NewPrimaryButton("Load Selected", "", function()
+		if not loadDropAPI then win:Toast("No configs to load!", "error"); return end
+		local name = loadDropAPI:GetValue()
+		if not name or name == "(no configs)" then win:Toast("Select a config first!", "error"); return end
+		doLoad(name)
 	end)
 
 	local delSection = manTab:NewSection("Delete Config")
-	local delInput   = delSection:NewTextInput("Config Name", "", "e.g. my_settings", "", nil)
+	delWrap.Parent   = delSection._sc
 
-	delSection:NewButton("Delete", "", function()
-		local name = delInput:GetValue():match("^%s*(.-)%s*$")
-		if name == "" then win:Toast("Enter a config name first!", "error"); return end
+	delSection:NewButton("Delete Selected", "", function()
+		if not delDropAPI then win:Toast("No configs to delete!", "error"); return end
+		local name = delDropAPI:GetValue()
+		if not name or name == "(no configs)" then win:Toast("Select a config first!", "error"); return end
 		if _deleteConfig(name) then
+			rebuildDropdowns()
 			win:Toast("Deleted '" .. name .. "'", "success")
 		else
 			win:Toast("Config '" .. name .. "' not found!", "error")
 		end
 	end)
+
+	rebuildDropdowns()
 end
 return Nova
