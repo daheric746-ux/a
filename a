@@ -2609,5 +2609,121 @@ function Nova:SetPage(pageLabel)
 	end
 	return false
 end
+-- ─────────────────────────────────────────────────────────────────────────────
+-- CONFIG SYSTEM (built-in)
+-- ─────────────────────────────────────────────────────────────────────────────
 
+local HttpService = game:GetService("HttpService")
+local NOVA_FOLDER = "Nova"
+
+local function _ensureFolder()
+	if not isfolder(NOVA_FOLDER) then makefolder(NOVA_FOLDER) end
+end
+
+local function _cfgPath(name)
+	return NOVA_FOLDER .. "/" .. name .. ".json"
+end
+
+local function _listConfigs()
+	_ensureFolder()
+	local out = {}
+	for _, f in ipairs(listfiles(NOVA_FOLDER)) do
+		local n = f:match("[\\/]([^\\/]+)%.json$")
+		if n then out[#out+1] = n end
+	end
+	return out
+end
+
+local function _saveConfig(name, data)
+	_ensureFolder()
+	writefile(_cfgPath(name), HttpService:JSONEncode(data))
+end
+
+local function _loadConfig(name)
+	local p = _cfgPath(name)
+	if not isfile(p) then return nil end
+	local ok, t = pcall(function() return HttpService:JSONDecode(readfile(p)) end)
+	return ok and t or nil
+end
+
+local function _deleteConfig(name)
+	local p = _cfgPath(name)
+	if isfile(p) then delfile(p) return true end
+	return false
+end
+
+-- ── Nova:BuildConfig(page, refs, state) ──────────────────────────────────────
+-- page  : a NovPage returned by Window:NewPage(...)
+-- refs  : table of { key = elementObj } — all your UI element refs
+-- state : table holding serializable state values (strings/numbers/bools/tables)
+--
+-- It auto-builds two tabs ("Save / Load" and "Manage") on `page` and wires
+-- everything up. Call applyFn(data) to re-apply a loaded state table to
+-- your Refs — see the example for how to pass that in.
+-- ─────────────────────────────────────────────────────────────────────────────
+function Nova:BuildConfig(page, refs, state, applyFn)
+	assert(page,    "Nova:BuildConfig — page is required")
+	assert(refs,    "Nova:BuildConfig — refs table is required")
+	assert(state,   "Nova:BuildConfig — state table is required")
+	assert(applyFn, "Nova:BuildConfig — applyFn is required")
+
+	local win = self
+
+	-- ── Tab 1: Save / Load ───────────────────────────────────────────────────
+
+	local slTab     = page:NewTab("Configs")
+	local saveSection = slTab:NewSection("Save Config")
+
+	local nameInput = saveSection:NewTextInput("Config Name", "", "e.g. my_settings", "", nil)
+
+	saveSection:NewPrimaryButton("Save", "", function()
+		local name = nameInput:GetValue():match("^%s*(.-)%s*$")
+		if name == "" then win:Toast("Enter a config name first!", "error"); return end
+		local snap = {}
+		for k, v in pairs(state) do snap[k] = v end
+		_saveConfig(name, snap)
+		win:Toast("Saved '" .. name .. "'", "success")
+	end)
+
+	local loadSection = slTab:NewSection("Load Config")
+	local loadInput   = loadSection:NewTextInput("Config Name", "", "e.g. my_settings", "", nil)
+
+	loadSection:NewPrimaryButton("Load", "", function()
+		local name = loadInput:GetValue():match("^%s*(.-)%s*$")
+		if name == "" then win:Toast("Enter a config name first!", "error"); return end
+		local data = _loadConfig(name)
+		if not data then win:Toast("Config '" .. name .. "' not found!", "error"); return end
+		applyFn(data)
+		win:Toast("Loaded '" .. name .. "'", "success")
+	end)
+
+	-- ── Tab 2: Manage ────────────────────────────────────────────────────────
+
+	local manTab        = page:NewTab("Manage")
+	local listSection   = manTab:NewSection("List Configs")
+
+	listSection:NewButton("Print All to Console", "", function()
+		local cfgs = _listConfigs()
+		if #cfgs == 0 then
+			win:Toast("No configs found in Nova/", "warning")
+			return
+		end
+		print("[Nova Configs] " .. #cfgs .. " found:")
+		for _, n in ipairs(cfgs) do print("  •", n) end
+		win:Toast(#cfgs .. " config(s) — check console", "info")
+	end)
+
+	local delSection = manTab:NewSection("Delete Config")
+	local delInput   = delSection:NewTextInput("Config Name", "", "e.g. my_settings", "", nil)
+
+	delSection:NewButton("Delete", "", function()
+		local name = delInput:GetValue():match("^%s*(.-)%s*$")
+		if name == "" then win:Toast("Enter a config name first!", "error"); return end
+		if _deleteConfig(name) then
+			win:Toast("Deleted '" .. name .. "'", "success")
+		else
+			win:Toast("Config '" .. name .. "' not found!", "error")
+		end
+	end)
+end
 return Nova
