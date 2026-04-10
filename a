@@ -19,6 +19,7 @@ local EH = {
 	button      = 34,
 	textinput   = 32,
 	colorpicker = 36,
+	keybind     = 28,   -- NEW
 }
 
 local NOTIF_THEMES = {
@@ -639,6 +640,170 @@ function Nova:_openKeybindPopup(anchor, kbs)
 	self._activePopup = pop
 	self._GCD.Visible = true
 	tw(pop, self._TW.Fast, { BackgroundTransparency = 0 }):Play()
+end
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- NEW: standalone keybind element
+-- Displays a label + a key badge. Click the badge to rebind. Fires callback
+-- every time the bound key is pressed (no toggle/hold logic).
+-- ─────────────────────────────────────────────────────────────────────────────
+function Nova:_createKeybind(parent, lbl, defaultKey, onChange)
+	local C   = self._C
+	local TW  = self._TW
+	local ftw = function(obj, props) return tw(obj, TW.Fast, props) end
+
+	-- currentKey is the raw KeyCode name string, e.g. "RightShift", or nil
+	local currentKey  = defaultKey or nil
+	local listening   = false
+
+	-- Root row
+	local F = Instance.new("TextButton")
+	F.Size                   = UDim2.new(1, 0, 0, 28)
+	F.BackgroundTransparency = 1
+	F.Text                   = ""
+	F.Parent                 = parent
+
+	-- Label
+	newLabel({
+		Size                   = UDim2.new(1, -110, 1, 0),
+		Position               = UDim2.new(0, 8, 0, 0),
+		BackgroundTransparency = 1,
+		Text                   = lbl,
+		TextColor3             = C.TextMain,
+		Font                   = Enum.Font.GothamMedium,
+		TextSize               = 13,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		Parent                 = F,
+	})
+
+	-- Key badge background
+	local badgeBg = newFrame({
+		Size             = UDim2.new(0, 92, 0, 20),
+		Position         = UDim2.new(1, -96, 0.5, -10),
+		BackgroundColor3 = C.ElemBg,
+		BorderSizePixel  = 0,
+		Parent           = F,
+	})
+	corner(badgeBg, 5)
+	local badgeStroke = stroke(badgeBg, C.Stroke, 1, 0.45)
+
+	-- Key badge button (clickable to rebind)
+	local badge = Instance.new("TextButton")
+	badge.Size                   = UDim2.new(1, 0, 1, 0)
+	badge.BackgroundTransparency = 1
+	badge.BorderSizePixel        = 0
+	badge.Font                   = Enum.Font.GothamMedium
+	badge.TextSize               = 11
+	badge.Text                   = currentKey and ("[" .. currentKey .. "]") or "[ -- ]"
+	badge.TextColor3             = currentKey and C.Accent or C.TextDark
+	badge.ZIndex                 = 2
+	badge.Parent                 = badgeBg
+
+	-- ── visual helpers ──────────────────────────────────────────────────────
+
+	local function setBadgeIdle()
+		badge.Text      = currentKey and ("[" .. currentKey .. "]") or "[ -- ]"
+		ftw(badge,      { TextColor3       = currentKey and C.Accent or C.TextDark }):Play()
+		ftw(badgeBg,    { BackgroundColor3 = C.ElemBg                              }):Play()
+		ftw(badgeStroke,{ Color = C.Stroke, Transparency = 0.45                    }):Play()
+	end
+
+	local function setBadgeListening()
+		badge.Text = "..."
+		ftw(badge,      { TextColor3       = Color3.fromRGB(255, 200, 80)          }):Play()
+		ftw(badgeBg,    { BackgroundColor3 = Color3.fromRGB(30, 28, 18)            }):Play()
+		ftw(badgeStroke,{ Color = Color3.fromRGB(255, 200, 80), Transparency = 0.1 }):Play()
+	end
+
+	-- ── rebind logic ────────────────────────────────────────────────────────
+
+	local listenConn = nil
+
+	local function stopListening()
+		listening = false
+		if listenConn then
+			listenConn:Disconnect()
+			listenConn = nil
+		end
+		setBadgeIdle()
+	end
+
+	local function startListening()
+		if listening then stopListening(); return end
+		listening = true
+		setBadgeListening()
+
+		listenConn = UIS.InputBegan:Connect(function(i, proc)
+			if proc then return end
+			-- Escape = cancel the rebind without changing the key
+			if i.KeyCode == Enum.KeyCode.Escape then
+				stopListening()
+				return
+			end
+			if i.UserInputType ~= Enum.UserInputType.Keyboard then return end
+			currentKey = tostring(i.KeyCode):gsub("Enum.KeyCode.", "")
+			stopListening()
+			if onChange then onChange(currentKey) end
+		end)
+	end
+
+	badge.MouseButton1Click:Connect(function()
+		startListening()
+	end)
+
+	-- Hover glow on the badge
+	badge.MouseEnter:Connect(function()
+		if not listening then
+			ftw(badgeStroke, { Transparency = 0.1 }):Play()
+		end
+	end)
+	badge.MouseLeave:Connect(function()
+		if not listening then
+			ftw(badgeStroke, { Transparency = 0.45 }):Play()
+		end
+	end)
+
+	-- ── fire callback on key press ───────────────────────────────────────────
+
+	local kid = "kb_" .. tostring(math.random(1e9))
+
+	-- We register directly on InputBegan so it fires every press (not via ICBs
+	-- which is for mouse-movement only).  We store the connection so we can
+	-- clean it up when the element is destroyed.
+	local pressConn = UIS.InputBegan:Connect(function(i, proc)
+		if proc   then return end
+		if listening then return end            -- don't fire while rebinding
+		if not currentKey then return end
+		if i.UserInputType ~= Enum.UserInputType.Keyboard then return end
+		local k = tostring(i.KeyCode):gsub("Enum.KeyCode.", "")
+		if k == currentKey then
+			if onChange then onChange(currentKey) end
+		end
+	end)
+
+	F.Destroying:Connect(function()
+		if listenConn then listenConn:Disconnect() end
+		pressConn:Disconnect()
+		self._ICBs[kid]  = nil
+		self._IECBs[kid] = nil
+	end)
+
+	-- ── public API ───────────────────────────────────────────────────────────
+
+	local API = {}
+
+	--- Returns the currently bound key string, or nil if unbound.
+	function API:GetValue()
+		return currentKey
+	end
+
+	--- Programmatically set the bound key (pass nil to clear).
+	function API:SetValue(k)
+		currentKey = k
+		setBadgeIdle()
+	end
+
+	return F, API
 end
 
 function Nova:_createToggle(parent, lbl, isOn, onChange)
@@ -2142,6 +2307,26 @@ function Section:NewColorPicker(text, info, default, callback)
 	local child, api = self._win:_createColorPicker(self._sc, text, default, callback)
 	child.LayoutOrder = self:_no()
 	child.Size        = UDim2.new(1, 0, 0, EH.colorpicker)
+	local obj = {}
+	function obj:SetValue(v) api:SetValue(v) end
+	function obj:GetValue()  return api:GetValue() end
+	return obj
+end
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- NEW: Section:NewKeybind
+-- Usage:
+--   local kb = Section:NewKeybind("Open Menu", "info", "RightShift", function(key)
+--       print("keybind fired:", key)
+--   end)
+--   kb:GetValue()        --> "RightShift" (or nil)
+--   kb:SetValue("F5")    --> programmatically rebind
+-- ─────────────────────────────────────────────────────────────────────────────
+function Section:NewKeybind(text, info, defaultKey, callback)
+	self:_sep()
+	local child, api = self._win:_createKeybind(self._sc, text, defaultKey, callback)
+	child.LayoutOrder = self:_no()
+	child.Size        = UDim2.new(1, 0, 0, EH.keybind)
 	local obj = {}
 	function obj:SetValue(v) api:SetValue(v) end
 	function obj:GetValue()  return api:GetValue() end
