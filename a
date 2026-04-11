@@ -1,8 +1,8 @@
--- // Novadasdasdasdasdas
+-- //123123123123213
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
-local PGui         = Players.LocalPlayer:WaitForChild("PlayerGui")
+local CoreGui      = game:GetService("CoreGui")  -- ← CoreGui instead of PlayerGui
 
 local DEFAULT_W = 720
 local DEFAULT_H = 480
@@ -32,28 +32,21 @@ local NOTIF_THEMES = {
 local STYLE_TITLES = { success="Success", warning="Warning", info="Info", error="Error" }
 
 local KEY_NAMES = {
-	-- Modifiers
 	LeftControl="LCtrl",   RightControl="RCtrl",
 	LeftShift="LShift",    RightShift="RShift",
 	LeftAlt="LAlt",        RightAlt="RAlt",
 	LeftMeta="LMeta",      RightMeta="RMeta",
-	-- Mouse
 	MouseButton1="LMB",    MouseButton2="RMB",    MouseButton3="MMB",
-	-- Common
 	Space="Space",         Return="Enter",         BackSpace="Bksp",
 	Delete="Del",          Insert="Ins",           Tab="Tab",
 	CapsLock="Caps",       Escape="Esc",
-	-- Arrows
 	Up="↑",   Down="↓",   Left="←",   Right="→",
-	-- Function keys (F1-F12 handled by pattern below)
-	-- Numpad
 	KeypadZero="Num0",     KeypadOne="Num1",       KeypadTwo="Num2",
 	KeypadThree="Num3",    KeypadFour="Num4",      KeypadFive="Num5",
 	KeypadSix="Num6",      KeypadSeven="Num7",     KeypadEight="Num8",
 	KeypadNine="Num9",
 	KeypadPlus="Num+",     KeypadMinus="Num-",     KeypadAsterisk="Num*",
 	KeypadSlash="Num/",    KeypadPeriod="Num.",    KeypadEnter="NumEnter",
-	-- Misc
 	Home="Home",           End="End",
 	PageUp="PgUp",         PageDown="PgDn",
 	PrintScreen="PrtSc",   ScrollLock="ScrLk",    Pause="Pause",
@@ -62,12 +55,9 @@ local KEY_NAMES = {
 local function beautifyKey(raw)
 	if not raw then return "[ -- ]" end
 	if KEY_NAMES[raw] then return "["..KEY_NAMES[raw].."]" end
-	-- F1-F24
 	local fnum = raw:match("^F(%d+)$")
 	if fnum then return "[F"..fnum.."]" end
-	-- Already short (1-3 chars) — just wrap
 	if #raw <= 3 then return "["..raw.."]" end
-	-- Default fallback — strip nothing, just wrap
 	return "["..raw.."]"
 end
 
@@ -160,7 +150,7 @@ function Nova.new(cfg)
 	end
 	self._W              = cfg.size and cfg.size[1] or DEFAULT_W
 	self._H              = cfg.size and cfg.size[2] or DEFAULT_H
-	self._dragStyle      = cfg.dragStyle or 1   -- 1 = topbar only, 2 = full window
+	self._dragStyle      = cfg.dragStyle or 1
 	self._pages          = {}
 	self._closeCallbacks = {}
 	self._accentCBs      = {}
@@ -173,16 +163,13 @@ function Nova.new(cfg)
 	self._activePopup    = nil
 	self._activeDrop     = nil
 	self._sideActs       = {}
-	-- Config system
 	self._ConfigData      = {}
 	self._ConfigCallbacks = {}
 	self:_buildGui(cfg.guiName or "NovaLib_Window")
 	return self
 end
 
--- ─── Config registry helpers ──────────────────────────────────────────────────
 function Nova:_regConfig(key, defaultVal, applyFn)
-	-- applyFn(value, fromLoad) — called on load AND on user change
 	if not key then return end
 	if self._ConfigData[key] == nil then
 		self._ConfigData[key] = defaultVal
@@ -201,7 +188,13 @@ end
 function Nova:_buildGui(guiName)
 	local C   = self._C
 	local Gui = Instance.new("ScreenGui")
-	Gui.Name  = guiName; Gui.Parent = PGui; self._Gui = Gui
+	Gui.Name         = guiName
+	Gui.DisplayOrder = 999999999  -- ← always on top of Roblox UI
+	Gui.ResetOnSpawn = false
+	-- Parent to CoreGui so it sits above all in-game UI
+	local ok = pcall(function() Gui.Parent = CoreGui end)
+	if not ok then Gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") end
+	self._Gui = Gui
 
 	local OverlayLayer = newFrame({ Name="OverlayLayer", Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, ZIndex=200, Parent=Gui })
 	local PopupLayer   = newFrame({ Name="PopupLayer",   Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, ZIndex=100, Parent=Gui })
@@ -243,31 +236,68 @@ function Nova:_buildGui(guiName)
 	self:_buildNotifications()
 end
 
+-- ─── Drag ─────────────────────────────────────────────────────────────────────
 function Nova:_setupDrag(Main)
 	local dragging, dragStart, startPos = false, nil, nil
 
-	-- Style 1: only the topbar area (right of sidebar) is draggable
-	-- Style 2: the entire window is draggable
-	local dragHandle
 	if self._dragStyle == 2 then
-		dragHandle = newFrame({ Size=UDim2.new(1,0,1,0), Position=UDim2.new(0,0,0,0), BackgroundTransparency=1, ZIndex=10, Parent=Main })
+		-- ── Full-window drag: use UIS but skip over any interactive element ──
+		-- We check CoreGui:GetGuiObjectsAtPosition to detect sliders/buttons/etc
+		-- and bail out before starting the drag, so sliders remain usable.
+		UIS.InputBegan:Connect(function(i, proc)
+			if proc then return end
+			if i.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+			local pos = i.Position
+			-- Must be within Main bounds
+			local mp = Main.AbsolutePosition
+			local ms = Main.AbsoluteSize
+			if pos.X < mp.X or pos.X > mp.X + ms.X
+			or pos.Y < mp.Y or pos.Y > mp.Y + ms.Y then return end
+			-- Skip if the click landed on any interactive descendant
+			local ok2, hits = pcall(function()
+				return CoreGui:GetGuiObjectsAtPosition(pos.X, pos.Y)
+			end)
+			if ok2 and hits then
+				for _, obj in ipairs(hits) do
+					if obj:IsA("TextButton") or obj:IsA("TextBox")
+					or obj:IsA("ImageButton") or obj:IsA("ScrollingFrame") then
+						return  -- let the interactive element handle it
+					end
+				end
+			end
+			dragging = true; dragStart = pos; startPos = Main.Position
+			i.Changed:Connect(function()
+				if i.UserInputState == Enum.UserInputState.End then dragging = false end
+			end)
+		end)
 	else
-		dragHandle = newFrame({ Size=UDim2.new(1,-180,0,50), Position=UDim2.new(0,180,0,0), BackgroundTransparency=1, ZIndex=10, Parent=Main })
+		-- ── Style 1: only the topbar strip (right of sidebar) is draggable ──
+		local dragHandle = newFrame({
+			Size=UDim2.new(1,-180,0,50), Position=UDim2.new(0,180,0,0),
+			BackgroundTransparency=1, ZIndex=10, Parent=Main
+		})
+		dragHandle.InputBegan:Connect(function(i)
+			if i.UserInputType == Enum.UserInputType.MouseButton1 then
+				dragging=true; dragStart=i.Position; startPos=Main.Position
+				i.Changed:Connect(function()
+					if i.UserInputState==Enum.UserInputState.End then dragging=false end
+				end)
+			end
+		end)
 	end
 
-	dragHandle.InputBegan:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging=true; dragStart=i.Position; startPos=Main.Position
-			i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then dragging=false end end)
-		end
-	end)
 	self._ICBs["drag"] = function(i)
 		if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then
-			local d=i.Position-dragStart
-			Main.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y)
+			local d = i.Position - dragStart
+			Main.Position = UDim2.new(
+				startPos.X.Scale, startPos.X.Offset + d.X,
+				startPos.Y.Scale, startPos.Y.Offset + d.Y
+			)
 		end
 	end
-	self._IECBs["drag"] = function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end
+	self._IECBs["drag"] = function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end
+	end
 end
 
 function Nova:_buildNotifications()
@@ -374,13 +404,13 @@ function Nova:_openKeybindPopup(anchor, kbs)
 end
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- ELEMENTS  (key = second arg after lbl, nil = not persisted)
+-- ELEMENTS
 -- ─────────────────────────────────────────────────────────────────────────────
 
 function Nova:_createToggle(parent, lbl, key, isOn, onChange)
 	local C=self._C; local TW=self._TW; local ftw=function(o,p) return tw(o,TW.Fast,p) end
 	local toggled=isOn
-	local box, lbObj, bs  -- forward refs for setToggle
+	local box, lbObj, bs
 
 	local F=Instance.new("TextButton"); F.Size=UDim2.new(1,0,0,28); F.BackgroundTransparency=1; F.Text=""; F.Parent=parent
 
@@ -405,7 +435,6 @@ function Nova:_createToggle(parent, lbl, key, isOn, onChange)
 		end
 	end
 
-	-- register so loads can call setToggle
 	if key then
 		self._ConfigData[key] = isOn
 		self._ConfigCallbacks[key] = function(v, fromLoad)
@@ -470,7 +499,6 @@ function Nova:_createSlider(parent, lbl, key, minV, maxV, defV, onChange)
 		if onChange then onChange(cl) end
 	end
 
-	-- register
 	if key then
 		self._ConfigData[key]=defV
 		self._ConfigCallbacks[key]=function(v,fromLoad)
@@ -525,7 +553,6 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 	local function getList() local t={}; for _,o in ipairs(opts) do if sel[o] then t[#t+1]=o end end; return t end
 	local function getDisplay() local t=getList(); if isMulti then return #t==0 and "None" or table.concat(t,", ") else return t[1] or opts[1] or "" end end
 
-	-- register default
 	if key then
 		local defSnapshot=isMulti and getList() or (getList()[1] or opts[1] or "")
 		self._ConfigData[key]=defSnapshot
@@ -576,7 +603,6 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 		end)
 	end
 
-	-- register load callback now that imap/vt exist
 	if key then
 		self._ConfigCallbacks[key]=function(v,fromLoad)
 			if fromLoad then
@@ -882,7 +908,6 @@ function Nova:_createKeybind(parent, lbl, key, defaultKey, onChange)
 	return F,API
 end
 
--- ─── Label ────────────────────────────────────────────────────────────────────
 function Nova:_createLabel(parent, text)
 	local C=self._C
 	local F=newFrame({Size=UDim2.new(1,0,0,24),BackgroundTransparency=1,Parent=parent})
@@ -904,50 +929,89 @@ function Nova:_createLabel(parent, text)
 	return F,API
 end
 
--- ─── Dual Slider ──────────────────────────────────────────────────────────────
--- Two sliders stacked in one row with a shared label above them.
--- cfg = {
---   lbl="label", 
---   key1="keyA", min1=0, max1=100, def1=50, 
---   key2="keyB", min2=0, max2=100, def2=50,
---   lbl1="Min", lbl2="Max",   -- short sub-labels shown left of each slider
---   onChange1=fn, onChange2=fn
--- }
+-- ─── Dual Slider — side-by-side layout ───────────────────────────────────────
+-- Two compact sliders placed horizontally in one row.
+-- cfg = { lbl, key1, min1, max1, def1, key2, min2, max2, def2,
+--          lbl1, lbl2, onChange1, onChange2 }
 function Nova:_createDualSlider(parent, cfg)
 	local C=self._C; local TW=self._TW
-	local SLIDER_H=36
+	local ROW_H = 28       -- height of each slider row
+	local GAP   = 8        -- gap between left and right columns
+	local TOTAL  = 16 + ROW_H  -- label (16) + one combined row
 
-	local F=newFrame({Size=UDim2.new(1,0,0,16+SLIDER_H*2),BackgroundTransparency=1,Parent=parent})
+	local F=newFrame({Size=UDim2.new(1,0,0,TOTAL),BackgroundTransparency=1,Parent=parent})
 	local sp=Instance.new("UIPadding",F); sp.PaddingLeft=UDim.new(0,2); sp.PaddingRight=UDim.new(0,2)
 
 	-- shared top label
-	newLabel({Size=UDim2.new(1,0,0,16),BackgroundTransparency=1,Text=cfg.lbl or "",TextColor3=C.TextMain,Font=Enum.Font.GothamMedium,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,Parent=F})
+	newLabel({
+		Size=UDim2.new(1,0,0,16), BackgroundTransparency=1,
+		Text=cfg.lbl or "", TextColor3=C.TextMain,
+		Font=Enum.Font.GothamMedium, TextSize=13,
+		TextXAlignment=Enum.TextXAlignment.Left, Parent=F
+	})
 
-	local apis={}
+	local apis = {}
 
-	local function makeInner(yOff, subLbl, key, minV, maxV, defV, onChange)
-		local cur=defV
+	-- Build one compact horizontal slider inside a column frame
+	local function makeInner(xScale, xOff, wScale, wOff, subLbl, key, minV, maxV, defV, onChange)
+		local cur = defV
+		local SUB_W = 34   -- sub-label width
+		local VAL_W = 38   -- value box width
 
-		local row=newFrame({Size=UDim2.new(1,0,0,SLIDER_H),Position=UDim2.new(0,0,0,yOff),BackgroundTransparency=1,Parent=F})
+		local col = newFrame({
+			Size     = UDim2.new(wScale, wOff, 0, ROW_H),
+			Position = UDim2.new(xScale, xOff, 0, 16),
+			BackgroundTransparency = 1,
+			Parent = F
+		})
 
-		-- sub-label on the left
-		local subW=46
-		newLabel({Size=UDim2.new(0,subW,1,0),BackgroundTransparency=1,Text=subLbl or "",TextColor3=C.TextDark,Font=Enum.Font.GothamMedium,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,Parent=row})
+		-- Sub-label (e.g. "Min" / "Max")
+		newLabel({
+			Size=UDim2.new(0,SUB_W,1,0), BackgroundTransparency=1,
+			Text=subLbl or "", TextColor3=C.TextDark,
+			Font=Enum.Font.GothamMedium, TextSize=11,
+			TextXAlignment=Enum.TextXAlignment.Left, Parent=col
+		})
 
-		-- value box on the right
-		local valBg=newFrame({Size=UDim2.new(0,46,0,16),Position=UDim2.new(1,-46,0,2),BackgroundColor3=C.InputBg,BorderSizePixel=0,Parent=row}); corner(valBg,4)
-		local valStroke=stroke(valBg,C.Stroke,1,0.6)
-		local valBox=Instance.new("TextBox"); valBox.Size=UDim2.new(1,-6,1,0); valBox.Position=UDim2.new(0,3,0,0); valBox.BackgroundTransparency=1; valBox.BorderSizePixel=0; valBox.Font=Enum.Font.GothamBold; valBox.TextSize=11; valBox.TextColor3=C.Accent; valBox.Text=tostring(defV); valBox.TextXAlignment=Enum.TextXAlignment.Center; valBox.ClearTextOnFocus=false; valBox.ZIndex=2; valBox.Parent=valBg
+		-- Value box on the far right
+		local valBg = newFrame({
+			Size=UDim2.new(0,VAL_W,0,18),
+			Position=UDim2.new(1,-VAL_W, 0.5,-9),
+			BackgroundColor3=C.InputBg, BorderSizePixel=0, Parent=col
+		}); corner(valBg,4)
+		local valStroke = stroke(valBg,C.Stroke,1,0.6)
+		local valBox = Instance.new("TextBox")
+		valBox.Size=UDim2.new(1,-6,1,0); valBox.Position=UDim2.new(0,3,0,0)
+		valBox.BackgroundTransparency=1; valBox.BorderSizePixel=0
+		valBox.Font=Enum.Font.GothamBold; valBox.TextSize=10
+		valBox.TextColor3=C.Accent; valBox.Text=tostring(defV)
+		valBox.TextXAlignment=Enum.TextXAlignment.Center
+		valBox.ClearTextOnFocus=false; valBox.ZIndex=2; valBox.Parent=valBg
 
-		-- track area
-		local hit=newFrame({Size=UDim2.new(1,-subW-52,0,SLIDER_H),Position=UDim2.new(0,subW+2,0,0),BackgroundTransparency=1,Parent=row})
-		local track=newFrame({Size=UDim2.new(1,0,0,5),Position=UDim2.new(0,0,0.5,-2),BackgroundColor3=C.SliderBg,BorderSizePixel=0,ZIndex=2,Parent=hit}); corner(track,99)
-		local pct=(defV-minV)/(maxV-minV)
-		local fill=newFrame({Size=UDim2.new(pct,0,1,0),BackgroundColor3=C.Accent,BorderSizePixel=0,ZIndex=2,Parent=track}); corner(fill,99)
-		local thumb=newFrame({Size=UDim2.new(0,12,0,12),Position=UDim2.new(pct,-6,0.5,-6),BackgroundColor3=C.Accent,BorderSizePixel=0,ZIndex=3,Parent=track}); corner(thumb,99)
-		local gs=Instance.new("UIStroke",thumb); gs.Color=C.Bg; gs.Thickness=2; gs.Transparency=0
+		-- Track (hit area between sub-label and value box)
+		local TRACK_L = SUB_W + 4
+		local TRACK_R = VAL_W + 4
+		local hit = newFrame({
+			Size=UDim2.new(1,-TRACK_L-TRACK_R, 0, ROW_H),
+			Position=UDim2.new(0,TRACK_L, 0, 0),
+			BackgroundTransparency=1, Parent=col
+		})
+		local track = newFrame({
+			Size=UDim2.new(1,0,0,5), Position=UDim2.new(0,0,0.5,-2),
+			BackgroundColor3=C.SliderBg, BorderSizePixel=0, ZIndex=2, Parent=hit
+		}); corner(track,99)
+		local pct = (defV-minV)/(maxV-minV)
+		local fill = newFrame({
+			Size=UDim2.new(pct,0,1,0), BackgroundColor3=C.Accent,
+			BorderSizePixel=0, ZIndex=2, Parent=track
+		}); corner(fill,99)
+		local thumb = newFrame({
+			Size=UDim2.new(0,12,0,12), Position=UDim2.new(pct,-6,0.5,-6),
+			BackgroundColor3=C.Accent, BorderSizePixel=0, ZIndex=3, Parent=track
+		}); corner(thumb,99)
+		local gs = Instance.new("UIStroke",thumb); gs.Color=C.Bg; gs.Thickness=2; gs.Transparency=0
 
-		local dragging=false
+		local dragging = false
 
 		local function applyVal(v)
 			local cl=math.clamp(v,minV,maxV); local p=(cl-minV)/(maxV-minV)
@@ -968,21 +1032,60 @@ function Nova:_createDualSlider(parent, cfg)
 		local function updateMouse(x)
 			local p2=math.clamp((x-track.AbsolutePosition.X)/track.AbsoluteSize.X,0,1)
 			local v=math.floor(minV+p2*(maxV-minV))
-			if v~=cur then cur=v; fill.Size=UDim2.new(p2,0,1,0); thumb.Position=UDim2.new(p2,-6,0.5,-6); valBox.Text=tostring(v); if key then self._ConfigData[key]=v end; if onChange then onChange(v) end end
+			if v~=cur then
+				cur=v; fill.Size=UDim2.new(p2,0,1,0); thumb.Position=UDim2.new(p2,-6,0.5,-6)
+				valBox.Text=tostring(v)
+				if key then self._ConfigData[key]=v end
+				if onChange then onChange(v) end
+			end
 		end
 
-		valBox.Focused:Connect(function() tw(valBg,TW.Fast,{BackgroundColor3=C.InputActive}):Play(); tw(valStroke,TW.Fast,{Color=C.Accent,Transparency=0.2}):Play() end)
-		valBox.FocusLost:Connect(function() tw(valBg,TW.Fast,{BackgroundColor3=C.InputBg}):Play(); tw(valStroke,TW.Fast,{Color=C.Stroke,Transparency=0.6}):Play(); local n=tonumber(valBox.Text); if n then applyVal(math.floor(n)) else valBox.Text=tostring(cur) end end)
+		valBox.Focused:Connect(function()
+			tw(valBg,TW.Fast,{BackgroundColor3=C.InputActive}):Play()
+			tw(valStroke,TW.Fast,{Color=C.Accent,Transparency=0.2}):Play()
+		end)
+		valBox.FocusLost:Connect(function()
+			tw(valBg,TW.Fast,{BackgroundColor3=C.InputBg}):Play()
+			tw(valStroke,TW.Fast,{Color=C.Stroke,Transparency=0.6}):Play()
+			local n=tonumber(valBox.Text)
+			if n then applyVal(math.floor(n)) else valBox.Text=tostring(cur) end
+		end)
 
-		local sid="ds_"..tostring(math.random(1e9))
-		hit.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true; updateMouse(i.Position.X); tw(gs,TW.GlowIn,{Color=C.Accent,Transparency=0.25}):Play(); tw(thumb,TW.BarIn,{Size=UDim2.new(0,14,0,14)}):Play() end end)
-		hit.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false; tw(gs,TW.GlowOut,{Color=C.Bg,Transparency=0}):Play(); tw(thumb,TW.Default,{Size=UDim2.new(0,12,0,12)}):Play() end end)
-		self._ICBs[sid]=function(i) if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then updateMouse(i.Position.X) end end
-		self._IECBs[sid]=function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end
+		local sid = "ds_"..tostring(math.random(1e9))
+		hit.InputBegan:Connect(function(i)
+			if i.UserInputType==Enum.UserInputType.MouseButton1 then
+				dragging=true; updateMouse(i.Position.X)
+				tw(gs,TW.GlowIn,{Color=C.Accent,Transparency=0.25}):Play()
+				tw(thumb,TW.BarIn,{Size=UDim2.new(0,14,0,14)}):Play()
+			end
+		end)
+		hit.InputEnded:Connect(function(i)
+			if i.UserInputType==Enum.UserInputType.MouseButton1 then
+				dragging=false
+				tw(gs,TW.GlowOut,{Color=C.Bg,Transparency=0}):Play()
+				tw(thumb,TW.Default,{Size=UDim2.new(0,12,0,12)}):Play()
+			end
+		end)
+		self._ICBs[sid]=function(i)
+			if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then
+				updateMouse(i.Position.X)
+			end
+		end
+		self._IECBs[sid]=function(i)
+			if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end
+		end
 		F.Destroying:Connect(function() self._ICBs[sid]=nil; self._IECBs[sid]=nil end)
 
-		hit.MouseEnter:Connect(function() tw(thumb,TW.Default,{Size=UDim2.new(0,14,0,14)}):Play(); tw(gs,TW.GlowIn,{Color=C.Accent,Transparency=0.5}):Play() end)
-		hit.MouseLeave:Connect(function() if not dragging then tw(thumb,TW.Default,{Size=UDim2.new(0,12,0,12)}):Play(); tw(gs,TW.GlowOut,{Color=C.Bg,Transparency=0}):Play() end end)
+		hit.MouseEnter:Connect(function()
+			tw(thumb,TW.Default,{Size=UDim2.new(0,14,0,14)}):Play()
+			tw(gs,TW.GlowIn,{Color=C.Accent,Transparency=0.5}):Play()
+		end)
+		hit.MouseLeave:Connect(function()
+			if not dragging then
+				tw(thumb,TW.Default,{Size=UDim2.new(0,12,0,12)}):Play()
+				tw(gs,TW.GlowOut,{Color=C.Bg,Transparency=0}):Play()
+			end
+		end)
 
 		local api={}
 		function api:GetValue() return cur end
@@ -990,8 +1093,17 @@ function Nova:_createDualSlider(parent, cfg)
 		return api
 	end
 
-	apis[1]=makeInner(16,  cfg.lbl1 or "Val 1", cfg.key1, cfg.min1 or 0, cfg.max1 or 100, cfg.def1 or 0, cfg.onChange1)
-	apis[2]=makeInner(16+SLIDER_H, cfg.lbl2 or "Val 2", cfg.key2, cfg.min2 or 0, cfg.max2 or 100, cfg.def2 or 0, cfg.onChange2)
+	-- Left column: 0%  →  50% - GAP/2
+	apis[1]=makeInner(0, 0, 0.5, -GAP/2,
+		cfg.lbl1 or "Val 1", cfg.key1,
+		cfg.min1 or 0, cfg.max1 or 100, cfg.def1 or 0,
+		cfg.onChange1)
+
+	-- Right column: 50% + GAP/2  →  100%
+	apis[2]=makeInner(0.5, GAP/2, 0.5, -GAP/2,
+		cfg.lbl2 or "Val 2", cfg.key2,
+		cfg.min2 or 0, cfg.max2 or 100, cfg.def2 or 0,
+		cfg.onChange2)
 
 	return F, apis
 end
@@ -1034,7 +1146,6 @@ function Section:_sep()
 	newFrame({Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,0.5,0),AnchorPoint=Vector2.new(0,0.5),BackgroundColor3=self._win._C.Sep,BorderSizePixel=0,Parent=sp})
 end
 
--- Section element methods — `key` is second arg (replaces the old unused `info`)
 function Section:NewToggle(text, key, callback)
 	self:_sep()
 	local child,api=self._win:_createToggle(self._sc,text,key,false,callback)
@@ -1089,7 +1200,6 @@ function Section:NewKeybind(text, key, defaultKey, callback)
 	child.LayoutOrder=self:_no(); child.Size=UDim2.new(1,0,0,EH.keybind)
 	local obj={}; function obj:SetValue(v) api:SetValue(v) end; function obj:GetValue() return api:GetValue() end; return obj
 end
-
 function Section:NewLabel(text)
 	self:_sep()
 	local child,api=self._win:_createLabel(self._sc,text)
@@ -1099,7 +1209,9 @@ end
 function Section:NewDualSlider(cfg)
 	self:_sep()
 	local child,apis=self._win:_createDualSlider(self._sc,cfg)
-	child.LayoutOrder=self:_no(); child.Size=UDim2.new(1,0,0,16+36*2)
+	child.LayoutOrder=self:_no()
+	-- Side-by-side: label (16) + single row (28) = 44px
+	child.Size=UDim2.new(1,0,0,44)
 	local obj={}
 	function obj:GetValue1() return apis[1]:GetValue() end
 	function obj:GetValue2() return apis[2]:GetValue() end
@@ -1180,18 +1292,14 @@ function Nova:SetPage(pageLabel)
 	return false
 end
 
--- ─── BuildConfig — fully automatic, no Refs/State needed ─────────────────────
--- autoSaveName: if provided, skips the manual Configs tab and auto-saves to
---               that filename every time any registered value changes.
+-- ─── BuildConfig ─────────────────────────────────────────────────────────────
 function Nova:BuildConfig(page, autoSaveName)
 	assert(page,"Nova:BuildConfig — page is required")
 	local win=self
 
 	local function getConfigs() local ok,list=pcall(_listConfigs); return (ok and list) or {} end
 
-	-- ── Auto-save mode ────────────────────────────────────────────────────────
 	if autoSaveName then
-		-- Load the saved config immediately on startup
 		local existing=_loadConfig(autoSaveName)
 		if existing then
 			for k,v in pairs(existing) do
@@ -1200,29 +1308,23 @@ function Nova:BuildConfig(page, autoSaveName)
 			end
 		end
 
-		-- Wrap every existing callback so it also triggers a save
 		local function wrapCallbacks()
 			for k,origCb in pairs(win._ConfigCallbacks) do
 				local wrapped=origCb
 				win._ConfigCallbacks[k]=function(v,fromLoad)
 					wrapped(v,fromLoad)
-					if not fromLoad then
-						pcall(_saveConfig,autoSaveName,win._ConfigData)
-					end
+					if not fromLoad then pcall(_saveConfig,autoSaveName,win._ConfigData) end
 				end
 			end
 		end
 		wrapCallbacks()
 
-		-- Also intercept _setConfig so future elements registered after
-		-- BuildConfig is called are covered too
 		local origSet=win._setConfig
 		win._setConfig=function(self2,key,value)
 			origSet(self2,key,value)
 			pcall(_saveConfig,autoSaveName,win._ConfigData)
 		end
 
-		-- Manage tab only — no Save/Configs tab
 		local manTab=page:NewTab("Manage")
 		local sharedDropAPI=nil
 		local sharedWrap=nil
@@ -1270,7 +1372,6 @@ function Nova:BuildConfig(page, autoSaveName)
 		return
 	end
 
-	-- ── Manual save mode ──────────────────────────────────────────────────────
 	local sharedDropAPI = nil
 	local sharedWrap    = nil
 
