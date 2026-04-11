@@ -1,4 +1,4 @@
--- // Nova UI Library — with auto-registering config system
+-- // Nova UI Libra123123
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -22,11 +22,12 @@ local EH = {
 	keybind     = 28,
 }
 
+local NOTIF_ICON = "rbxassetid://97960954909802"
 local NOTIF_THEMES = {
-	info    = { Color = Color3.fromRGB(255,110,150), Icon = "rbxassetid://10888671786" },
-	warning = { Color = Color3.fromRGB(241,196, 15), Icon = "rbxassetid://10888673669" },
-	error   = { Color = Color3.fromRGB(231, 76, 60), Icon = "rbxassetid://10888674317" },
-	success = { Color = Color3.fromRGB( 46,204,113), Icon = "rbxassetid://10888674068" },
+	info    = { Color = Color3.fromRGB(255,110,150), Icon = NOTIF_ICON },
+	warning = { Color = Color3.fromRGB(241,196, 15), Icon = NOTIF_ICON },
+	error   = { Color = Color3.fromRGB(231, 76, 60), Icon = NOTIF_ICON },
+	success = { Color = Color3.fromRGB( 46,204,113), Icon = NOTIF_ICON },
 }
 local STYLE_TITLES = { success="Success", warning="Warning", info="Info", error="Error" }
 
@@ -1003,51 +1004,63 @@ function Nova:BuildConfig(page)
 
 	local function getConfigs() local ok,list=pcall(_listConfigs); return (ok and list) or {} end
 	local loadDropAPI=nil; local delDropAPI=nil
+	local loadWrap, delWrap
 
-	local loadWrap=newFrame({Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,LayoutOrder=999,Parent=nil})
-	local delWrap =newFrame({Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,LayoutOrder=999,Parent=nil})
-
-	local function rebuildDropdowns()
+	local function rebuildLoad()
 		local cfgs=getConfigs(); local opts=#cfgs>0 and cfgs or {"(no configs)"}; local hasReal=#cfgs>0
 		for _,ch in ipairs(loadWrap:GetChildren()) do ch:Destroy() end
-		for _,ch in ipairs(delWrap:GetChildren())  do ch:Destroy() end
-		local lf,la=win:_createDropdown(loadWrap,"Select Config",nil,opts,opts[1],false,nil); lf.Size=UDim2.new(1,0,0,TOTAL_H); loadDropAPI=hasReal and la or nil
-		local df,da=win:_createDropdown(delWrap, "Select Config",nil,opts,opts[1],false,nil); df.Size=UDim2.new(1,0,0,TOTAL_H); delDropAPI=hasReal and da or nil
+		local lf,la=win:_createDropdown(loadWrap,"Select Config",nil,opts,opts[1],false,nil)
+		lf.Size=UDim2.new(1,0,0,TOTAL_H); loadDropAPI=hasReal and la or nil
 	end
 
+	local function rebuildDel()
+		local cfgs=getConfigs(); local opts=#cfgs>0 and cfgs or {"(no configs)"}; local hasReal=#cfgs>0
+		for _,ch in ipairs(delWrap:GetChildren()) do ch:Destroy() end
+		local df,da=win:_createDropdown(delWrap,"Select Config",nil,opts,opts[1],false,nil)
+		df.Size=UDim2.new(1,0,0,TOTAL_H); delDropAPI=hasReal and da or nil
+	end
+
+	-- ── Configs tab ───────────────────────────────────────────────────────────
 	local cfgTab=page:NewTab("Configs"); local manTab=page:NewTab("Manage")
 	local saveSection=cfgTab:NewSection("Save Config")
 	local nameInput=saveSection:NewTextInput("Config Name",nil,"e.g. my_settings","",nil)
-
 	saveSection:NewPrimaryButton("Save", function()
 		local name=nameInput:GetValue():match("^%s*(.-)%s*$")
 		if name=="" then win:Toast("Enter a config name first!","error"); return end
-		_saveConfig(name,win._ConfigData); rebuildDropdowns()
+		_saveConfig(name,win._ConfigData); rebuildLoad(); rebuildDel()
 		if loadDropAPI then pcall(function() loadDropAPI:SetValue(name) end) end
 		if delDropAPI  then pcall(function() delDropAPI:SetValue(name)  end) end
 		win:Toast("Saved '"..name.."'","success")
 	end)
 
-	local loadSection=manTab:NewSection("Load Config"); loadWrap.Parent=loadSection._sc
+	-- ── Manage tab — Load ─────────────────────────────────────────────────────
+	local loadSection=manTab:NewSection("Load Config")
+	-- dropdown sits between section header and the button, using section layout order
+	loadWrap=newFrame({Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,LayoutOrder=loadSection:_no(),Parent=loadSection._sc})
 	loadSection:NewPrimaryButton("Load Selected", function()
 		if not loadDropAPI then win:Toast("No configs to load!","error"); return end
-		local name=loadDropAPI:GetValue(); if not name or name=="(no configs)" then win:Toast("Select a config first!","error"); return end
-		local data=_loadConfig(name); if not data then win:Toast("Config '"..name.."' not found!","error"); return end
+		local name=loadDropAPI:GetValue()
+		if not name or name=="(no configs)" then win:Toast("Select a config first!","error"); return end
+		local data=_loadConfig(name)
+		if not data then win:Toast("Config '"..name.."' not found!","error"); return end
 		for k,v in pairs(data) do
 			win._ConfigData[k]=v; local cb=win._ConfigCallbacks[k]; if cb then pcall(cb,v,true) end
 		end
 		win:Toast("Loaded '"..name.."'","success")
 	end)
 
-	local delSection=manTab:NewSection("Delete Config"); delWrap.Parent=delSection._sc
+	-- ── Manage tab — Delete ───────────────────────────────────────────────────
+	local delSection=manTab:NewSection("Delete Config")
+	delWrap=newFrame({Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,LayoutOrder=delSection:_no(),Parent=delSection._sc})
 	delSection:NewButton("Delete Selected", function()
 		if not delDropAPI then win:Toast("No configs to delete!","error"); return end
-		local name=delDropAPI:GetValue(); if not name or name=="(no configs)" then win:Toast("Select a config first!","error"); return end
-		if _deleteConfig(name) then rebuildDropdowns(); win:Toast("Deleted '"..name.."'","success")
+		local name=delDropAPI:GetValue()
+		if not name or name=="(no configs)" then win:Toast("Select a config first!","error"); return end
+		if _deleteConfig(name) then rebuildLoad(); rebuildDel(); win:Toast("Deleted '"..name.."'","success")
 		else win:Toast("Config '"..name.."' not found!","error") end
 	end)
 
-	rebuildDropdowns()
+	rebuildLoad(); rebuildDel()
 end
 
 return Nova
