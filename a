@@ -1,4 +1,4 @@
--- // Nova Uasdasdas
+-- // Novadasdasdasdasdas
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -160,6 +160,7 @@ function Nova.new(cfg)
 	end
 	self._W              = cfg.size and cfg.size[1] or DEFAULT_W
 	self._H              = cfg.size and cfg.size[2] or DEFAULT_H
+	self._dragStyle      = cfg.dragStyle or 1   -- 1 = topbar only, 2 = full window
 	self._pages          = {}
 	self._closeCallbacks = {}
 	self._accentCBs      = {}
@@ -244,7 +245,16 @@ end
 
 function Nova:_setupDrag(Main)
 	local dragging, dragStart, startPos = false, nil, nil
-	local dragHandle = newFrame({ Size=UDim2.new(1,-180,0,50), Position=UDim2.new(0,180,0,0), BackgroundTransparency=1, ZIndex=10, Parent=Main })
+
+	-- Style 1: only the topbar area (right of sidebar) is draggable
+	-- Style 2: the entire window is draggable
+	local dragHandle
+	if self._dragStyle == 2 then
+		dragHandle = newFrame({ Size=UDim2.new(1,0,1,0), Position=UDim2.new(0,0,0,0), BackgroundTransparency=1, ZIndex=10, Parent=Main })
+	else
+		dragHandle = newFrame({ Size=UDim2.new(1,-180,0,50), Position=UDim2.new(0,180,0,0), BackgroundTransparency=1, ZIndex=10, Parent=Main })
+	end
+
 	dragHandle.InputBegan:Connect(function(i)
 		if i.UserInputType == Enum.UserInputType.MouseButton1 then
 			dragging=true; dragStart=i.Position; startPos=Main.Position
@@ -278,6 +288,7 @@ function Nova:_notifGetElem()
 	local pad=Instance.new("UIPadding",obj); pad.PaddingLeft=UDim.new(0,15); pad.PaddingRight=UDim.new(0,15); pad.PaddingTop=UDim.new(0,12); pad.PaddingBottom=UDim.new(0,22)
 	local hdr=newFrame({ Name="HeaderFrame", Size=UDim2.new(1,0,0,22), BackgroundTransparency=1, Parent=obj })
 	local ic=Instance.new("ImageLabel"); ic.Name="Icon"; ic.Size=UDim2.new(0,20,0,20); ic.BackgroundTransparency=1; ic.Parent=hdr
+	local icc2=Instance.new("UICorner",ic); icc2.CornerRadius=UDim.new(1,0)
 	newLabel({ Name="Title", Size=UDim2.new(1,-25,1,0), Position=UDim2.new(0,25,0,0), BackgroundTransparency=1, Font=Enum.Font.GothamBold, TextColor3=Color3.new(1,1,1), TextSize=13, TextXAlignment=Enum.TextXAlignment.Left, Parent=hdr })
 	newLabel({ Name="Desc", Position=UDim2.new(0,0,0,28), Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y, BackgroundTransparency=1, Font=Enum.Font.Gotham, TextColor3=Color3.fromRGB(180,180,180), TextSize=12, TextXAlignment=Enum.TextXAlignment.Left, TextWrapped=true, Parent=obj })
 	local bc=newFrame({ Name="BarContainer", Size=UDim2.new(1,0,0,4), Position=UDim2.new(0.5,0,1,10), AnchorPoint=Vector2.new(0.5,1), BackgroundColor3=Color3.fromRGB(35,35,40), BorderSizePixel=0, Parent=obj }); corner(bc,99)
@@ -871,6 +882,120 @@ function Nova:_createKeybind(parent, lbl, key, defaultKey, onChange)
 	return F,API
 end
 
+-- ─── Label ────────────────────────────────────────────────────────────────────
+function Nova:_createLabel(parent, text)
+	local C=self._C
+	local F=newFrame({Size=UDim2.new(1,0,0,24),BackgroundTransparency=1,Parent=parent})
+	newLabel({
+		Size=UDim2.new(1,0,1,0),
+		BackgroundTransparency=1,
+		Text=text,
+		TextColor3=C.TextDark,
+		Font=Enum.Font.Gotham,
+		TextSize=12,
+		TextXAlignment=Enum.TextXAlignment.Left,
+		TextWrapped=true,
+		Parent=F,
+	})
+	local API={}
+	function API:SetText(t)
+		F:FindFirstChildWhichIsA("TextLabel").Text=t
+	end
+	return F,API
+end
+
+-- ─── Dual Slider ──────────────────────────────────────────────────────────────
+-- Two sliders stacked in one row with a shared label above them.
+-- cfg = {
+--   lbl="label", 
+--   key1="keyA", min1=0, max1=100, def1=50, 
+--   key2="keyB", min2=0, max2=100, def2=50,
+--   lbl1="Min", lbl2="Max",   -- short sub-labels shown left of each slider
+--   onChange1=fn, onChange2=fn
+-- }
+function Nova:_createDualSlider(parent, cfg)
+	local C=self._C; local TW=self._TW
+	local SLIDER_H=36
+
+	local F=newFrame({Size=UDim2.new(1,0,0,16+SLIDER_H*2),BackgroundTransparency=1,Parent=parent})
+	local sp=Instance.new("UIPadding",F); sp.PaddingLeft=UDim.new(0,2); sp.PaddingRight=UDim.new(0,2)
+
+	-- shared top label
+	newLabel({Size=UDim2.new(1,0,0,16),BackgroundTransparency=1,Text=cfg.lbl or "",TextColor3=C.TextMain,Font=Enum.Font.GothamMedium,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,Parent=F})
+
+	local apis={}
+
+	local function makeInner(yOff, subLbl, key, minV, maxV, defV, onChange)
+		local cur=defV
+
+		local row=newFrame({Size=UDim2.new(1,0,0,SLIDER_H),Position=UDim2.new(0,0,0,yOff),BackgroundTransparency=1,Parent=F})
+
+		-- sub-label on the left
+		local subW=46
+		newLabel({Size=UDim2.new(0,subW,1,0),BackgroundTransparency=1,Text=subLbl or "",TextColor3=C.TextDark,Font=Enum.Font.GothamMedium,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,Parent=row})
+
+		-- value box on the right
+		local valBg=newFrame({Size=UDim2.new(0,46,0,16),Position=UDim2.new(1,-46,0,2),BackgroundColor3=C.InputBg,BorderSizePixel=0,Parent=row}); corner(valBg,4)
+		local valStroke=stroke(valBg,C.Stroke,1,0.6)
+		local valBox=Instance.new("TextBox"); valBox.Size=UDim2.new(1,-6,1,0); valBox.Position=UDim2.new(0,3,0,0); valBox.BackgroundTransparency=1; valBox.BorderSizePixel=0; valBox.Font=Enum.Font.GothamBold; valBox.TextSize=11; valBox.TextColor3=C.Accent; valBox.Text=tostring(defV); valBox.TextXAlignment=Enum.TextXAlignment.Center; valBox.ClearTextOnFocus=false; valBox.ZIndex=2; valBox.Parent=valBg
+
+		-- track area
+		local hit=newFrame({Size=UDim2.new(1,-subW-52,0,SLIDER_H),Position=UDim2.new(0,subW+2,0,0),BackgroundTransparency=1,Parent=row})
+		local track=newFrame({Size=UDim2.new(1,0,0,5),Position=UDim2.new(0,0,0.5,-2),BackgroundColor3=C.SliderBg,BorderSizePixel=0,ZIndex=2,Parent=hit}); corner(track,99)
+		local pct=(defV-minV)/(maxV-minV)
+		local fill=newFrame({Size=UDim2.new(pct,0,1,0),BackgroundColor3=C.Accent,BorderSizePixel=0,ZIndex=2,Parent=track}); corner(fill,99)
+		local thumb=newFrame({Size=UDim2.new(0,12,0,12),Position=UDim2.new(pct,-6,0.5,-6),BackgroundColor3=C.Accent,BorderSizePixel=0,ZIndex=3,Parent=track}); corner(thumb,99)
+		local gs=Instance.new("UIStroke",thumb); gs.Color=C.Bg; gs.Thickness=2; gs.Transparency=0
+
+		local dragging=false
+
+		local function applyVal(v)
+			local cl=math.clamp(v,minV,maxV); local p=(cl-minV)/(maxV-minV)
+			cur=cl; fill.Size=UDim2.new(p,0,1,0); thumb.Position=UDim2.new(p,-6,0.5,-6)
+			valBox.Text=tostring(cl)
+			if key then self._ConfigData[key]=cl end
+			if onChange then onChange(cl) end
+		end
+
+		if key then
+			self._ConfigData[key]=defV
+			self._ConfigCallbacks[key]=function(v,fromLoad)
+				if fromLoad then applyVal(math.clamp(v,minV,maxV)) end
+				if not fromLoad and onChange then onChange(v) end
+			end
+		end
+
+		local function updateMouse(x)
+			local p2=math.clamp((x-track.AbsolutePosition.X)/track.AbsoluteSize.X,0,1)
+			local v=math.floor(minV+p2*(maxV-minV))
+			if v~=cur then cur=v; fill.Size=UDim2.new(p2,0,1,0); thumb.Position=UDim2.new(p2,-6,0.5,-6); valBox.Text=tostring(v); if key then self._ConfigData[key]=v end; if onChange then onChange(v) end end
+		end
+
+		valBox.Focused:Connect(function() tw(valBg,TW.Fast,{BackgroundColor3=C.InputActive}):Play(); tw(valStroke,TW.Fast,{Color=C.Accent,Transparency=0.2}):Play() end)
+		valBox.FocusLost:Connect(function() tw(valBg,TW.Fast,{BackgroundColor3=C.InputBg}):Play(); tw(valStroke,TW.Fast,{Color=C.Stroke,Transparency=0.6}):Play(); local n=tonumber(valBox.Text); if n then applyVal(math.floor(n)) else valBox.Text=tostring(cur) end end)
+
+		local sid="ds_"..tostring(math.random(1e9))
+		hit.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true; updateMouse(i.Position.X); tw(gs,TW.GlowIn,{Color=C.Accent,Transparency=0.25}):Play(); tw(thumb,TW.BarIn,{Size=UDim2.new(0,14,0,14)}):Play() end end)
+		hit.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false; tw(gs,TW.GlowOut,{Color=C.Bg,Transparency=0}):Play(); tw(thumb,TW.Default,{Size=UDim2.new(0,12,0,12)}):Play() end end)
+		self._ICBs[sid]=function(i) if dragging and i.UserInputType==Enum.UserInputType.MouseMovement then updateMouse(i.Position.X) end end
+		self._IECBs[sid]=function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end
+		F.Destroying:Connect(function() self._ICBs[sid]=nil; self._IECBs[sid]=nil end)
+
+		hit.MouseEnter:Connect(function() tw(thumb,TW.Default,{Size=UDim2.new(0,14,0,14)}):Play(); tw(gs,TW.GlowIn,{Color=C.Accent,Transparency=0.5}):Play() end)
+		hit.MouseLeave:Connect(function() if not dragging then tw(thumb,TW.Default,{Size=UDim2.new(0,12,0,12)}):Play(); tw(gs,TW.GlowOut,{Color=C.Bg,Transparency=0}):Play() end end)
+
+		local api={}
+		function api:GetValue() return cur end
+		function api:SetValue(v) applyVal(math.clamp(v,minV,maxV)) end
+		return api
+	end
+
+	apis[1]=makeInner(16,  cfg.lbl1 or "Val 1", cfg.key1, cfg.min1 or 0, cfg.max1 or 100, cfg.def1 or 0, cfg.onChange1)
+	apis[2]=makeInner(16+SLIDER_H, cfg.lbl2 or "Val 2", cfg.key2, cfg.min2 or 0, cfg.max2 or 100, cfg.def2 or 0, cfg.onChange2)
+
+	return F, apis
+end
+
 -- ─── Scrolling container ──────────────────────────────────────────────────────
 function Nova:_makeSc(parent)
 	local C=self._C; local sc=Instance.new("ScrollingFrame")
@@ -963,6 +1088,24 @@ function Section:NewKeybind(text, key, defaultKey, callback)
 	local child,api=self._win:_createKeybind(self._sc,text,key,defaultKey,callback)
 	child.LayoutOrder=self:_no(); child.Size=UDim2.new(1,0,0,EH.keybind)
 	local obj={}; function obj:SetValue(v) api:SetValue(v) end; function obj:GetValue() return api:GetValue() end; return obj
+end
+
+function Section:NewLabel(text)
+	self:_sep()
+	local child,api=self._win:_createLabel(self._sc,text)
+	child.LayoutOrder=self:_no(); child.Size=UDim2.new(1,0,0,24)
+	local obj={}; function obj:SetText(t) api:SetText(t) end; return obj
+end
+function Section:NewDualSlider(cfg)
+	self:_sep()
+	local child,apis=self._win:_createDualSlider(self._sc,cfg)
+	child.LayoutOrder=self:_no(); child.Size=UDim2.new(1,0,0,16+36*2)
+	local obj={}
+	function obj:GetValue1() return apis[1]:GetValue() end
+	function obj:GetValue2() return apis[2]:GetValue() end
+	function obj:SetValue1(v) apis[1]:SetValue(v) end
+	function obj:SetValue2(v) apis[2]:SetValue(v) end
+	return obj
 end
 
 -- ─── Tab ──────────────────────────────────────────────────────────────────────
