@@ -1,4 +1,4 @@
--- // Nova UI Libra123123
+-- // 123123123
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -30,6 +30,46 @@ local NOTIF_THEMES = {
 	success = { Color = Color3.fromRGB( 46,204,113), Icon = NOTIF_ICON },
 }
 local STYLE_TITLES = { success="Success", warning="Warning", info="Info", error="Error" }
+
+local KEY_NAMES = {
+	-- Modifiers
+	LeftControl="LCtrl",   RightControl="RCtrl",
+	LeftShift="LShift",    RightShift="RShift",
+	LeftAlt="LAlt",        RightAlt="RAlt",
+	LeftMeta="LMeta",      RightMeta="RMeta",
+	-- Mouse
+	MouseButton1="LMB",    MouseButton2="RMB",    MouseButton3="MMB",
+	-- Common
+	Space="Space",         Return="Enter",         BackSpace="Bksp",
+	Delete="Del",          Insert="Ins",           Tab="Tab",
+	CapsLock="Caps",       Escape="Esc",
+	-- Arrows
+	Up="↑",   Down="↓",   Left="←",   Right="→",
+	-- Function keys (F1-F12 handled by pattern below)
+	-- Numpad
+	KeypadZero="Num0",     KeypadOne="Num1",       KeypadTwo="Num2",
+	KeypadThree="Num3",    KeypadFour="Num4",      KeypadFive="Num5",
+	KeypadSix="Num6",      KeypadSeven="Num7",     KeypadEight="Num8",
+	KeypadNine="Num9",
+	KeypadPlus="Num+",     KeypadMinus="Num-",     KeypadAsterisk="Num*",
+	KeypadSlash="Num/",    KeypadPeriod="Num.",    KeypadEnter="NumEnter",
+	-- Misc
+	Home="Home",           End="End",
+	PageUp="PgUp",         PageDown="PgDn",
+	PrintScreen="PrtSc",   ScrollLock="ScrLk",    Pause="Pause",
+}
+
+local function beautifyKey(raw)
+	if not raw then return "[ -- ]" end
+	if KEY_NAMES[raw] then return "["..KEY_NAMES[raw].."]" end
+	-- F1-F24
+	local fnum = raw:match("^F(%d+)$")
+	if fnum then return "[F"..fnum.."]" end
+	-- Already short (1-3 chars) — just wrap
+	if #raw <= 3 then return "["..raw.."]" end
+	-- Default fallback — strip nothing, just wrap
+	return "["..raw.."]"
+end
 
 local function defaultColors()
 	return {
@@ -778,10 +818,10 @@ function Nova:_createKeybind(parent, lbl, key, defaultKey, onChange)
 	newLabel({Size=UDim2.new(1,-110,1,0),Position=UDim2.new(0,8,0,0),BackgroundTransparency=1,Text=lbl,TextColor3=C.TextMain,Font=Enum.Font.GothamMedium,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,Parent=F})
 	local badgeBg=newFrame({Size=UDim2.new(0,92,0,20),Position=UDim2.new(1,-96,0.5,-10),BackgroundColor3=C.ElemBg,BorderSizePixel=0,Parent=F}); corner(badgeBg,5)
 	local badgeStroke=stroke(badgeBg,C.Stroke,1,0.45)
-	local badge=Instance.new("TextButton"); badge.Size=UDim2.new(1,0,1,0); badge.BackgroundTransparency=1; badge.BorderSizePixel=0; badge.Font=Enum.Font.GothamMedium; badge.TextSize=11; badge.Text=currentKey and ("["..currentKey.."]") or "[ -- ]"; badge.TextColor3=currentKey and C.Accent or C.TextDark; badge.ZIndex=2; badge.Parent=badgeBg
+	local badge=Instance.new("TextButton"); badge.Size=UDim2.new(1,0,1,0); badge.BackgroundTransparency=1; badge.BorderSizePixel=0; badge.Font=Enum.Font.GothamMedium; badge.TextSize=11; badge.Text=beautifyKey(currentKey); badge.TextColor3=currentKey and C.Accent or C.TextDark; badge.ZIndex=2; badge.Parent=badgeBg
 
 	local function setBadgeIdle()
-		badge.Text=currentKey and ("["..currentKey.."]") or "[ -- ]"
+		badge.Text=beautifyKey(currentKey)
 		ftw(badge,{TextColor3=currentKey and C.Accent or C.TextDark}):Play()
 		ftw(badgeBg,{BackgroundColor3=C.ElemBg}):Play()
 		ftw(badgeStroke,{Color=C.Stroke,Transparency=0.45}):Play()
@@ -1003,21 +1043,23 @@ function Nova:BuildConfig(page)
 	local win=self
 
 	local function getConfigs() local ok,list=pcall(_listConfigs); return (ok and list) or {} end
-	local loadDropAPI=nil; local delDropAPI=nil
-	local loadWrap, delWrap
 
-	local function rebuildLoad()
+	-- Single shared dropdown API — used by both Load and Delete
+	local sharedDropAPI = nil
+	local sharedWrap    = nil
+
+	local function rebuildShared()
 		local cfgs=getConfigs(); local opts=#cfgs>0 and cfgs or {"(no configs)"}; local hasReal=#cfgs>0
-		for _,ch in ipairs(loadWrap:GetChildren()) do ch:Destroy() end
-		local lf,la=win:_createDropdown(loadWrap,"Select Config",nil,opts,opts[1],false,nil)
-		lf.Size=UDim2.new(1,0,0,TOTAL_H); loadDropAPI=hasReal and la or nil
+		for _,ch in ipairs(sharedWrap:GetChildren()) do ch:Destroy() end
+		local f,a=win:_createDropdown(sharedWrap,"Select Config",nil,opts,opts[1],false,nil)
+		f.Size=UDim2.new(1,0,0,TOTAL_H); sharedDropAPI=hasReal and a or nil
 	end
 
-	local function rebuildDel()
-		local cfgs=getConfigs(); local opts=#cfgs>0 and cfgs or {"(no configs)"}; local hasReal=#cfgs>0
-		for _,ch in ipairs(delWrap:GetChildren()) do ch:Destroy() end
-		local df,da=win:_createDropdown(delWrap,"Select Config",nil,opts,opts[1],false,nil)
-		df.Size=UDim2.new(1,0,0,TOTAL_H); delDropAPI=hasReal and da or nil
+	local function getSelected()
+		if not sharedDropAPI then win:Toast("No configs found!","error"); return nil end
+		local name=sharedDropAPI:GetValue()
+		if not name or name=="(no configs)" then win:Toast("Select a config first!","error"); return nil end
+		return name
 	end
 
 	-- ── Configs tab ───────────────────────────────────────────────────────────
@@ -1027,20 +1069,19 @@ function Nova:BuildConfig(page)
 	saveSection:NewPrimaryButton("Save", function()
 		local name=nameInput:GetValue():match("^%s*(.-)%s*$")
 		if name=="" then win:Toast("Enter a config name first!","error"); return end
-		_saveConfig(name,win._ConfigData); rebuildLoad(); rebuildDel()
-		if loadDropAPI then pcall(function() loadDropAPI:SetValue(name) end) end
-		if delDropAPI  then pcall(function() delDropAPI:SetValue(name)  end) end
+		_saveConfig(name,win._ConfigData); rebuildShared()
+		if sharedDropAPI then pcall(function() sharedDropAPI:SetValue(name) end) end
 		win:Toast("Saved '"..name.."'","success")
 	end)
 
-	-- ── Manage tab — Load ─────────────────────────────────────────────────────
-	local loadSection=manTab:NewSection("Load Config")
-	-- dropdown sits between section header and the button, using section layout order
-	loadWrap=newFrame({Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,LayoutOrder=loadSection:_no(),Parent=loadSection._sc})
-	loadSection:NewPrimaryButton("Load Selected", function()
-		if not loadDropAPI then win:Toast("No configs to load!","error"); return end
-		local name=loadDropAPI:GetValue()
-		if not name or name=="(no configs)" then win:Toast("Select a config first!","error"); return end
+	-- ── Manage tab — one dropdown, two buttons ────────────────────────────────
+	local manSection=manTab:NewSection("Configs")
+
+	-- Shared dropdown goes in first via layout order
+	sharedWrap=newFrame({Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,LayoutOrder=manSection:_no(),Parent=manSection._sc})
+
+	manSection:NewPrimaryButton("Load Selected", function()
+		local name=getSelected(); if not name then return end
 		local data=_loadConfig(name)
 		if not data then win:Toast("Config '"..name.."' not found!","error"); return end
 		for k,v in pairs(data) do
@@ -1049,18 +1090,13 @@ function Nova:BuildConfig(page)
 		win:Toast("Loaded '"..name.."'","success")
 	end)
 
-	-- ── Manage tab — Delete ───────────────────────────────────────────────────
-	local delSection=manTab:NewSection("Delete Config")
-	delWrap=newFrame({Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,LayoutOrder=delSection:_no(),Parent=delSection._sc})
-	delSection:NewButton("Delete Selected", function()
-		if not delDropAPI then win:Toast("No configs to delete!","error"); return end
-		local name=delDropAPI:GetValue()
-		if not name or name=="(no configs)" then win:Toast("Select a config first!","error"); return end
-		if _deleteConfig(name) then rebuildLoad(); rebuildDel(); win:Toast("Deleted '"..name.."'","success")
+	manSection:NewButton("Delete Selected", function()
+		local name=getSelected(); if not name then return end
+		if _deleteConfig(name) then rebuildShared(); win:Toast("Deleted '"..name.."'","success")
 		else win:Toast("Config '"..name.."' not found!","error") end
 	end)
 
-	rebuildLoad(); rebuildDel()
+	rebuildShared()
 end
 
 return Nova
