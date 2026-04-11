@@ -1,4 +1,4 @@
--- // 123123123
+-- // Nova Uasdasdas
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -22,7 +22,7 @@ local EH = {
 	keybind     = 28,
 }
 
-local NOTIF_ICON = "rbxassetid://97960954909802"
+local NOTIF_ICON = "rbxassetid://103482188821800"
 local NOTIF_THEMES = {
 	info    = { Color = Color3.fromRGB(255,110,150), Icon = NOTIF_ICON },
 	warning = { Color = Color3.fromRGB(241,196, 15), Icon = NOTIF_ICON },
@@ -1038,13 +1038,96 @@ function Nova:SetPage(pageLabel)
 end
 
 -- ─── BuildConfig — fully automatic, no Refs/State needed ─────────────────────
-function Nova:BuildConfig(page)
+-- autoSaveName: if provided, skips the manual Configs tab and auto-saves to
+--               that filename every time any registered value changes.
+function Nova:BuildConfig(page, autoSaveName)
 	assert(page,"Nova:BuildConfig — page is required")
 	local win=self
 
 	local function getConfigs() local ok,list=pcall(_listConfigs); return (ok and list) or {} end
 
-	-- Single shared dropdown API — used by both Load and Delete
+	-- ── Auto-save mode ────────────────────────────────────────────────────────
+	if autoSaveName then
+		-- Load the saved config immediately on startup
+		local existing=_loadConfig(autoSaveName)
+		if existing then
+			for k,v in pairs(existing) do
+				win._ConfigData[k]=v
+				local cb=win._ConfigCallbacks[k]; if cb then pcall(cb,v,true) end
+			end
+		end
+
+		-- Wrap every existing callback so it also triggers a save
+		local function wrapCallbacks()
+			for k,origCb in pairs(win._ConfigCallbacks) do
+				local wrapped=origCb
+				win._ConfigCallbacks[k]=function(v,fromLoad)
+					wrapped(v,fromLoad)
+					if not fromLoad then
+						pcall(_saveConfig,autoSaveName,win._ConfigData)
+					end
+				end
+			end
+		end
+		wrapCallbacks()
+
+		-- Also intercept _setConfig so future elements registered after
+		-- BuildConfig is called are covered too
+		local origSet=win._setConfig
+		win._setConfig=function(self2,key,value)
+			origSet(self2,key,value)
+			pcall(_saveConfig,autoSaveName,win._ConfigData)
+		end
+
+		-- Manage tab only — no Save/Configs tab
+		local manTab=page:NewTab("Manage")
+		local sharedDropAPI=nil
+		local sharedWrap=nil
+
+		local function rebuildShared()
+			local cfgs=getConfigs(); local opts=#cfgs>0 and cfgs or {"(no configs)"}; local hasReal=#cfgs>0
+			for _,ch in ipairs(sharedWrap:GetChildren()) do ch:Destroy() end
+			local f,a=win:_createDropdown(sharedWrap,"Select Config",nil,opts,opts[1],false,nil)
+			f.Size=UDim2.new(1,0,0,TOTAL_H); sharedDropAPI=hasReal and a or nil
+		end
+
+		local function getSelected()
+			if not sharedDropAPI then win:Toast("No configs found!","error"); return nil end
+			local name=sharedDropAPI:GetValue()
+			if not name or name=="(no configs)" then win:Toast("Select a config first!","error"); return nil end
+			return name
+		end
+
+		local autoSection=manTab:NewSection("Auto Save")
+		autoSection:NewButton("Save snapshot now", function()
+			pcall(_saveConfig,autoSaveName,win._ConfigData)
+			win:Toast("Auto-save snapshot saved","success")
+		end)
+
+		local manSection=manTab:NewSection("Configs")
+		sharedWrap=newFrame({Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,LayoutOrder=manSection:_no(),Parent=manSection._sc})
+
+		manSection:NewPrimaryButton("Load Selected", function()
+			local name=getSelected(); if not name then return end
+			local data=_loadConfig(name)
+			if not data then win:Toast("Config '"..name.."' not found!","error"); return end
+			for k,v in pairs(data) do
+				win._ConfigData[k]=v; local cb=win._ConfigCallbacks[k]; if cb then pcall(cb,v,true) end
+			end
+			win:Toast("Loaded '"..name.."'","success")
+		end)
+
+		manSection:NewButton("Delete Selected", function()
+			local name=getSelected(); if not name then return end
+			if _deleteConfig(name) then rebuildShared(); win:Toast("Deleted '"..name.."'","success")
+			else win:Toast("Config '"..name.."' not found!","error") end
+		end)
+
+		rebuildShared()
+		return
+	end
+
+	-- ── Manual save mode ──────────────────────────────────────────────────────
 	local sharedDropAPI = nil
 	local sharedWrap    = nil
 
@@ -1062,7 +1145,6 @@ function Nova:BuildConfig(page)
 		return name
 	end
 
-	-- ── Configs tab ───────────────────────────────────────────────────────────
 	local cfgTab=page:NewTab("Configs"); local manTab=page:NewTab("Manage")
 	local saveSection=cfgTab:NewSection("Save Config")
 	local nameInput=saveSection:NewTextInput("Config Name",nil,"e.g. my_settings","",nil)
@@ -1074,10 +1156,7 @@ function Nova:BuildConfig(page)
 		win:Toast("Saved '"..name.."'","success")
 	end)
 
-	-- ── Manage tab — one dropdown, two buttons ────────────────────────────────
 	local manSection=manTab:NewSection("Configs")
-
-	-- Shared dropdown goes in first via layout order
 	sharedWrap=newFrame({Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,LayoutOrder=manSection:_no(),Parent=manSection._sc})
 
 	manSection:NewPrimaryButton("Load Selected", function()
