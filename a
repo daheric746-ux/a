@@ -1,4 +1,4 @@
--- 12312312
+--123123213213213122
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -3432,31 +3432,11 @@ function Nova:_autoLoadProfile()
     print("[Nova Profile] useSanctuary =", useSanctuary)
     print("[Nova Profile] discordUserId =", discordUserId)
 
-    -- Immediately show Roblox username + avatar as fallback
-    local Players = game:GetService("Players")
-    local localPlayer = Players.LocalPlayer
-    if localPlayer then
-        username = localPlayer.DisplayName or localPlayer.Name or username
-        print("[Nova Profile] Roblox fallback username =", username)
-        pcall(function()
-            local userId    = localPlayer.UserId
-            local thumbType = Enum.ThumbnailType.HeadShot
-            local thumbSize = Enum.ThumbnailSize.Size420x420
-            local url, ready = Players:GetUserThumbnailAsync(userId, thumbType, thumbSize)
-            print("[Nova Profile] Roblox avatar url =", url, "| ready =", ready)
-            if ready and self._profAvatarImg then
-                self._profAvatarImg.Image = url
-            end
-        end)
-    else
-        print("[Nova Profile] No LocalPlayer found!")
-    end
-    self:_updateProfileUI(username, daysLeft, discordUserId)
-
     task.spawn(function()
         local request = syn and syn.request or http and http.request or request
         if not request then
-            print("[Nova Profile] No HTTP request function available! (syn.request / http.request / request all nil)")
+            print("[Nova Profile] No HTTP request function available!")
+            self:_updateProfileUI(username, daysLeft, discordUserId)
             return
         end
         print("[Nova Profile] HTTP request function found:", tostring(request))
@@ -3486,10 +3466,11 @@ function Nova:_autoLoadProfile()
                     end
                 end
             else
-                print("[Nova Profile] Sanctuary request failed or no response:", tostring(response))
+                print("[Nova Profile] Sanctuary request failed:", tostring(response))
             end
         end
 
+        -- Always run Discord lookup with whatever ID we have (hardcoded fallback or Sanctuary override)
         print("[Nova Profile] Fetching Discord user for ID:", discordUserId)
         local uSuccess, uResponse = pcall(request, {
             Url     = "https://discord.com/api/v10/users/" .. tostring(discordUserId),
@@ -3534,8 +3515,6 @@ function Nova:_autoLoadProfile()
                             end
                         end)
                     end
-
-                    self:_updateProfileUI(username, daysLeft, discordUserId)
                 end
             else
                 print("[Nova Profile] Discord returned non-200, body:", uResponse.Body)
@@ -3544,6 +3523,7 @@ function Nova:_autoLoadProfile()
             print("[Nova Profile] Discord request failed:", tostring(uResponse))
         end
 
+        self:_updateProfileUI(username, daysLeft, discordUserId)
         print("[Nova Profile] Profile load complete. username =", username, "| daysLeft =", daysLeft)
     end)
 end
