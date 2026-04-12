@@ -1,4 +1,3 @@
---
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -59,6 +58,29 @@ local KEY_NAMES = {
 	PageUp       = "PgUp",    PageDown     = "PgDn",
 	PrintScreen  = "PrtSc",   ScrollLock   = "ScrLk",  Pause = "Pause",
 }
+
+-- Returns true if the input type is a touch or mouse press (used to unify input handling)
+local function isPointerBegan(i)
+	return i.UserInputType == Enum.UserInputType.MouseButton1
+		or i.UserInputType == Enum.UserInputType.Touch
+end
+
+local function isPointerMoved(i)
+	return i.UserInputType == Enum.UserInputType.MouseMovement
+		or i.UserInputType == Enum.UserInputType.Touch
+end
+
+local function isPointerEnded(i)
+	return i.UserInputType == Enum.UserInputType.MouseButton1
+		or i.UserInputType == Enum.UserInputType.Touch
+end
+
+local function getInputPosition(i)
+	if i.UserInputType == Enum.UserInputType.Touch then
+		return i.Position
+	end
+	return i.Position
+end
 
 local function beautifyKey(raw)
 	if not raw then return "[ -- ]" end
@@ -264,34 +286,39 @@ function Nova:_buildGui(guiName)
 	self._Gui = Gui
 
 	local OverlayLayer = newFrame({
-		Name                = "OverlayLayer",
-		Size                = UDim2.new(1, 0, 1, 0),
+		Name                   = "OverlayLayer",
+		Size                   = UDim2.new(1, 0, 1, 0),
 		BackgroundTransparency = 1,
-		ZIndex              = 200,
-		Parent              = Gui,
+		ZIndex                 = 200,
+		Parent                 = Gui,
 	})
 
 	local PopupLayer = newFrame({
-		Name                = "PopupLayer",
-		Size                = UDim2.new(1, 0, 1, 0),
+		Name                   = "PopupLayer",
+		Size                   = UDim2.new(1, 0, 1, 0),
 		BackgroundTransparency = 1,
-		ZIndex              = 100,
-		Parent              = Gui,
+		ZIndex                 = 100,
+		Parent                 = Gui,
 	})
 
 	self._OverlayLayer = OverlayLayer
 	self._PopupLayer   = PopupLayer
 
 	local GCD = Instance.new("TextButton")
-	GCD.Size                = UDim2.new(1, 0, 1, 0)
+	GCD.Size                   = UDim2.new(1, 0, 1, 0)
 	GCD.BackgroundTransparency = 1
-	GCD.Text                = ""
-	GCD.ZIndex              = 150
-	GCD.Visible             = false
-	GCD.Parent              = OverlayLayer
+	GCD.Text                   = ""
+	GCD.ZIndex                 = 150
+	GCD.Visible                = false
+	GCD.Parent                 = OverlayLayer
 	self._GCD = GCD
 
+	-- Close popups/drops on both mouse click and touch tap
 	GCD.MouseButton1Click:Connect(function()
+		self:_closePopup()
+		self:_closeDrop()
+	end)
+	GCD.TouchTap:Connect(function()
 		self:_closePopup()
 		self:_closeDrop()
 	end)
@@ -352,13 +379,13 @@ function Nova:_buildGui(guiName)
 	})
 
 	newLabel({
-		Size                = UDim2.new(1, 0, 0, 70),
+		Size                   = UDim2.new(1, 0, 0, 70),
 		BackgroundTransparency = 1,
-		Text                = "N  O  V  A",
-		TextColor3          = C.White,
-		Font                = Enum.Font.GothamBold,
-		TextSize            = 16,
-		Parent              = Sidebar,
+		Text                   = "N  O  V  A",
+		TextColor3             = C.White,
+		Font                   = Enum.Font.GothamBold,
+		TextSize               = 16,
+		Parent                 = Sidebar,
 	})
 
 	newFrame({
@@ -370,11 +397,11 @@ function Nova:_buildGui(guiName)
 	})
 
 	local TopBar = newFrame({
-		Name                = "TopBar",
-		Size                = UDim2.new(1, -180, 0, 50),
-		Position            = UDim2.new(0, 180, 0, 0),
+		Name                   = "TopBar",
+		Size                   = UDim2.new(1, -180, 0, 50),
+		Position               = UDim2.new(0, 180, 0, 0),
 		BackgroundTransparency = 1,
-		Parent              = Main,
+		Parent                 = Main,
 	})
 	self._TopBar = TopBar
 
@@ -387,12 +414,12 @@ function Nova:_buildGui(guiName)
 	})
 
 	local ContentClip = newFrame({
-		Name                = "ContentClip",
-		Size                = UDim2.new(1, -195, 1, -65),
-		Position            = UDim2.new(0, 190, 0, 60),
+		Name                   = "ContentClip",
+		Size                   = UDim2.new(1, -195, 1, -65),
+		Position               = UDim2.new(0, 190, 0, 60),
 		BackgroundTransparency = 1,
-		ClipsDescendants    = true,
-		Parent              = Main,
+		ClipsDescendants       = true,
+		Parent                 = Main,
 	})
 	self._ContentClip = ContentClip
 
@@ -407,12 +434,12 @@ function Nova:_buildGui(guiName)
 	})
 
 	local profCard = newFrame({
-		Name                = "ProfileCard",
-		Size                = UDim2.new(1, 0, 0, PROF_H),
-		Position            = UDim2.new(0, 0, 1, -PROF_H),
+		Name                   = "ProfileCard",
+		Size                   = UDim2.new(1, 0, 0, PROF_H),
+		Position               = UDim2.new(0, 0, 1, -PROF_H),
 		BackgroundTransparency = 1,
-		BorderSizePixel     = 0,
-		Parent              = Sidebar,
+		BorderSizePixel        = 0,
+		Parent                 = Sidebar,
 	})
 
 	local avatarRing = newFrame({
@@ -437,38 +464,38 @@ function Nova:_buildGui(guiName)
 	corner(avatarImg, 99)
 
 	local textCol = newFrame({
-		Size                = UDim2.new(1, -58, 0, PROF_H),
-		Position            = UDim2.new(0, 56, 0, 0),
+		Size                   = UDim2.new(1, -58, 0, PROF_H),
+		Position               = UDim2.new(0, 56, 0, 0),
 		BackgroundTransparency = 1,
-		Parent              = profCard,
+		Parent                 = profCard,
 	})
 
 	local usernameLabel = newLabel({
-		Name                = "Username",
-		Size                = UDim2.new(1, -4, 0, 16),
-		Position            = UDim2.new(0, 0, 0, 16),
+		Name                   = "Username",
+		Size                   = UDim2.new(1, -4, 0, 16),
+		Position               = UDim2.new(0, 0, 0, 16),
 		BackgroundTransparency = 1,
-		Text                = "Unknown User",
-		TextColor3          = C.TextMain,
-		Font                = Enum.Font.GothamBold,
-		TextSize            = 12,
-		TextXAlignment      = Enum.TextXAlignment.Left,
-		TextTruncate        = Enum.TextTruncate.AtEnd,
-		Parent              = textCol,
+		Text                   = "Unknown User",
+		TextColor3             = C.TextMain,
+		Font                   = Enum.Font.GothamBold,
+		TextSize               = 12,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		TextTruncate           = Enum.TextTruncate.AtEnd,
+		Parent                 = textCol,
 	})
 
 	local expiryLabel = newLabel({
-		Name                = "Expiry",
-		Size                = UDim2.new(1, -4, 0, 12),
-		Position            = UDim2.new(0, 0, 0, 34),
+		Name                   = "Expiry",
+		Size                   = UDim2.new(1, -4, 0, 12),
+		Position               = UDim2.new(0, 0, 0, 34),
 		BackgroundTransparency = 1,
-		Text                = "Expires: --/--/----",
-		TextColor3          = C.TextDark,
-		Font                = Enum.Font.Gotham,
-		TextSize            = 10,
-		TextXAlignment      = Enum.TextXAlignment.Left,
-		TextTruncate        = Enum.TextTruncate.AtEnd,
-		Parent              = textCol,
+		Text                   = "Expires: --/--/----",
+		TextColor3             = C.TextDark,
+		Font                   = Enum.Font.Gotham,
+		TextSize               = 10,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		TextTruncate           = Enum.TextTruncate.AtEnd,
+		Parent                 = textCol,
 	})
 
 	self._profAvatarImg  = avatarImg
@@ -484,12 +511,31 @@ function Nova:_setupDrag(Main)
 	local dragStart = nil
 	local startPos  = nil
 
+	local function onMove(pos)
+		if not dragging then return end
+		local d = pos - dragStart
+		Main.Position = UDim2.new(
+			startPos.X.Scale,  startPos.X.Offset + d.X,
+			startPos.Y.Scale,  startPos.Y.Offset + d.Y
+		)
+	end
+
+	local function onBegin(pos)
+		dragging  = true
+		dragStart = pos
+		startPos  = Main.Position
+	end
+
+	local function onEnd()
+		dragging = false
+	end
+
 	if self._dragStyle == 2 then
 		UIS.InputBegan:Connect(function(i, proc)
 			if proc then return end
-			if i.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+			if not isPointerBegan(i) then return end
 
-			local pos = i.Position
+			local pos = getInputPosition(i)
 			local mp  = Main.AbsolutePosition
 			local ms  = Main.AbsoluteSize
 
@@ -511,53 +557,43 @@ function Nova:_setupDrag(Main)
 				end
 			end
 
-			dragging  = true
-			dragStart = pos
-			startPos  = Main.Position
-
+			onBegin(pos)
 			i.Changed:Connect(function()
 				if i.UserInputState == Enum.UserInputState.End then
-					dragging = false
+					onEnd()
 				end
 			end)
 		end)
 	else
 		local dragHandle = newFrame({
-			Size                = UDim2.new(1, -180, 0, 50),
-			Position            = UDim2.new(0, 180, 0, 0),
+			Size                   = UDim2.new(1, -180, 0, 50),
+			Position               = UDim2.new(0, 180, 0, 0),
 			BackgroundTransparency = 1,
-			ZIndex              = 10,
-			Parent              = Main,
+			ZIndex                 = 10,
+			Parent                 = Main,
 		})
 
 		dragHandle.InputBegan:Connect(function(i)
-			if i.UserInputType == Enum.UserInputType.MouseButton1 then
-				dragging  = true
-				dragStart = i.Position
-				startPos  = Main.Position
-
-				i.Changed:Connect(function()
-					if i.UserInputState == Enum.UserInputState.End then
-						dragging = false
-					end
-				end)
-			end
+			if not isPointerBegan(i) then return end
+			onBegin(getInputPosition(i))
+			i.Changed:Connect(function()
+				if i.UserInputState == Enum.UserInputState.End then
+					onEnd()
+				end
+			end)
 		end)
 	end
 
+	-- Handles both mouse move and touch move for dragging the window
 	self._ICBs["drag"] = function(i)
-		if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-			local d = i.Position - dragStart
-			Main.Position = UDim2.new(
-				startPos.X.Scale,  startPos.X.Offset + d.X,
-				startPos.Y.Scale,  startPos.Y.Offset + d.Y
-			)
+		if dragging and isPointerMoved(i) then
+			onMove(getInputPosition(i))
 		end
 	end
 
 	self._IECBs["drag"] = function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = false
+		if isPointerEnded(i) then
+			onEnd()
 		end
 	end
 end
@@ -567,12 +603,12 @@ function Nova:_buildNotifications()
 	self._NS  = ns
 
 	local holder = newFrame({
-		Name                = "NotifHolder",
-		Size                = UDim2.new(0, 320, 1, -60),
-		Position            = UDim2.new(1, -330, 0, 30),
+		Name                   = "NotifHolder",
+		Size                   = UDim2.new(0, 320, 1, -60),
+		Position               = UDim2.new(1, -330, 0, 30),
 		BackgroundTransparency = 1,
-		ZIndex              = 300,
-		Parent              = self._Gui,
+		ZIndex                 = 300,
+		Parent                 = self._Gui,
 	})
 
 	local layout = Instance.new("UIListLayout", holder)
@@ -590,9 +626,9 @@ function Nova:_notifGetElem()
 	end
 
 	local obj = Instance.new("CanvasGroup")
-	obj.Name          = "Notification"
-	obj.Size          = UDim2.new(1, 0, 0, 0)
-	obj.AutomaticSize = Enum.AutomaticSize.Y
+	obj.Name             = "Notification"
+	obj.Size             = UDim2.new(1, 0, 0, 0)
+	obj.AutomaticSize    = Enum.AutomaticSize.Y
 	obj.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
 	corner(obj, 8)
 
@@ -607,44 +643,44 @@ function Nova:_notifGetElem()
 	pad.PaddingBottom = UDim.new(0, 22)
 
 	local hdr = newFrame({
-		Name                = "HeaderFrame",
-		Size                = UDim2.new(1, 0, 0, 22),
+		Name                   = "HeaderFrame",
+		Size                   = UDim2.new(1, 0, 0, 22),
 		BackgroundTransparency = 1,
-		Parent              = obj,
+		Parent                 = obj,
 	})
 
 	local ic = Instance.new("ImageLabel")
-	ic.Name                = "Icon"
-	ic.Size                = UDim2.new(0, 20, 0, 20)
+	ic.Name                   = "Icon"
+	ic.Size                   = UDim2.new(0, 20, 0, 20)
 	ic.BackgroundTransparency = 1
-	ic.Parent              = hdr
+	ic.Parent                 = hdr
 	local icc = Instance.new("UICorner", ic)
 	icc.CornerRadius = UDim.new(1, 0)
 
 	newLabel({
-		Name                = "Title",
-		Size                = UDim2.new(1, -25, 1, 0),
-		Position            = UDim2.new(0, 25, 0, 0),
+		Name                   = "Title",
+		Size                   = UDim2.new(1, -25, 1, 0),
+		Position               = UDim2.new(0, 25, 0, 0),
 		BackgroundTransparency = 1,
-		Font                = Enum.Font.GothamBold,
-		TextColor3          = Color3.new(1, 1, 1),
-		TextSize            = 13,
-		TextXAlignment      = Enum.TextXAlignment.Left,
-		Parent              = hdr,
+		Font                   = Enum.Font.GothamBold,
+		TextColor3             = Color3.new(1, 1, 1),
+		TextSize               = 13,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		Parent                 = hdr,
 	})
 
 	newLabel({
-		Name                = "Desc",
-		Position            = UDim2.new(0, 0, 0, 28),
-		Size                = UDim2.new(1, 0, 0, 0),
-		AutomaticSize       = Enum.AutomaticSize.Y,
+		Name                   = "Desc",
+		Position               = UDim2.new(0, 0, 0, 28),
+		Size                   = UDim2.new(1, 0, 0, 0),
+		AutomaticSize          = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
-		Font                = Enum.Font.Gotham,
-		TextColor3          = Color3.fromRGB(180, 180, 180),
-		TextSize            = 12,
-		TextXAlignment      = Enum.TextXAlignment.Left,
-		TextWrapped         = true,
-		Parent              = obj,
+		Font                   = Enum.Font.Gotham,
+		TextColor3             = Color3.fromRGB(180, 180, 180),
+		TextSize               = 12,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		TextWrapped            = true,
+		Parent                 = obj,
 	})
 
 	local bc = newFrame({
@@ -667,14 +703,14 @@ function Nova:_notifGetElem()
 	corner(prog, 99)
 
 	local db = Instance.new("TextButton")
-	db.Name                = "DismissBtn"
-	db.Size                = UDim2.new(1, 40, 1, 40)
-	db.Position            = UDim2.new(0.5, 0, 0.5, 0)
-	db.AnchorPoint         = Vector2.new(0.5, 0.5)
+	db.Name                   = "DismissBtn"
+	db.Size                   = UDim2.new(1, 40, 1, 40)
+	db.Position               = UDim2.new(0.5, 0, 0.5, 0)
+	db.AnchorPoint            = Vector2.new(0.5, 0.5)
 	db.BackgroundTransparency = 1
-	db.Text                = ""
-	db.ZIndex              = 10
-	db.Parent              = obj
+	db.Text                   = ""
+	db.ZIndex                 = 10
+	db.Parent                 = obj
 
 	return obj
 end
@@ -713,17 +749,17 @@ function Nova:Toast(msg, style, duration)
 	end
 
 	local n = self:_notifGetElem()
-	n.HeaderFrame.Title.Text             = (STYLE_TITLES[style] or "Notice"):upper()
-	n.Desc.Text                          = msg
+	n.HeaderFrame.Title.Text                 = (STYLE_TITLES[style] or "Notice"):upper()
+	n.Desc.Text                              = msg
 	n.BarContainer.Progress.BackgroundColor3 = theme.Color
-	n.BarContainer.Progress.Size         = UDim2.new(1, 0, 1, 0)
+	n.BarContainer.Progress.Size             = UDim2.new(1, 0, 1, 0)
 
 	if theme.Icon then
-		n.HeaderFrame.Icon.Image    = theme.Icon
-		n.HeaderFrame.Icon.Visible  = true
+		n.HeaderFrame.Icon.Image     = theme.Icon
+		n.HeaderFrame.Icon.Visible   = true
 		n.HeaderFrame.Title.Position = UDim2.new(0, 25, 0, 0)
 	else
-		n.HeaderFrame.Icon.Visible  = false
+		n.HeaderFrame.Icon.Visible   = false
 		n.HeaderFrame.Title.Position = UDim2.new(0, 0, 0, 0)
 	end
 
@@ -752,7 +788,9 @@ function Nova:Toast(msg, style, duration)
 		self:_notifDismiss(n)
 	end
 
+	-- Dismiss works on both click and touch swipe
 	table.insert(conns, n.DismissBtn.MouseButton1Click:Connect(dismiss))
+	table.insert(conns, n.DismissBtn.TouchTap:Connect(dismiss))
 	table.insert(conns, n.MouseEnter:Connect(function() barTween:Pause() end))
 	table.insert(conns, n.MouseLeave:Connect(function() barTween:Play() end))
 	table.insert(conns, barTween.Completed:Connect(function(st)
@@ -811,13 +849,13 @@ function Nova:_openKeybindPopup(anchor, kbs)
 	local as = anchor.AbsoluteSize
 
 	local pop = newFrame({
-		Size                = UDim2.new(0, 180, 0, 90),
-		Position            = UDim2.fromOffset(ap.X - 90 + as.X / 2, ap.Y + as.Y + 6),
-		BackgroundColor3    = C.PopupBg,
-		BorderSizePixel     = 0,
-		ZIndex              = 201,
+		Size                   = UDim2.new(0, 180, 0, 90),
+		Position               = UDim2.fromOffset(ap.X - 90 + as.X / 2, ap.Y + as.Y + 6),
+		BackgroundColor3       = C.PopupBg,
+		BorderSizePixel        = 0,
+		ZIndex                 = 201,
 		BackgroundTransparency = 1,
-		Parent              = self._PopupLayer,
+		Parent                 = self._PopupLayer,
 	})
 	corner(pop, 8)
 	stroke(pop, C.PopupStroke, 1, 0.3)
@@ -837,7 +875,7 @@ function Nova:_openKeybindPopup(anchor, kbs)
 
 	local listening = false
 
-	kb.MouseButton1Click:Connect(function()
+	local function startListen()
 		if listening then return end
 		listening = true
 		kb.Text   = "Press a key..."
@@ -860,14 +898,17 @@ function Nova:_openKeybindPopup(anchor, kbs)
 			listening = false
 			conn:Disconnect()
 		end)
-	end)
+	end
+
+	kb.MouseButton1Click:Connect(startListen)
+	kb.TouchTap:Connect(startListen)
 
 	local modeRow = newFrame({
-		Size                = UDim2.new(1, -16, 0, 26),
-		Position            = UDim2.new(0, 8, 0, 44),
+		Size                   = UDim2.new(1, -16, 0, 26),
+		Position               = UDim2.new(0, 8, 0, 44),
 		BackgroundTransparency = 1,
-		ZIndex              = 202,
-		Parent              = pop,
+		ZIndex                 = 202,
+		Parent                 = pop,
 	})
 
 	local function modeBtn(label, isLeft, mode)
@@ -891,12 +932,14 @@ function Nova:_openKeybindPopup(anchor, kbs)
 
 	local function selectMode(mode, active, inactive)
 		kbs.mode = mode
-		tw(active,   self._TW.Fast, { BackgroundColor3 = C.Accent,  TextColor3 = C.White   }):Play()
-		tw(inactive, self._TW.Fast, { BackgroundColor3 = C.ElemBg,  TextColor3 = C.TextDark }):Play()
+		tw(active,   self._TW.Fast, { BackgroundColor3 = C.Accent,   TextColor3 = C.White    }):Play()
+		tw(inactive, self._TW.Fast, { BackgroundColor3 = C.ElemBg,   TextColor3 = C.TextDark }):Play()
 	end
 
 	tBtn.MouseButton1Click:Connect(function() selectMode("toggle", tBtn, hBtn) end)
+	tBtn.TouchTap:Connect(function()         selectMode("toggle", tBtn, hBtn) end)
 	hBtn.MouseButton1Click:Connect(function() selectMode("hold",   hBtn, tBtn) end)
+	hBtn.TouchTap:Connect(function()         selectMode("hold",   hBtn, tBtn) end)
 
 	self._activePopup = pop
 	self._GCD.Visible = true
@@ -911,10 +954,10 @@ function Nova:_createToggle(parent, lbl, key, isOn, onChange)
 	local toggled = isOn
 
 	local F = Instance.new("TextButton")
-	F.Size                = UDim2.new(1, 0, 0, 28)
+	F.Size                   = UDim2.new(1, 0, 0, 28)
 	F.BackgroundTransparency = 1
-	F.Text                = ""
-	F.Parent              = parent
+	F.Text                   = ""
+	F.Parent                 = parent
 
 	local box = newFrame({
 		Size             = UDim2.new(0, 20, 0, 20),
@@ -927,40 +970,40 @@ function Nova:_createToggle(parent, lbl, key, isOn, onChange)
 	local bs = stroke(box, C.Stroke, 1, 0.5)
 
 	local keytag = newLabel({
-		Size               = UDim2.new(0, 40, 1, 0),
-		Position           = UDim2.new(1, -52, 0, 0),
+		Size                   = UDim2.new(0, 40, 1, 0),
+		Position               = UDim2.new(1, -52, 0, 0),
 		BackgroundTransparency = 1,
-		Text               = "[--]",
-		TextColor3         = C.TextDark,
-		Font               = Enum.Font.GothamMedium,
-		TextSize           = 11,
-		TextXAlignment     = Enum.TextXAlignment.Right,
-		TextTransparency   = 0.55,
-		Parent             = F,
+		Text                   = "[--]",
+		TextColor3             = C.TextDark,
+		Font                   = Enum.Font.GothamMedium,
+		TextSize               = 11,
+		TextXAlignment         = Enum.TextXAlignment.Right,
+		TextTransparency       = 0.55,
+		Parent                 = F,
 	})
 
 	local lbObj = newLabel({
-		Size               = UDim2.new(1, -90, 1, 0),
-		Position           = UDim2.new(0, 42, 0, 0),
+		Size                   = UDim2.new(1, -90, 1, 0),
+		Position               = UDim2.new(0, 42, 0, 0),
 		BackgroundTransparency = 1,
-		Text               = lbl,
-		TextColor3         = isOn and C.TextMain or C.TextDark,
-		Font               = Enum.Font.GothamMedium,
-		TextSize           = 13,
-		TextXAlignment     = Enum.TextXAlignment.Left,
-		Parent             = F,
+		Text                   = lbl,
+		TextColor3             = isOn and C.TextMain or C.TextDark,
+		Font                   = Enum.Font.GothamMedium,
+		TextSize               = 13,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		Parent                 = F,
 	})
 
 	local sgear = Instance.new("ImageButton")
-	sgear.Size               = UDim2.new(0, 12, 0, 12)
-	sgear.AnchorPoint        = Vector2.new(0, 0.5)
-	sgear.Position           = UDim2.new(0, 42, 0.5, 0)
+	sgear.Size                   = UDim2.new(0, 12, 0, 12)
+	sgear.AnchorPoint            = Vector2.new(0, 0.5)
+	sgear.Position               = UDim2.new(0, 42, 0.5, 0)
 	sgear.BackgroundTransparency = 1
-	sgear.Image              = "rbxassetid://70543102142774"
-	sgear.ImageColor3        = C.TextDark
-	sgear.ImageTransparency  = 0.35
-	sgear.ZIndex             = 2
-	sgear.Parent             = F
+	sgear.Image                  = "rbxassetid://70543102142774"
+	sgear.ImageColor3            = C.TextDark
+	sgear.ImageTransparency      = 0.35
+	sgear.ZIndex                 = 2
+	sgear.Parent                 = F
 
 	lbObj:GetPropertyChangedSignal("TextBounds"):Connect(function()
 		sgear.Position = UDim2.new(0, 42 + lbObj.TextBounds.X + 6, 0.5, 0)
@@ -1013,24 +1056,31 @@ function Nova:_createToggle(parent, lbl, key, isOn, onChange)
 		kconn:Disconnect()
 	end)
 
-	F.MouseButton1Click:Connect(function()
+	local function doToggle()
 		if self._activePopup then
 			self:_closePopup()
 			return
 		end
 		setToggle(not toggled)
-	end)
+	end
 
+	F.MouseButton1Click:Connect(doToggle)
+	F.TouchTap:Connect(doToggle)
+
+	-- Hover effects only apply on non-touch devices
 	F.MouseEnter:Connect(function() ftw(bs, { Transparency = 0   }):Play() end)
 	F.MouseLeave:Connect(function() ftw(bs, { Transparency = 0.5 }):Play() end)
 
-	sgear.MouseButton1Click:Connect(function()
+	local function doGear()
 		if self._activePopup then
 			self:_closePopup()
 		else
 			self:_openKeybindPopup(sgear, kbs)
 		end
-	end)
+	end
+
+	sgear.MouseButton1Click:Connect(doGear)
+	sgear.TouchTap:Connect(doGear)
 
 	keytag:GetPropertyChangedSignal("Text"):Connect(function()
 		if kbs.key then
@@ -1053,9 +1103,9 @@ function Nova:_createSlider(parent, lbl, key, minV, maxV, defV, onChange)
 	local cur = defV
 
 	local F = newFrame({
-		Size                = UDim2.new(1, 0, 0, 42),
+		Size                   = UDim2.new(1, 0, 0, 42),
 		BackgroundTransparency = 1,
-		Parent              = parent,
+		Parent                 = parent,
 	})
 
 	local sp = Instance.new("UIPadding", F)
@@ -1063,20 +1113,20 @@ function Nova:_createSlider(parent, lbl, key, minV, maxV, defV, onChange)
 	sp.PaddingRight = UDim.new(0, 2)
 
 	local row = newFrame({
-		Size                = UDim2.new(1, 0, 0, 16),
+		Size                   = UDim2.new(1, 0, 0, 16),
 		BackgroundTransparency = 1,
-		Parent              = F,
+		Parent                 = F,
 	})
 
 	newLabel({
-		Size               = UDim2.new(0.6, 0, 1, 0),
+		Size                   = UDim2.new(0.6, 0, 1, 0),
 		BackgroundTransparency = 1,
-		Text               = lbl,
-		TextColor3         = C.TextMain,
-		Font               = Enum.Font.GothamMedium,
-		TextSize           = 13,
-		TextXAlignment     = Enum.TextXAlignment.Left,
-		Parent             = row,
+		Text                   = lbl,
+		TextColor3             = C.TextMain,
+		Font                   = Enum.Font.GothamMedium,
+		TextSize               = 13,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		Parent                 = row,
 	})
 
 	local valBg = newFrame({
@@ -1090,26 +1140,27 @@ function Nova:_createSlider(parent, lbl, key, minV, maxV, defV, onChange)
 	local valStroke = stroke(valBg, C.Stroke, 1, 0.6)
 
 	local valBox = Instance.new("TextBox")
-	valBox.Size             = UDim2.new(1, -8, 1, 0)
-	valBox.Position         = UDim2.new(0, 4, 0, 0)
+	valBox.Size                   = UDim2.new(1, -8, 1, 0)
+	valBox.Position               = UDim2.new(0, 4, 0, 0)
 	valBox.BackgroundTransparency = 1
-	valBox.BorderSizePixel  = 0
-	valBox.Font             = Enum.Font.GothamBold
-	valBox.TextSize         = 11
-	valBox.TextColor3       = C.Accent
-	valBox.Text             = tostring(defV)
-	valBox.TextXAlignment   = Enum.TextXAlignment.Center
-	valBox.ClearTextOnFocus = false
-	valBox.ZIndex           = 2
-	valBox.Parent           = valBg
+	valBox.BorderSizePixel        = 0
+	valBox.Font                   = Enum.Font.GothamBold
+	valBox.TextSize               = 11
+	valBox.TextColor3             = C.Accent
+	valBox.Text                   = tostring(defV)
+	valBox.TextXAlignment         = Enum.TextXAlignment.Center
+	valBox.ClearTextOnFocus       = false
+	valBox.ZIndex                 = 2
+	valBox.Parent                 = valBg
 
+	-- Taller hit area makes it easier to tap on mobile
 	local hit = Instance.new("TextButton")
-	hit.Size                = UDim2.new(1, 0, 0, 20)
-	hit.Position            = UDim2.new(0, 0, 0, 20)
+	hit.Size                   = UDim2.new(1, 0, 0, 28)
+	hit.Position               = UDim2.new(0, 0, 0, 14)
 	hit.BackgroundTransparency = 1
-	hit.Text                = ""
-	hit.ZIndex              = 2
-	hit.Parent              = F
+	hit.Text                   = ""
+	hit.ZIndex                 = 2
+	hit.Parent                 = F
 
 	local track = newFrame({
 		Size             = UDim2.new(1, 0, 0, 6),
@@ -1143,8 +1194,8 @@ function Nova:_createSlider(parent, lbl, key, minV, maxV, defV, onChange)
 	corner(thumb, 99)
 
 	local gs = Instance.new("UIStroke", thumb)
-	gs.Color       = C.Bg
-	gs.Thickness   = 2
+	gs.Color        = C.Bg
+	gs.Thickness    = 2
 	gs.Transparency = 0
 
 	local dragging = false
@@ -1175,7 +1226,7 @@ function Nova:_createSlider(parent, lbl, key, minV, maxV, defV, onChange)
 		end
 	end
 
-	local function updateMouse(x)
+	local function updateFromX(x)
 		local p2 = math.clamp((x - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
 		local v  = math.floor(minV + p2 * (maxV - minV))
 		if v ~= cur then
@@ -1189,12 +1240,12 @@ function Nova:_createSlider(parent, lbl, key, minV, maxV, defV, onChange)
 	end
 
 	valBox.Focused:Connect(function()
-		tw(valBg,    TW.Fast, { BackgroundColor3 = C.InputActive }):Play()
+		tw(valBg,     TW.Fast, { BackgroundColor3 = C.InputActive }):Play()
 		tw(valStroke, TW.Fast, { Color = C.Accent, Transparency = 0.2 }):Play()
 	end)
 
 	valBox.FocusLost:Connect(function()
-		tw(valBg,    TW.Fast, { BackgroundColor3 = C.InputBg }):Play()
+		tw(valBg,     TW.Fast, { BackgroundColor3 = C.InputBg }):Play()
 		tw(valStroke, TW.Fast, { Color = C.Stroke, Transparency = 0.6 }):Play()
 		local n = tonumber(valBox.Text)
 		if n then
@@ -1218,30 +1269,55 @@ function Nova:_createSlider(parent, lbl, key, minV, maxV, defV, onChange)
 
 	local sid = "sl_" .. tostring(math.random(1e9))
 
-	hit.MouseButton1Down:Connect(function()
+	local function onDragBegin(x)
 		dragging = true
-		updateMouse(UIS:GetMouseLocation().X)
+		updateFromX(x)
 		tw(gs,    TW.GlowIn, { Color = C.Accent, Transparency = 0.25 }):Play()
 		tw(thumb, TW.BarIn,  { Size  = UDim2.new(0, 16, 0, 16) }):Play()
-	end)
+	end
 
-	hit.MouseButton1Up:Connect(function()
+	local function onDragEnd()
 		dragging = false
 		tw(gs,    TW.GlowOut, { Color = C.Bg, Transparency = 0 }):Play()
 		tw(thumb, TW.Default, { Size  = UDim2.new(0, 14, 0, 14) }):Play()
+	end
+
+	-- Mouse support
+	hit.MouseButton1Down:Connect(function()
+		onDragBegin(UIS:GetMouseLocation().X)
+	end)
+	hit.MouseButton1Up:Connect(onDragEnd)
+
+	-- Touch support
+	hit.TouchPan:Connect(function(_, totalTranslation, _, state)
+		if state == Enum.UserInputState.Begin then
+			onDragBegin(hit.AbsolutePosition.X + hit.AbsoluteSize.X / 2)
+		end
+		if dragging then
+			local startX = hit.AbsolutePosition.X + hit.AbsoluteSize.X / 2
+			updateFromX(startX + totalTranslation.X)
+		end
+		if state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+			onDragEnd()
+		end
 	end)
 
+	hit.InputBegan:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.Touch then
+			onDragBegin(i.Position.X)
+		end
+	end)
+
+	-- Global move/end handler covers both mouse and touch drag outside the element
 	self._ICBs[sid] = function(i)
-		if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-			updateMouse(i.Position.X)
+		if dragging and isPointerMoved(i) then
+			updateFromX(i.Position.X)
 		end
 	end
 
 	self._IECBs[sid] = function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = false
-			tw(gs,    TW.GlowOut, { Color = C.Bg, Transparency = 0 }):Play()
-			tw(thumb, TW.Default, { Size  = UDim2.new(0, 14, 0, 14) }):Play()
+		if dragging and isPointerEnded(i) then
+			onDragEnd()
 		end
 	end
 
@@ -1257,8 +1333,8 @@ function Nova:_createSlider(parent, lbl, key, minV, maxV, defV, onChange)
 
 	hit.MouseLeave:Connect(function()
 		if not dragging then
-			tw(thumb, TW.Default,  { Size = UDim2.new(0, 14, 0, 14) }):Play()
-			tw(gs,    TW.GlowOut,  { Color = C.Bg, Transparency = 0 }):Play()
+			tw(thumb, TW.Default, { Size = UDim2.new(0, 14, 0, 14) }):Play()
+			tw(gs,    TW.GlowOut, { Color = C.Bg, Transparency = 0 }):Play()
 		end
 	end)
 
@@ -1315,35 +1391,35 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 	end
 
 	local F = newFrame({
-		Size                = UDim2.new(1, 0, 0, TOTAL_H),
+		Size                   = UDim2.new(1, 0, 0, TOTAL_H),
 		BackgroundTransparency = 1,
-		ClipsDescendants    = false,
-		Parent              = parent,
+		ClipsDescendants       = false,
+		Parent                 = parent,
 	})
 
 	newLabel({
-		Size               = UDim2.new(1, 0, 0, LABEL_H),
+		Size                   = UDim2.new(1, 0, 0, LABEL_H),
 		BackgroundTransparency = 1,
-		Text               = lbl,
-		TextColor3         = C.TextMain,
-		Font               = Enum.Font.GothamMedium,
-		TextSize           = 13,
-		TextXAlignment     = Enum.TextXAlignment.Left,
-		Parent             = F,
+		Text                   = lbl,
+		TextColor3             = C.TextMain,
+		Font                   = Enum.Font.GothamMedium,
+		TextSize               = 13,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		Parent                 = F,
 	})
 
 	if isMulti then
 		local mb = newLabel({
-			Size               = UDim2.new(0, 36, 0, 14),
-			Position           = UDim2.new(1, -36, 0, 2),
-			BackgroundColor3   = C.Accent,
+			Size                   = UDim2.new(0, 36, 0, 14),
+			Position               = UDim2.new(1, -36, 0, 2),
+			BackgroundColor3       = C.Accent,
 			BackgroundTransparency = 0.6,
-			Text               = "MULTI",
-			TextColor3         = C.White,
-			Font               = Enum.Font.GothamBold,
-			TextSize           = 9,
-			TextXAlignment     = Enum.TextXAlignment.Center,
-			Parent             = F,
+			Text                   = "MULTI",
+			TextColor3             = C.White,
+			Font                   = Enum.Font.GothamBold,
+			TextSize               = 9,
+			TextXAlignment         = Enum.TextXAlignment.Center,
+			Parent                 = F,
 		})
 		corner(mb, 3)
 	end
@@ -1360,26 +1436,26 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 	local hs = stroke(H, C.Stroke, 1, 0.5)
 
 	local vt = newLabel({
-		Size               = UDim2.new(1, -36, 1, 0),
-		Position           = UDim2.new(0, 10, 0, 0),
+		Size                   = UDim2.new(1, -36, 1, 0),
+		Position               = UDim2.new(0, 10, 0, 0),
 		BackgroundTransparency = 1,
-		Text               = getDisplay(),
-		TextColor3         = C.Accent,
-		Font               = Enum.Font.GothamMedium,
-		TextSize           = 12,
-		TextXAlignment     = Enum.TextXAlignment.Left,
-		ZIndex             = 3,
-		Parent             = H,
+		Text                   = getDisplay(),
+		TextColor3             = C.Accent,
+		Font                   = Enum.Font.GothamMedium,
+		TextSize               = 12,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		ZIndex                 = 3,
+		Parent                 = H,
 	})
 
 	local chev = Instance.new("ImageLabel")
-	chev.Size                = UDim2.new(0, 14, 0, 14)
-	chev.Position            = UDim2.new(1, -24, 0.5, -7)
+	chev.Size                   = UDim2.new(0, 14, 0, 14)
+	chev.Position               = UDim2.new(1, -24, 0.5, -7)
 	chev.BackgroundTransparency = 1
-	chev.Image               = "rbxassetid://134116754541554"
-	chev.ImageColor3         = C.TextDark
-	chev.ZIndex              = 3
-	chev.Parent              = H
+	chev.Image                  = "rbxassetid://134116754541554"
+	chev.ImageColor3            = C.TextDark
+	chev.ZIndex                 = 3
+	chev.Parent                 = H
 
 	local LF = newFrame({
 		Size             = UDim2.new(0, 1, 0, 0),
@@ -1394,18 +1470,18 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 	stroke(LF, C.PopupStroke, 1, 0.3)
 
 	local sl = Instance.new("ScrollingFrame")
-	sl.Size                  = UDim2.new(1, 0, 1, 0)
+	sl.Size                   = UDim2.new(1, 0, 1, 0)
 	sl.BackgroundTransparency = 1
-	sl.BorderSizePixel       = 0
-	sl.ScrollBarThickness    = 3
-	sl.ScrollBarImageColor3  = C.Scrollbar
-	sl.CanvasSize            = UDim2.new(0, 0, 0, 0)
-	sl.AutomaticCanvasSize   = Enum.AutomaticSize.Y
-	sl.Parent                = LF
+	sl.BorderSizePixel        = 0
+	sl.ScrollBarThickness     = 3
+	sl.ScrollBarImageColor3   = C.Scrollbar
+	sl.CanvasSize             = UDim2.new(0, 0, 0, 0)
+	sl.AutomaticCanvasSize    = Enum.AutomaticSize.Y
+	sl.Parent                 = LF
 
 	local ll = Instance.new("UIListLayout", sl)
-	ll.Padding     = UDim.new(0, 2)
-	ll.SortOrder   = Enum.SortOrder.LayoutOrder
+	ll.Padding   = UDim.new(0, 2)
+	ll.SortOrder = Enum.SortOrder.LayoutOrder
 
 	local lp = Instance.new("UIPadding", sl)
 	lp.PaddingTop    = UDim.new(0, LIST_PAD)
@@ -1434,32 +1510,32 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 	for idx, o in ipairs(opts) do
 		local s  = sel[o]
 		local ib = Instance.new("TextButton")
-		ib.Size                = UDim2.new(1, 0, 0, ITEM_H)
-		ib.BackgroundColor3    = C.DropItem
+		ib.Size                   = UDim2.new(1, 0, 0, ITEM_H)
+		ib.BackgroundColor3       = C.DropItem
 		ib.BackgroundTransparency = 1
-		ib.BorderSizePixel     = 0
-		ib.Text                = o
-		ib.TextColor3          = s and C.Accent or C.TextDark
-		ib.Font                = Enum.Font.GothamMedium
-		ib.TextSize            = 12
-		ib.TextXAlignment      = Enum.TextXAlignment.Left
-		ib.ZIndex              = 211
-		ib.LayoutOrder         = idx
-		ib.Parent              = sl
+		ib.BorderSizePixel        = 0
+		ib.Text                   = o
+		ib.TextColor3             = s and C.Accent or C.TextDark
+		ib.Font                   = Enum.Font.GothamMedium
+		ib.TextSize               = 12
+		ib.TextXAlignment         = Enum.TextXAlignment.Left
+		ib.ZIndex                 = 211
+		ib.LayoutOrder            = idx
+		ib.Parent                 = sl
 		corner(ib, 4)
 
 		local ip = Instance.new("UIPadding", ib)
 		ip.PaddingLeft = UDim.new(0, 10)
 
 		local dot = newFrame({
-			Size             = s and UDim2.new(0, 6, 0, 6) or UDim2.new(0, 4, 0, 4),
-			Position         = UDim2.new(1, -16, 0.5, 0),
-			AnchorPoint      = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = C.Accent,
-			BorderSizePixel  = 0,
+			Size                   = s and UDim2.new(0, 6, 0, 6) or UDim2.new(0, 4, 0, 4),
+			Position               = UDim2.new(1, -16, 0.5, 0),
+			AnchorPoint            = Vector2.new(0.5, 0.5),
+			BackgroundColor3       = C.Accent,
+			BorderSizePixel        = 0,
 			BackgroundTransparency = s and 0 or 1,
-			ZIndex           = 212,
-			Parent           = ib,
+			ZIndex                 = 212,
+			Parent                 = ib,
 		})
 		corner(dot, 99)
 		imap[o] = { btn = ib, dot = dot }
@@ -1474,7 +1550,7 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 			ftw(ib, { BackgroundTransparency = 1, BackgroundColor3 = C.DropItem, TextColor3 = sel[o] and C.Accent or C.TextDark }):Play()
 		end)
 
-		ib.MouseButton1Click:Connect(function()
+		local function onItemSelect()
 			if isMulti then
 				sel[o] = not sel[o] or nil
 				refreshItem(o)
@@ -1491,7 +1567,10 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 				fire()
 				self:_closeDrop()
 			end
-		end)
+		end
+
+		ib.MouseButton1Click:Connect(onItemSelect)
+		ib.TouchTap:Connect(onItemSelect)
 	end
 
 	if key then
@@ -1532,9 +1611,9 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 	local function openDD()
 		if self._activeDrop then self:_closeDrop() end
 
-		local ap  = H.AbsolutePosition
-		local as  = H.AbsoluteSize
-		local lw  = as.X
+		local ap   = H.AbsolutePosition
+		local as   = H.AbsoluteSize
+		local lw   = as.X
 		local posX = ap.X
 		local posY = ap.Y + as.Y + 4
 
@@ -1542,12 +1621,12 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 			posY = ap.Y - listH - 4
 		end
 
-		LF.Position          = UDim2.fromOffset(posX, posY)
-		LF.Size              = UDim2.new(0, lw, 0, 0)
-		LF.Visible           = true
-		sl.CanvasPosition    = Vector2.new(0, 0)
-		isOpen               = true
-		closeGen             = closeGen + 1
+		LF.Position       = UDim2.fromOffset(posX, posY)
+		LF.Size           = UDim2.new(0, lw, 0, 0)
+		LF.Visible        = true
+		sl.CanvasPosition = Vector2.new(0, 0)
+		isOpen            = true
+		closeGen          = closeGen + 1
 
 		tw(chev, TW.Fast, { Rotation = 180 }):Play()
 		tw(hs,   TW.Fast, { Transparency = 0.1 }):Play()
@@ -1558,10 +1637,13 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 		self._GCD.Visible = true
 	end
 
-	H.MouseButton1Click:Connect(function()
+	local function onHeaderActivate()
 		self:_closePopup()
 		if isOpen then self:_closeDrop() else openDD() end
-	end)
+	end
+
+	H.MouseButton1Click:Connect(onHeaderActivate)
+	H.TouchTap:Connect(onHeaderActivate)
 
 	H.MouseEnter:Connect(function()
 		if not isOpen then
@@ -1589,9 +1671,9 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 
 	F.Destroying:Connect(function()
 		if isOpen then
-			isOpen             = false
-			self._activeDrop   = nil
-			self._GCD.Visible  = false
+			isOpen            = false
+			self._activeDrop  = nil
+			self._GCD.Visible = false
 		end
 		if LF and LF.Parent then LF:Destroy() end
 	end)
@@ -1620,9 +1702,9 @@ function Nova:_createButton(parent, lbl, style, cb, disabled)
 	local TW  = self._TW
 	local ftw = function(o, p) return tw(o, TW.Fast, p) end
 
-	local F     = newFrame({ Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1, Parent = parent })
-	local isPri = style == "primary"
-	local isDis = disabled == true
+	local F      = newFrame({ Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1, Parent = parent })
+	local isPri  = style == "primary"
+	local isDis  = disabled == true
 	local normBg = isPri and C.BtnPrimary or C.ElemBg
 
 	local btn = Instance.new("TextButton")
@@ -1656,9 +1738,12 @@ function Nova:_createButton(parent, lbl, style, cb, disabled)
 		btn.MouseButton1Up:Connect(function()
 			ftw(btn, { BackgroundColor3 = normBg }):Play()
 		end)
-		btn.MouseButton1Click:Connect(function()
+
+		local function doClick()
 			if cb then cb() end
-		end)
+		end
+		btn.MouseButton1Click:Connect(doClick)
+		btn.TouchTap:Connect(doClick)
 	end
 
 	local API = {}
@@ -1678,20 +1763,20 @@ function Nova:_createTextInput(parent, lbl, key, ph, def, onChange)
 	local TW = self._TW
 
 	local F = newFrame({
-		Size                = UDim2.new(1, 0, 0, 32),
+		Size                   = UDim2.new(1, 0, 0, 32),
 		BackgroundTransparency = 1,
-		Parent              = parent,
+		Parent                 = parent,
 	})
 
 	newLabel({
-		Size               = UDim2.new(0.44, 0, 1, 0),
+		Size                   = UDim2.new(0.44, 0, 1, 0),
 		BackgroundTransparency = 1,
-		Text               = lbl,
-		TextColor3         = C.TextMain,
-		Font               = Enum.Font.GothamMedium,
-		TextSize           = 13,
-		TextXAlignment     = Enum.TextXAlignment.Left,
-		Parent             = F,
+		Text                   = lbl,
+		TextColor3             = C.TextMain,
+		Font                   = Enum.Font.GothamMedium,
+		TextSize               = 13,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		Parent                 = F,
 	})
 
 	local bg = newFrame({
@@ -1705,32 +1790,32 @@ function Nova:_createTextInput(parent, lbl, key, ph, def, onChange)
 	local bs = stroke(bg, C.Stroke, 1, 0.4)
 
 	local plbl = newLabel({
-		Size               = UDim2.new(1, -20, 1, 0),
-		Position           = UDim2.new(0, 10, 0, 0),
+		Size                   = UDim2.new(1, -20, 1, 0),
+		Position               = UDim2.new(0, 10, 0, 0),
 		BackgroundTransparency = 1,
-		Text               = ph or "",
-		TextColor3         = C.TextDark,
-		Font               = Enum.Font.Gotham,
-		TextSize           = 12,
-		TextXAlignment     = Enum.TextXAlignment.Left,
-		ZIndex             = 2,
-		Parent             = bg,
+		Text                   = ph or "",
+		TextColor3             = C.TextDark,
+		Font                   = Enum.Font.Gotham,
+		TextSize               = 12,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		ZIndex                 = 2,
+		Parent                 = bg,
 	})
 
 	local box = Instance.new("TextBox")
-	box.Size             = UDim2.new(1, -20, 1, 0)
-	box.Position         = UDim2.new(0, 10, 0, 0)
+	box.Size                   = UDim2.new(1, -20, 1, 0)
+	box.Position               = UDim2.new(0, 10, 0, 0)
 	box.BackgroundTransparency = 1
-	box.BorderSizePixel  = 0
-	box.ClearTextOnFocus = false
-	box.Font             = Enum.Font.GothamMedium
-	box.TextSize         = 12
-	box.TextColor3       = C.TextMain
-	box.PlaceholderText  = ""
-	box.Text             = def or ""
-	box.TextXAlignment   = Enum.TextXAlignment.Left
-	box.ZIndex           = 3
-	box.Parent           = bg
+	box.BorderSizePixel        = 0
+	box.ClearTextOnFocus       = false
+	box.Font                   = Enum.Font.GothamMedium
+	box.TextSize               = 12
+	box.TextColor3             = C.TextMain
+	box.PlaceholderText        = ""
+	box.Text                   = def or ""
+	box.TextXAlignment         = Enum.TextXAlignment.Left
+	box.ZIndex                 = 3
+	box.Parent                 = bg
 
 	if key then
 		self._ConfigData[key] = def or ""
@@ -1772,18 +1857,18 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 	local TW  = self._TW
 	local ftw = function(o, p) return tw(o, TW.Fast, p) end
 
-	defColor    = defColor or Color3.fromRGB(255, 110, 150)
+	defColor           = defColor or Color3.fromRGB(255, 110, 150)
 	local curH, curS, curV = Color3.toHSV(defColor)
 
-	local PAD      = 10
-	local POPUP_W  = 240
-	local IW       = POPUP_W - PAD * 2
-	local SV_H     = 130
-	local STRIP_H  = 12
-	local HEX_H    = 28
-	local REC_DOT  = 16
+	local PAD       = 10
+	local POPUP_W   = 240
+	local IW        = POPUP_W - PAD * 2
+	local SV_H      = 130
+	local STRIP_H   = 12
+	local HEX_H     = 28
+	local REC_DOT   = 16
 	local STRIP_ROW = 14
-	local POPUP_H  = PAD + SV_H + 10 + STRIP_ROW + 6 + STRIP_ROW + 10 + HEX_H + 8 + 10 + 4 + REC_DOT + PAD
+	local POPUP_H   = PAD + SV_H + 10 + STRIP_ROW + 6 + STRIP_ROW + 10 + HEX_H + 8 + 10 + 4 + REC_DOT + PAD
 
 	local function colorToHex(c)
 		return string.format("#%02X%02X%02X",
@@ -1804,20 +1889,20 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 	end
 
 	local F = newFrame({
-		Size                = UDim2.new(1, 0, 0, 36),
+		Size                   = UDim2.new(1, 0, 0, 36),
 		BackgroundTransparency = 1,
-		Parent              = parent,
+		Parent                 = parent,
 	})
 
 	newLabel({
-		Size               = UDim2.new(1, -76, 1, 0),
+		Size                   = UDim2.new(1, -76, 1, 0),
 		BackgroundTransparency = 1,
-		Text               = lbl,
-		TextColor3         = C.TextMain,
-		Font               = Enum.Font.GothamMedium,
-		TextSize           = 13,
-		TextXAlignment     = Enum.TextXAlignment.Left,
-		Parent             = F,
+		Text                   = lbl,
+		TextColor3             = C.TextMain,
+		Font                   = Enum.Font.GothamMedium,
+		TextSize               = 13,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		Parent                 = F,
 	})
 
 	local swatchBtn = Instance.new("TextButton")
@@ -1836,7 +1921,7 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 		self._ConfigCallbacks[key] = function(v, fromLoad)
 			if fromLoad and type(v) == "table" and v.r then
 				local c3 = Color3.fromRGB(v.r, v.g, v.b)
-				curH, curS, curV       = Color3.toHSV(c3)
+				curH, curS, curV           = Color3.toHSV(c3)
 				swatchBtn.BackgroundColor3 = c3
 				if onChange then onChange(c3) end
 			end
@@ -1867,6 +1952,7 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 		end)
 	end
 
+	-- Unified drag slider that handles both mouse and touch for hue/brightness strips
 	local function makeDragSlider(trackF, onDrag)
 		local dragging = false
 		local sid      = "cpsl_" .. tostring(math.random(1e9))
@@ -1878,20 +1964,38 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 		end
 
 		trackF.InputBegan:Connect(function(i)
-			if i.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-			dragging   = true
-			dragCount  = dragCount + 1
-			eval(i.Position.X)
+			if not isPointerBegan(i) then return end
+			dragging  = true
+			dragCount = dragCount + 1
+			eval(getInputPosition(i).X)
+		end)
+
+		-- TouchPan gives smooth continuous updates on mobile
+		trackF.TouchPan:Connect(function(_, totalTranslation, _, state)
+			if state == Enum.UserInputState.Begin then
+				dragging  = true
+				dragCount = dragCount + 1
+			end
+			if dragging then
+				local midX = trackF.AbsolutePosition.X + trackF.AbsoluteSize.X / 2
+				eval(midX + totalTranslation.X)
+			end
+			if state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+				if dragging then
+					dragging  = false
+					dragCount = math.max(0, dragCount - 1)
+				end
+			end
 		end)
 
 		self._ICBs[sid] = function(i)
-			if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-				eval(i.Position.X)
+			if dragging and isPointerMoved(i) then
+				eval(getInputPosition(i).X)
 			end
 		end
 
 		self._IECBs[sid] = function(i)
-			if dragging and i.UserInputType == Enum.UserInputType.MouseButton1 then
+			if dragging and isPointerEnded(i) then
 				dragging  = false
 				dragCount = math.max(0, dragCount - 1)
 			end
@@ -1920,41 +2024,44 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 		end
 
 		local pop = newFrame({
-			Size                = UDim2.fromOffset(POPUP_W, POPUP_H),
-			Position            = UDim2.fromOffset(px, py),
-			BackgroundColor3    = C.PopupBg,
-			BorderSizePixel     = 0,
-			ZIndex              = 201,
-			ClipsDescendants    = false,
-			Parent              = self._PopupLayer,
+			Size             = UDim2.fromOffset(POPUP_W, POPUP_H),
+			Position         = UDim2.fromOffset(px, py),
+			BackgroundColor3 = C.PopupBg,
+			BorderSizePixel  = 0,
+			ZIndex           = 201,
+			ClipsDescendants = false,
+			Parent           = self._PopupLayer,
 		})
 
 		local popBg = newFrame({
-			Size                = UDim2.new(1, 0, 1, 0),
-			BackgroundColor3    = C.PopupBg,
-			BorderSizePixel     = 0,
-			ZIndex              = 201,
-			ClipsDescendants    = true,
-			Parent              = pop,
+			Size             = UDim2.new(1, 0, 1, 0),
+			BackgroundColor3 = C.PopupBg,
+			BorderSizePixel  = 0,
+			ZIndex           = 201,
+			ClipsDescendants = true,
+			Parent           = pop,
 		})
 		corner(popBg, 8)
 		stroke(popBg, C.PopupStroke, 1, 0.25)
 		pop.BackgroundTransparency = 1
 
 		local shield = Instance.new("TextButton")
-		shield.Size                = UDim2.new(1, 0, 1, 0)
+		shield.Size                   = UDim2.new(1, 0, 1, 0)
 		shield.BackgroundTransparency = 1
-		shield.Text                = ""
-		shield.ZIndex              = 199
-		shield.Parent              = self._PopupLayer
+		shield.Text                   = ""
+		shield.ZIndex                 = 199
+		shield.Parent                 = self._PopupLayer
 
-		shield.MouseButton1Click:Connect(function()
+		local function shieldDismiss()
 			if dragCount > 0 then return end
 			closeCP()
-		end)
+		end
+
+		shield.MouseButton1Click:Connect(shieldDismiss)
+		shield.TouchTap:Connect(shieldDismiss)
 
 		shield.InputEnded:Connect(function(i)
-			if i.UserInputType == Enum.UserInputType.MouseButton1 and dragCount > 0 then
+			if isPointerEnded(i) and dragCount > 0 then
 				dragCount = math.max(0, dragCount - 1)
 			end
 		end)
@@ -2016,21 +2123,43 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 			refreshSwatch()
 		end
 
+		-- SV pad: handle both mouse and touch drag
 		svOuter.InputBegan:Connect(function(i)
-			if i.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+			if not isPointerBegan(i) then return end
 			svDragging = true
 			dragCount  = dragCount + 1
-			evalSV(i.Position.X, i.Position.Y)
+			local pos  = getInputPosition(i)
+			evalSV(pos.X, pos.Y)
+		end)
+
+		-- TouchPan for 2D drag on the SV pad
+		svOuter.TouchPan:Connect(function(_, totalTranslation, _, state)
+			if state == Enum.UserInputState.Begin then
+				svDragging = true
+				dragCount  = dragCount + 1
+			end
+			if svDragging then
+				local cx = svOuter.AbsolutePosition.X + curS * IW
+				local cy = svOuter.AbsolutePosition.Y + (1 - curV) * SV_H
+				evalSV(cx + totalTranslation.X, cy + totalTranslation.Y)
+			end
+			if state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+				if svDragging then
+					svDragging = false
+					dragCount  = math.max(0, dragCount - 1)
+				end
+			end
 		end)
 
 		self._ICBs[svId] = function(i)
-			if svDragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-				evalSV(i.Position.X, i.Position.Y)
+			if svDragging and isPointerMoved(i) then
+				local pos = getInputPosition(i)
+				evalSV(pos.X, pos.Y)
 			end
 		end
 
 		self._IECBs[svId] = function(i)
-			if svDragging and i.UserInputType == Enum.UserInputType.MouseButton1 then
+			if svDragging and isPointerEnded(i) then
 				svDragging = false
 				dragCount  = math.max(0, dragCount - 1)
 			end
@@ -2139,11 +2268,11 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 		y = y + STRIP_ROW + 10
 
 		local hexRow = newFrame({
-			Size                = UDim2.new(0, IW, 0, HEX_H),
-			Position            = UDim2.new(0, PAD, 0, y),
+			Size                   = UDim2.new(0, IW, 0, HEX_H),
+			Position               = UDim2.new(0, PAD, 0, y),
 			BackgroundTransparency = 1,
-			ZIndex              = 202,
-			Parent              = popBg,
+			ZIndex                 = 202,
+			Parent                 = popBg,
 		})
 
 		local hexBg = newFrame({
@@ -2157,19 +2286,19 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 		stroke(hexBg, C.Stroke, 1, 0.5)
 
 		local hexBox = Instance.new("TextBox")
-		hexBox.Size             = UDim2.new(1, -12, 1, 0)
-		hexBox.Position         = UDim2.new(0, 8, 0, 0)
+		hexBox.Size                   = UDim2.new(1, -12, 1, 0)
+		hexBox.Position               = UDim2.new(0, 8, 0, 0)
 		hexBox.BackgroundTransparency = 1
-		hexBox.BorderSizePixel  = 0
-		hexBox.Font             = Enum.Font.GothamMedium
-		hexBox.TextSize         = 11
-		hexBox.TextColor3       = C.TextMain
-		hexBox.Text             = colorToHex(curColor())
-		hexBox.TextXAlignment   = Enum.TextXAlignment.Left
-		hexBox.PlaceholderText  = "#RRGGBB"
-		hexBox.ZIndex           = 203
-		hexBox.ClearTextOnFocus = false
-		hexBox.Parent           = hexBg
+		hexBox.BorderSizePixel        = 0
+		hexBox.Font                   = Enum.Font.GothamMedium
+		hexBox.TextSize               = 11
+		hexBox.TextColor3             = C.TextMain
+		hexBox.Text                   = colorToHex(curColor())
+		hexBox.TextXAlignment         = Enum.TextXAlignment.Left
+		hexBox.PlaceholderText        = "#RRGGBB"
+		hexBox.ZIndex                 = 203
+		hexBox.ClearTextOnFocus       = false
+		hexBox.Parent                 = hexBg
 
 		local function syncHexBox()
 			if hexBox and hexBox.Parent and not hexBox:IsFocused() then
@@ -2238,7 +2367,7 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 				corner(dot, 4)
 				stroke(dot, C.Stroke, 1, 0.5)
 
-				dot.MouseButton1Click:Connect(function()
+				local function applyRecent()
 					curH, curS, curV = Color3.toHSV(rc3)
 					refreshSVGradient()
 					refreshSVThumb()
@@ -2246,11 +2375,14 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 					refreshBright()
 					refreshSwatch()
 					syncHexBox()
-				end)
+				end
+
+				dot.MouseButton1Click:Connect(applyRecent)
+				dot.TouchTap:Connect(applyRecent)
 			end
 		end
 
-		copyB.MouseButton1Click:Connect(function()
+		local function doCopy()
 			local hex = colorToHex(curColor())
 			local n   = { hex }
 			for _, x in ipairs(recentColors) do
@@ -2263,32 +2395,35 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 			task.delay(1.2, function()
 				if copyB and copyB.Parent then copyB.Text = "Copy" end
 			end)
-		end)
+		end
+
+		copyB.MouseButton1Click:Connect(doCopy)
+		copyB.TouchTap:Connect(doCopy)
 
 		y = y + HEX_H + 8
 
 		newLabel({
-			Size               = UDim2.new(0, IW, 0, 10),
-			Position           = UDim2.new(0, PAD, 0, y),
+			Size                   = UDim2.new(0, IW, 0, 10),
+			Position               = UDim2.new(0, PAD, 0, y),
 			BackgroundTransparency = 1,
-			Text               = "RECENT",
-			TextColor3         = C.TextDark,
-			Font               = Enum.Font.GothamMedium,
-			TextSize           = 9,
-			TextXAlignment     = Enum.TextXAlignment.Left,
-			ZIndex             = 202,
-			Parent             = popBg,
+			Text                   = "RECENT",
+			TextColor3             = C.TextDark,
+			Font                   = Enum.Font.GothamMedium,
+			TextSize               = 9,
+			TextXAlignment         = Enum.TextXAlignment.Left,
+			ZIndex                 = 202,
+			Parent                 = popBg,
 		})
 
 		y = y + 10 + 4
 
 		local recRow = newFrame({
-			Size                = UDim2.new(0, IW, 0, REC_DOT),
-			Position            = UDim2.new(0, PAD, 0, y),
+			Size                   = UDim2.new(0, IW, 0, REC_DOT),
+			Position               = UDim2.new(0, PAD, 0, y),
 			BackgroundTransparency = 1,
-			ZIndex              = 202,
-			ClipsDescendants    = true,
-			Parent              = popBg,
+			ZIndex                 = 202,
+			ClipsDescendants       = true,
+			Parent                 = popBg,
 		})
 
 		local rll = Instance.new("UIListLayout", recRow)
@@ -2299,9 +2434,9 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 		recRowRef = recRow
 		rebuildRecents()
 
-		local origRS   = refreshSwatch
-		refreshSwatch  = function() origRS(); syncHexBox() end
-		activeCP       = pop
+		local origRS  = refreshSwatch
+		refreshSwatch = function() origRS(); syncHexBox() end
+		activeCP      = pop
 		ftw(popBg, { BackgroundTransparency = 0 }):Play()
 
 		pop.Destroying:Connect(function()
@@ -2309,9 +2444,12 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 		end)
 	end
 
-	swatchBtn.MouseButton1Click:Connect(function()
+	local function doSwatch()
 		if activeCP then closeCP() else openCP() end
-	end)
+	end
+
+	swatchBtn.MouseButton1Click:Connect(doSwatch)
+	swatchBtn.TouchTap:Connect(doSwatch)
 
 	local API = {}
 	function API:GetValue()  return curColor() end
@@ -2331,21 +2469,21 @@ function Nova:_createKeybind(parent, lbl, key, defaultKey, onChange)
 	local listening  = false
 
 	local F = Instance.new("TextButton")
-	F.Size                = UDim2.new(1, 0, 0, 28)
+	F.Size                   = UDim2.new(1, 0, 0, 28)
 	F.BackgroundTransparency = 1
-	F.Text                = ""
-	F.Parent              = parent
+	F.Text                   = ""
+	F.Parent                 = parent
 
 	newLabel({
-		Size               = UDim2.new(1, -110, 1, 0),
-		Position           = UDim2.new(0, 8, 0, 0),
+		Size                   = UDim2.new(1, -110, 1, 0),
+		Position               = UDim2.new(0, 8, 0, 0),
 		BackgroundTransparency = 1,
-		Text               = lbl,
-		TextColor3         = C.TextMain,
-		Font               = Enum.Font.GothamMedium,
-		TextSize           = 13,
-		TextXAlignment     = Enum.TextXAlignment.Left,
-		Parent             = F,
+		Text                   = lbl,
+		TextColor3             = C.TextMain,
+		Font                   = Enum.Font.GothamMedium,
+		TextSize               = 13,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		Parent                 = F,
 	})
 
 	local badgeBg = newFrame({
@@ -2359,15 +2497,15 @@ function Nova:_createKeybind(parent, lbl, key, defaultKey, onChange)
 	local badgeStroke = stroke(badgeBg, C.Stroke, 1, 0.45)
 
 	local badge = Instance.new("TextButton")
-	badge.Size                = UDim2.new(1, 0, 1, 0)
+	badge.Size                   = UDim2.new(1, 0, 1, 0)
 	badge.BackgroundTransparency = 1
-	badge.BorderSizePixel     = 0
-	badge.Font                = Enum.Font.GothamMedium
-	badge.TextSize            = 11
-	badge.Text                = beautifyKey(currentKey)
-	badge.TextColor3          = currentKey and C.Accent or C.TextDark
-	badge.ZIndex              = 2
-	badge.Parent              = badgeBg
+	badge.BorderSizePixel        = 0
+	badge.Font                   = Enum.Font.GothamMedium
+	badge.TextSize               = 11
+	badge.Text                   = beautifyKey(currentKey)
+	badge.TextColor3             = currentKey and C.Accent or C.TextDark
+	badge.ZIndex                 = 2
+	badge.Parent                 = badgeBg
 
 	local function setBadgeIdle()
 		badge.Text = beautifyKey(currentKey)
@@ -2419,7 +2557,9 @@ function Nova:_createKeybind(parent, lbl, key, defaultKey, onChange)
 		end)
 	end
 
-	badge.MouseButton1Click:Connect(function() startListening() end)
+	badge.MouseButton1Click:Connect(startListening)
+	badge.TouchTap:Connect(startListening)
+
 	badge.MouseEnter:Connect(function() if not listening then ftw(badgeStroke, { Transparency = 0.1  }):Play() end end)
 	badge.MouseLeave:Connect(function() if not listening then ftw(badgeStroke, { Transparency = 0.45 }):Play() end end)
 
@@ -2447,21 +2587,21 @@ function Nova:_createLabel(parent, text)
 	local C = self._C
 
 	local F = newFrame({
-		Size                = UDim2.new(1, 0, 0, 24),
+		Size                   = UDim2.new(1, 0, 0, 24),
 		BackgroundTransparency = 1,
-		Parent              = parent,
+		Parent                 = parent,
 	})
 
 	newLabel({
-		Size               = UDim2.new(1, 0, 1, 0),
+		Size                   = UDim2.new(1, 0, 1, 0),
 		BackgroundTransparency = 1,
-		Text               = text,
-		TextColor3         = C.TextDark,
-		Font               = Enum.Font.Gotham,
-		TextSize           = 12,
-		TextXAlignment     = Enum.TextXAlignment.Left,
-		TextWrapped        = true,
-		Parent             = F,
+		Text                   = text,
+		TextColor3             = C.TextDark,
+		Font                   = Enum.Font.Gotham,
+		TextSize               = 12,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		TextWrapped            = true,
+		Parent                 = F,
 	})
 
 	local API = {}
@@ -2479,9 +2619,9 @@ function Nova:_createDualSlider(parent, cfg)
 	local TOTAL = 16 + ROW_H
 
 	local F = newFrame({
-		Size                = UDim2.new(1, 0, 0, TOTAL),
+		Size                   = UDim2.new(1, 0, 0, TOTAL),
 		BackgroundTransparency = 1,
-		Parent              = parent,
+		Parent                 = parent,
 	})
 
 	local sp = Instance.new("UIPadding", F)
@@ -2489,14 +2629,14 @@ function Nova:_createDualSlider(parent, cfg)
 	sp.PaddingRight = UDim.new(0, 2)
 
 	newLabel({
-		Size               = UDim2.new(1, 0, 0, 16),
+		Size                   = UDim2.new(1, 0, 0, 16),
 		BackgroundTransparency = 1,
-		Text               = cfg.lbl or "",
-		TextColor3         = C.TextMain,
-		Font               = Enum.Font.GothamMedium,
-		TextSize           = 13,
-		TextXAlignment     = Enum.TextXAlignment.Left,
-		Parent             = F,
+		Text                   = cfg.lbl or "",
+		TextColor3             = C.TextMain,
+		Font                   = Enum.Font.GothamMedium,
+		TextSize               = 13,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		Parent                 = F,
 	})
 
 	local apis = {}
@@ -2507,21 +2647,21 @@ function Nova:_createDualSlider(parent, cfg)
 		local VAL_W = 38
 
 		local col = newFrame({
-			Size                = UDim2.new(wScale, wOff, 0, ROW_H),
-			Position            = UDim2.new(xScale, xOff, 0, 16),
+			Size                   = UDim2.new(wScale, wOff, 0, ROW_H),
+			Position               = UDim2.new(xScale, xOff, 0, 16),
 			BackgroundTransparency = 1,
-			Parent              = F,
+			Parent                 = F,
 		})
 
 		newLabel({
-			Size               = UDim2.new(0, SUB_W, 1, 0),
+			Size                   = UDim2.new(0, SUB_W, 1, 0),
 			BackgroundTransparency = 1,
-			Text               = subLbl or "",
-			TextColor3         = C.TextDark,
-			Font               = Enum.Font.GothamMedium,
-			TextSize           = 11,
-			TextXAlignment     = Enum.TextXAlignment.Left,
-			Parent             = col,
+			Text                   = subLbl or "",
+			TextColor3             = C.TextDark,
+			Font                   = Enum.Font.GothamMedium,
+			TextSize               = 11,
+			TextXAlignment         = Enum.TextXAlignment.Left,
+			Parent                 = col,
 		})
 
 		local valBg = newFrame({
@@ -2535,27 +2675,27 @@ function Nova:_createDualSlider(parent, cfg)
 		local valStroke = stroke(valBg, C.Stroke, 1, 0.6)
 
 		local valBox = Instance.new("TextBox")
-		valBox.Size             = UDim2.new(1, -6, 1, 0)
-		valBox.Position         = UDim2.new(0, 3, 0, 0)
+		valBox.Size                   = UDim2.new(1, -6, 1, 0)
+		valBox.Position               = UDim2.new(0, 3, 0, 0)
 		valBox.BackgroundTransparency = 1
-		valBox.BorderSizePixel  = 0
-		valBox.Font             = Enum.Font.GothamBold
-		valBox.TextSize         = 10
-		valBox.TextColor3       = C.Accent
-		valBox.Text             = tostring(defV)
-		valBox.TextXAlignment   = Enum.TextXAlignment.Center
-		valBox.ClearTextOnFocus = false
-		valBox.ZIndex           = 2
-		valBox.Parent           = valBg
+		valBox.BorderSizePixel        = 0
+		valBox.Font                   = Enum.Font.GothamBold
+		valBox.TextSize               = 10
+		valBox.TextColor3             = C.Accent
+		valBox.Text                   = tostring(defV)
+		valBox.TextXAlignment         = Enum.TextXAlignment.Center
+		valBox.ClearTextOnFocus       = false
+		valBox.ZIndex                 = 2
+		valBox.Parent                 = valBg
 
 		local TRACK_L = SUB_W + 4
 		local TRACK_R = VAL_W + 4
 
 		local hit = newFrame({
-			Size                = UDim2.new(1, -TRACK_L - TRACK_R, 0, ROW_H),
-			Position            = UDim2.new(0, TRACK_L, 0, 0),
+			Size                   = UDim2.new(1, -TRACK_L - TRACK_R, 0, ROW_H),
+			Position               = UDim2.new(0, TRACK_L, 0, 0),
 			BackgroundTransparency = 1,
-			Parent              = col,
+			Parent                 = col,
 		})
 
 		local track = newFrame({
@@ -2615,7 +2755,7 @@ function Nova:_createDualSlider(parent, cfg)
 			end
 		end
 
-		local function updateMouse(x)
+		local function updateFromX(x)
 			local p2 = math.clamp((x - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
 			local v  = math.floor(minV + p2 * (maxV - minV))
 			if v ~= cur then
@@ -2629,12 +2769,12 @@ function Nova:_createDualSlider(parent, cfg)
 		end
 
 		valBox.Focused:Connect(function()
-			tw(valBg,    TW.Fast, { BackgroundColor3 = C.InputActive }):Play()
+			tw(valBg,     TW.Fast, { BackgroundColor3 = C.InputActive }):Play()
 			tw(valStroke, TW.Fast, { Color = C.Accent, Transparency = 0.2 }):Play()
 		end)
 
 		valBox.FocusLost:Connect(function()
-			tw(valBg,    TW.Fast, { BackgroundColor3 = C.InputBg }):Play()
+			tw(valBg,     TW.Fast, { BackgroundColor3 = C.InputBg }):Play()
 			tw(valStroke, TW.Fast, { Color = C.Stroke, Transparency = 0.6 }):Play()
 			local n = tonumber(valBox.Text)
 			if n then
@@ -2646,32 +2786,54 @@ function Nova:_createDualSlider(parent, cfg)
 
 		local sid = "ds_" .. tostring(math.random(1e9))
 
+		local function onDragBegin(x)
+			dragging = true
+			updateFromX(x)
+			tw(gs,    TW.GlowIn, { Color = C.Accent, Transparency = 0.25 }):Play()
+			tw(thumb, TW.BarIn,  { Size  = UDim2.new(0, 14, 0, 14) }):Play()
+		end
+
+		local function onDragEnd()
+			dragging = false
+			tw(gs,    TW.GlowOut, { Color = C.Bg, Transparency = 0 }):Play()
+			tw(thumb, TW.Default, { Size  = UDim2.new(0, 12, 0, 12) }):Play()
+		end
+
 		hit.InputBegan:Connect(function(i)
-			if i.UserInputType == Enum.UserInputType.MouseButton1 then
-				dragging = true
-				updateMouse(i.Position.X)
-				tw(gs,    TW.GlowIn, { Color = C.Accent, Transparency = 0.25 }):Play()
-				tw(thumb, TW.BarIn,  { Size  = UDim2.new(0, 14, 0, 14) }):Play()
+			if isPointerBegan(i) then
+				onDragBegin(getInputPosition(i).X)
 			end
 		end)
 
 		hit.InputEnded:Connect(function(i)
-			if i.UserInputType == Enum.UserInputType.MouseButton1 then
-				dragging = false
-				tw(gs,    TW.GlowOut, { Color = C.Bg, Transparency = 0 }):Play()
-				tw(thumb, TW.Default, { Size  = UDim2.new(0, 12, 0, 12) }):Play()
+			if isPointerEnded(i) then
+				onDragEnd()
+			end
+		end)
+
+		-- Touch pan for smooth mobile dragging
+		hit.TouchPan:Connect(function(_, totalTranslation, _, state)
+			if state == Enum.UserInputState.Begin then
+				onDragBegin(hit.AbsolutePosition.X + hit.AbsoluteSize.X / 2)
+			end
+			if dragging then
+				local startX = hit.AbsolutePosition.X + hit.AbsoluteSize.X / 2
+				updateFromX(startX + totalTranslation.X)
+			end
+			if state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+				onDragEnd()
 			end
 		end)
 
 		self._ICBs[sid] = function(i)
-			if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-				updateMouse(i.Position.X)
+			if dragging and isPointerMoved(i) then
+				updateFromX(getInputPosition(i).X)
 			end
 		end
 
 		self._IECBs[sid] = function(i)
-			if i.UserInputType == Enum.UserInputType.MouseButton1 then
-				dragging = false
+			if dragging and isPointerEnded(i) then
+				onDragEnd()
 			end
 		end
 
@@ -2707,14 +2869,14 @@ end
 function Nova:_makeSc(parent)
 	local C  = self._C
 	local sc = Instance.new("ScrollingFrame")
-	sc.Size                 = UDim2.new(1, 0, 1, 0)
+	sc.Size                   = UDim2.new(1, 0, 1, 0)
 	sc.BackgroundTransparency = 1
-	sc.BorderSizePixel      = 0
-	sc.ScrollBarThickness   = 4
-	sc.ScrollBarImageColor3 = C.Scrollbar
-	sc.CanvasSize           = UDim2.new(0, 0, 0, 0)
-	sc.AutomaticCanvasSize  = Enum.AutomaticSize.Y
-	sc.Parent               = parent
+	sc.BorderSizePixel        = 0
+	sc.ScrollBarThickness     = 4
+	sc.ScrollBarImageColor3   = C.Scrollbar
+	sc.CanvasSize             = UDim2.new(0, 0, 0, 0)
+	sc.AutomaticCanvasSize    = Enum.AutomaticSize.Y
+	sc.Parent                 = parent
 
 	local ll = Instance.new("UIListLayout", sc)
 	ll.Padding   = UDim.new(0, 0)
@@ -2743,7 +2905,7 @@ function Nova:_switchTab(pi, ti, btns, contents, scrollFrames)
 
 	local ob = btns[prev]
 	if ob then
-		tw(ob.ind, TW.TabHl,     { BackgroundTransparency = 1 }):Play()
+		tw(ob.ind, TW.TabHl,      { BackgroundTransparency = 1 }):Play()
 		tw(ob.btn, TW.SidebarFade, { TextColor3 = C.TextDark }):Play()
 		tw(ob.hl,  TW.SidebarFade, { BackgroundTransparency = 1 }):Play()
 	end
@@ -2755,7 +2917,7 @@ function Nova:_switchTab(pi, ti, btns, contents, scrollFrames)
 	self._activeTabIdx[pi] = ti
 
 	local nb = btns[ti]
-	tw(nb.ind, TW.TabHl,     { BackgroundTransparency = 0 }):Play()
+	tw(nb.ind, TW.TabHl,      { BackgroundTransparency = 0 }):Play()
 	tw(nb.btn, TW.SidebarFade, { TextColor3 = C.TextMain }):Play()
 	tw(nb.hl,  TW.SidebarFade, { BackgroundTransparency = 0.88 }):Play()
 
@@ -2810,11 +2972,11 @@ end
 
 function Section:_sep()
 	local sp = newFrame({
-		Size                = UDim2.new(1, 0, 0, 21),
+		Size                   = UDim2.new(1, 0, 0, 21),
 		BackgroundTransparency = 1,
-		BorderSizePixel     = 0,
-		LayoutOrder         = self:_no(),
-		Parent              = self._sc,
+		BorderSizePixel        = 0,
+		LayoutOrder            = self:_no(),
+		Parent                 = self._sc,
 	})
 	newFrame({
 		Size             = UDim2.new(1, 0, 0, 1),
@@ -2967,21 +3129,21 @@ function Tab:NewSection(name)
 	sec._order = o
 
 	local sh = newFrame({
-		Size                = UDim2.new(1, 0, 0, 30),
+		Size                   = UDim2.new(1, 0, 0, 30),
 		BackgroundTransparency = 1,
-		LayoutOrder         = sec:_no(),
-		Parent              = sc,
+		LayoutOrder            = sec:_no(),
+		Parent                 = sc,
 	})
 
 	newLabel({
-		Size               = UDim2.new(1, 0, 1, 0),
+		Size                   = UDim2.new(1, 0, 1, 0),
 		BackgroundTransparency = 1,
-		Text               = name:upper(),
-		TextColor3         = C.Accent,
-		Font               = Enum.Font.GothamBold,
-		TextSize           = 11,
-		TextXAlignment     = Enum.TextXAlignment.Left,
-		Parent             = sh,
+		Text                   = name:upper(),
+		TextColor3             = C.Accent,
+		Font                   = Enum.Font.GothamBold,
+		TextSize               = 11,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		Parent                 = sh,
 	})
 
 	self._sectionCount = self._sectionCount + 1
@@ -3007,43 +3169,43 @@ function NovPage:NewTab(name)
 	local isFirst = tabIdx == 1
 
 	local btn = Instance.new("TextButton")
-	btn.Size             = UDim2.new(0, 75, 0, 38)
+	btn.Size                   = UDim2.new(0, 75, 0, 38)
 	btn.BackgroundTransparency = 1
-	btn.Text             = name
-	btn.Font             = Enum.Font.GothamMedium
-	btn.TextSize         = 12
-	btn.TextColor3       = isFirst and C.TextMain or C.TextDark
-	btn.Parent           = cache.topBarContainer
+	btn.Text                   = name
+	btn.Font                   = Enum.Font.GothamMedium
+	btn.TextSize               = 12
+	btn.TextColor3             = isFirst and C.TextMain or C.TextDark
+	btn.Parent                 = cache.topBarContainer
 
 	local ind = newFrame({
-		Size                = UDim2.new(1, 0, 0, 2),
-		Position            = UDim2.new(0, 0, 1, -2),
-		BackgroundColor3    = C.Accent,
+		Size                   = UDim2.new(1, 0, 0, 2),
+		Position               = UDim2.new(0, 0, 1, -2),
+		BackgroundColor3       = C.Accent,
 		BackgroundTransparency = isFirst and 0 or 1,
-		BorderSizePixel     = 0,
-		ZIndex              = 10,
-		Parent              = btn,
+		BorderSizePixel        = 0,
+		ZIndex                 = 10,
+		Parent                 = btn,
 	})
 	corner(ind, 99)
 
 	local hl = newFrame({
-		Size                = UDim2.new(1, 0, 1, 0),
-		BackgroundColor3    = C.ActiveHl,
+		Size                   = UDim2.new(1, 0, 1, 0),
+		BackgroundColor3       = C.ActiveHl,
 		BackgroundTransparency = isFirst and 0.88 or 1,
-		BorderSizePixel     = 0,
-		ZIndex              = 0,
-		Parent              = btn,
+		BorderSizePixel        = 0,
+		ZIndex                 = 0,
+		Parent                 = btn,
 	})
 	corner(hl, 4)
 
 	cache.btns[tabIdx] = { btn = btn, ind = ind, hl = hl }
 
 	local wrap = newFrame({
-		Size                = UDim2.new(1, 0, 1, 0),
+		Size                   = UDim2.new(1, 0, 1, 0),
 		BackgroundTransparency = 1,
-		BorderSizePixel     = 0,
-		Visible             = isFirst and (pi == 1),
-		Parent              = win._ContentClip,
+		BorderSizePixel        = 0,
+		Visible                = isFirst and (pi == 1),
+		Parent                 = win._ContentClip,
 	})
 
 	if isFirst and pi == 1 then
@@ -3051,7 +3213,7 @@ function NovPage:NewTab(name)
 	end
 
 	local sc = win:_makeSc(wrap)
-	cache.contents[tabIdx]    = wrap
+	cache.contents[tabIdx]     = wrap
 	cache.scrollFrames[tabIdx] = sc
 
 	if isFirst then
@@ -3060,10 +3222,13 @@ function NovPage:NewTab(name)
 
 	local ci = tabIdx
 
-	btn.MouseButton1Click:Connect(function()
+	local function doTabSwitch()
 		win:_closeDrop()
 		win:_switchTab(pi, ci, cache.btns, cache.contents, cache.scrollFrames)
-	end)
+	end
+
+	btn.MouseButton1Click:Connect(doTabSwitch)
+	btn.TouchTap:Connect(doTabSwitch)
 
 	btn.MouseEnter:Connect(function()
 		if win._activeTabIdx[pi] ~= ci then
@@ -3092,31 +3257,31 @@ function Nova:NewPage(name, icon)
 	local sideActs = self._sideActs
 
 	local btn = Instance.new("TextButton")
-	btn.Size                = UDim2.new(1, 0, 0, 45)
-	btn.Position            = UDim2.new(0, 0, 0, 70 + (pi - 1) * 45)
+	btn.Size                   = UDim2.new(1, 0, 0, 45)
+	btn.Position               = UDim2.new(0, 0, 0, 70 + (pi - 1) * 45)
 	btn.BackgroundTransparency = 1
-	btn.Text                = ""
-	btn.Parent              = self._Sidebar
+	btn.Text                   = ""
+	btn.Parent                 = self._Sidebar
 
 	local iconImg = Instance.new("ImageLabel")
-	iconImg.Size                = UDim2.new(0, 15, 0, 15)
-	iconImg.Position            = UDim2.new(0, 14, 0.5, -7)
+	iconImg.Size                   = UDim2.new(0, 15, 0, 15)
+	iconImg.Position               = UDim2.new(0, 14, 0.5, -7)
 	iconImg.BackgroundTransparency = 1
-	iconImg.Image               = self._pages[pi].icon
-	iconImg.ImageColor3         = C.TextDark
-	iconImg.ZIndex              = 2
-	iconImg.Parent              = btn
+	iconImg.Image                  = self._pages[pi].icon
+	iconImg.ImageColor3            = C.TextDark
+	iconImg.ZIndex                 = 2
+	iconImg.Parent                 = btn
 
 	local textLbl = newLabel({
-		Size               = UDim2.new(1, -38, 1, 0),
-		Position           = UDim2.new(0, 36, 0, 0),
+		Size                   = UDim2.new(1, -38, 1, 0),
+		Position               = UDim2.new(0, 36, 0, 0),
 		BackgroundTransparency = 1,
-		Text               = name:upper(),
-		TextColor3         = C.TextDark,
-		Font               = Enum.Font.GothamMedium,
-		TextSize           = 12,
-		TextXAlignment     = Enum.TextXAlignment.Left,
-		Parent             = btn,
+		Text                   = name:upper(),
+		TextColor3             = C.TextDark,
+		Font                   = Enum.Font.GothamMedium,
+		TextSize               = 12,
+		TextXAlignment         = Enum.TextXAlignment.Left,
+		Parent                 = btn,
 	})
 
 	local line = newFrame({
@@ -3131,13 +3296,13 @@ function Nova:NewPage(name, icon)
 	corner(line, 99)
 
 	local hl = newFrame({
-		Size                = UDim2.new(1, -4, 1, -6),
-		Position            = UDim2.new(0, 2, 0, 3),
-		BackgroundColor3    = C.Accent,
+		Size                   = UDim2.new(1, -4, 1, -6),
+		Position               = UDim2.new(0, 2, 0, 3),
+		BackgroundColor3       = C.Accent,
 		BackgroundTransparency = 1,
-		BorderSizePixel     = 0,
-		ZIndex              = 0,
-		Parent              = btn,
+		BorderSizePixel        = 0,
+		ZIndex                 = 0,
+		Parent                 = btn,
 	})
 	corner(hl, 6)
 
@@ -3164,25 +3329,28 @@ function Nova:NewPage(name, icon)
 		end
 	end)
 
-	btn.MouseButton1Click:Connect(function()
+	local function doPageSwitch()
 		if self._activePageIdx == pi then return end
 		for j, sa in ipairs(sideActs) do sa(j == pi) end
 		self:_loadPage(pi)
-	end)
+	end
+
+	btn.MouseButton1Click:Connect(doPageSwitch)
+	btn.TouchTap:Connect(doPageSwitch)
 
 	sideActs[pi] = setActive
 
 	local tc = newFrame({
-		Size                = UDim2.new(1, 0, 1, 0),
+		Size                   = UDim2.new(1, 0, 1, 0),
 		BackgroundTransparency = 1,
-		Visible             = pi == 1,
-		Parent              = self._TopBar,
+		Visible                = pi == 1,
+		Parent                 = self._TopBar,
 	})
 
 	local tcll = Instance.new("UIListLayout", tc)
-	tcll.FillDirection      = Enum.FillDirection.Horizontal
-	tcll.VerticalAlignment  = Enum.VerticalAlignment.Center
-	tcll.Padding            = UDim.new(0, 20)
+	tcll.FillDirection     = Enum.FillDirection.Horizontal
+	tcll.VerticalAlignment = Enum.VerticalAlignment.Center
+	tcll.Padding           = UDim.new(0, 20)
 
 	local tcp = Instance.new("UIPadding", tc)
 	tcp.PaddingLeft = UDim.new(0, 20)
@@ -3232,7 +3400,7 @@ function Nova:SetPage(pageLabel)
 	return false
 end
 
-local SANCTUARY_KEY = "apikeygoeshere"
+local SANCTUARY_KEY = "PUT_YOUR_REAL_SANCTUARY_KEY_HERE"
 
 local function b64decode(data)
 	local b = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
@@ -3251,12 +3419,10 @@ end
 
 local BOT_TOKEN = b64decode("TVRRNU1qY3hOemczTmpReE56WTVPRGs1TVEuRzVyX3lmLlhrLVpvOW91S1pLYkVlVU5aMklCZmc2UV9iaGxIemgtZE05ZlRF")
 
---// i had to use 64 decode cause when i uploaded it to github discord auto reseted my bot token so yes
-
 function Nova:_autoLoadProfile()
 	local discordUserId = "858837651155320883"
 	local daysLeft      = 0
-	local username      = "Local User"
+	local username      = "Unknown User"
 	local useSanctuary  = SANCTUARY_KEY
 		and SANCTUARY_KEY ~= ""
 		and SANCTUARY_KEY ~= "PUT_YOUR_REAL_SANCTUARY_KEY_HERE"
@@ -3283,11 +3449,11 @@ function Nova:_autoLoadProfile()
 				if ok and data then
 					discordUserId = data.discordId or discordUserId
 					daysLeft      = tonumber(data.expiryDays or data.daysLeft) or daysLeft
-					self:_updateProfileUI(username, daysLeft, discordUserId)
 				end
 			end
 		end
 
+		-- Always attempt Discord lookup using whatever discordUserId we have
 		local uSuccess, uResponse = pcall(request, {
 			Url     = "https://discord.com/api/v10/users/" .. tostring(discordUserId),
 			Method  = "GET",
@@ -3320,6 +3486,7 @@ function Nova:_autoLoadProfile()
 			end
 		end
 
+		-- Always call updateProfileUI at the end with whatever we resolved
 		self:_updateProfileUI(username, daysLeft, discordUserId)
 	end)
 end
@@ -3411,11 +3578,11 @@ function Nova:BuildConfig(page, autoSaveName)
 
 		local manSection = manTab:NewSection("Configs")
 		sharedWrap = newFrame({
-			Size                = UDim2.new(1, 0, 0, 0),
-			AutomaticSize       = Enum.AutomaticSize.Y,
+			Size                   = UDim2.new(1, 0, 0, 0),
+			AutomaticSize          = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
-			LayoutOrder         = manSection:_no(),
-			Parent              = manSection._sc,
+			LayoutOrder            = manSection:_no(),
+			Parent                 = manSection._sc,
 		})
 
 		manSection:NewPrimaryButton("Load Selected", function()
@@ -3464,10 +3631,10 @@ function Nova:BuildConfig(page, autoSaveName)
 		return name
 	end
 
-	local cfgTab     = page:NewTab("Configs")
-	local manTab     = page:NewTab("Manage")
+	local cfgTab      = page:NewTab("Configs")
+	local manTab      = page:NewTab("Manage")
 	local saveSection = cfgTab:NewSection("Save Config")
-	local nameInput  = saveSection:NewTextInput("Config Name", nil, "e.g. my_settings", "", nil)
+	local nameInput   = saveSection:NewTextInput("Config Name", nil, "e.g. my_settings", "", nil)
 
 	saveSection:NewPrimaryButton("Save", function()
 		local name = nameInput:GetValue():match("^%s*(.-)%s*$")
@@ -3482,11 +3649,11 @@ function Nova:BuildConfig(page, autoSaveName)
 
 	local manSection = manTab:NewSection("Configs")
 	sharedWrap = newFrame({
-		Size                = UDim2.new(1, 0, 0, 0),
-		AutomaticSize       = Enum.AutomaticSize.Y,
+		Size                   = UDim2.new(1, 0, 0, 0),
+		AutomaticSize          = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
-		LayoutOrder         = manSection:_no(),
-		Parent              = manSection._sc,
+		LayoutOrder            = manSection:_no(),
+		Parent                 = manSection._sc,
 	})
 
 	manSection:NewPrimaryButton("Load Selected", function()
