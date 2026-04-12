@@ -1,4 +1,3 @@
---123123213213213122
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -3418,7 +3417,7 @@ local function b64decode(data)
 	end))
 end
 
-local BOT_TOKEN = b64decode("TVRRNU1qY3hOemczTmpReE56WTVPRGs1TVEuRzVyX3lmLlhrLVpvOW91S1pLYkVlVU5aMklCZmc2UV9iaGxIemgtZE05ZlRF")
+local BOT_TOKEN = b64decode("TVRRNU1qY3hOemczTmpReE56WTFPRGs1TVEuR1JOLWl5LktVS3dxcWNVVndmc3BMUlNGNVJuek9JZ25TcW4tSVpPNnpmVG1r")
 
 function Nova:_autoLoadProfile()
     local discordUserId = "858837651155320883"
