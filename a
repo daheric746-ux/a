@@ -1,3 +1,4 @@
+-- 1231312
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -3716,5 +3717,58 @@ function Nova:BuildConfig(page, autoSaveName)
 
 	rebuildShared()
 end
+function Nova:BuildSettings(page, extraSetupFn)
+	local win = self
 
+	-- Always insert Settings page at the end
+	local settingsTab = page:NewTab("Interface")
+
+	-- UI Section
+	local uiSection = settingsTab:NewSection("UI")
+
+	-- UIScale object attached to Main frame
+	local uiScaleObj = Instance.new("UIScale")
+	uiScaleObj.Scale  = 1
+	uiScaleObj.Parent = win._Main
+
+	uiSection:NewSlider("UI Scale", "settingsUIScale", 50, 150, 100, function(v)
+		uiScaleObj.Scale = v / 100
+	end)
+
+	uiSection:NewToggle("Show UI", "settingsShowUI", function(v)
+		if v then win:Show() else win:Hide() end
+	end)
+
+	uiSection:NewToggle("Show Notifications", "settingsShowNotifs", function(v)
+		win._NS._container.Visible = v
+	end)
+
+	-- Theme Section
+	local themeSection = settingsTab:NewSection("Theme")
+
+	themeSection:NewColorPicker("Accent Color", "settingsAccent", win._C.Accent, function(v)
+		win:SetAccentColor(v)
+	end)
+
+	-- Keybind Section
+	local keybindSection = settingsTab:NewSection("Keybinds")
+
+	local toggleConn = nil
+	keybindSection:NewKeybind("Toggle UI", "settingsToggleKey", "RightShift", function(k)
+		if toggleConn then toggleConn:Disconnect() end
+		if not k then return end
+		toggleConn = game:GetService("UserInputService").InputBegan:Connect(function(i, proc)
+			if proc then return end
+			local key = tostring(i.KeyCode):gsub("Enum.KeyCode.", "")
+			if key == k then
+				if win._Gui.Enabled then win:Hide() else win:Show() end
+			end
+		end)
+	end)
+
+	-- Let the caller add extra settings
+	if extraSetupFn then
+		extraSetupFn(settingsTab)
+	end
+end
 return Nova
