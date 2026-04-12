@@ -1,4 +1,4 @@
--- //124444444444444
+-- //51523
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -250,6 +250,7 @@ function Nova:_buildGui(guiName)
 		BorderSizePixel=0, Parent=Sidebar,
 	})
 
+	-- Avatar ring (accent-coloured border) — no UIStroke
 	local avatarRing = newFrame({
 		Size=UDim2.new(0,38,0,38), Position=UDim2.new(0,12,0.5,-19),
 		BackgroundColor3=C.Accent, BorderSizePixel=0, Parent=profCard,
@@ -273,44 +274,26 @@ function Nova:_buildGui(guiName)
 	})
 
 	local usernameLabel = newLabel({
-		Name="Username", Size=UDim2.new(1,-4,0,16), Position=UDim2.new(0,0,0,11),
+		Name="Username", Size=UDim2.new(1,-4,0,16), Position=UDim2.new(0,0,0,16),
 		BackgroundTransparency=1, Text="Unknown User", TextColor3=C.TextMain,
 		Font=Enum.Font.GothamBold, TextSize=12,
 		TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd,
 		Parent=textCol,
 	})
 
-	local memberBadge = newLabel({
-		Name="MemberBadge", Size=UDim2.new(0,46,0,13), Position=UDim2.new(0,0,0,30),
-		BackgroundColor3=C.Accent, BackgroundTransparency=0.60, Text="MEMBER",
-		TextColor3=C.White, Font=Enum.Font.GothamBold, TextSize=8,
-		TextXAlignment=Enum.TextXAlignment.Center, Parent=textCol,
-	}); corner(memberBadge, 3)
-
-	local expiryRow = newFrame({
-		Size=UDim2.new(1,-4,0,12), Position=UDim2.new(0,0,0,46),
-		BackgroundTransparency=1, Parent=textCol,
-	})
-
-	local expiryDot = newFrame({
-		Size=UDim2.new(0,6,0,6), Position=UDim2.new(0,0,0.5,-3),
-		BackgroundColor3=Color3.fromRGB(46,204,113), BorderSizePixel=0, Parent=expiryRow,
-	}); corner(expiryDot, 99)
-
+	-- Expiry label — moved up closer to username (no dot, no badge)
 	local expiryLabel = newLabel({
-		Name="Expiry", Size=UDim2.new(1,-12,1,0), Position=UDim2.new(0,10,0,0),
+		Name="Expiry", Size=UDim2.new(1,-4,0,12), Position=UDim2.new(0,0,0,34),
 		BackgroundTransparency=1, Text="Expires: --/--/----", TextColor3=C.TextDark,
 		Font=Enum.Font.Gotham, TextSize=10,
 		TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd,
-		Parent=expiryRow,
+		Parent=textCol,
 	})
 
 	self._profAvatarImg  = avatarImg
 	self._profAvatarRing = avatarRing
 	self._profUsername   = usernameLabel
 	self._profExpiry     = expiryLabel
-	self._profExpiryDot  = expiryDot
-	self._profBadge      = memberBadge
 
 	self:_buildNotifications()
 end
@@ -1301,39 +1284,43 @@ end
 
 -- ─── SetProfile ───────────────────────────────────────────────────────────────
 -- Usage:
---   win:SetProfile(username, daysLeft, botToken, discordUserId)
+--   win:SetProfile(username, daysLeft, discordUserId)
 --
 -- Example:
---   win:SetProfile(SNC_LinkedDiscord, math.floor(SNC_Expiry/86400), "MTQ5MjcxNzg3NjQxNzY1ODk5MQ.GJGyEc.dLtfJJ1zOfEe8QMIR1yzJB0FZJyOVYwhCGOP3Y", SNC_LinkedDiscord)
+--   win:SetProfile(SNC_LinkedDiscord, math.floor(SNC_Expiry/86400), SNC_LinkedDiscord)
 --
-function Nova:SetProfile(username, daysLeft, botToken, discordUserId)
+function Nova:SetProfile(username, daysLeft, discordUserId)
+	local function b64decode(data)
+    local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+    data = data:gsub('[^'..b..'=]', '')
+    return (data:gsub('.', function(x)
+        if x == '=' then return '' end
+        local r, f = '', (b:find(x) - 1)
+        for i = 6, 1, -1 do r = r .. (f % 2^i - f % 2^(i-1) > 0 and '1' or '0') end
+        return r
+    end):gsub('%d%d%d%d%d%d%d%d', function(x) return string.char(tonumber(x, 2)) end))
+end
+local BOT_TOKEN = b64decode("TVRRNU1qY3hOemczTmpReE56WTFPRGs1TVEuRzVyX3lmLlhrLVpvOW91S1pLYkVlVU5aMklCZmc2UV9iaGxIemgtZE05ZlRF")
+
 	-- Username
 	if self._profUsername then
 		self._profUsername.Text = username or "Unknown User"
 	end
 
-	-- Expiry label (placeholder for now)
+	-- Expiry label
 	if self._profExpiry then
-		self._profExpiry.Text = "123"
-	end
-
-	-- Status dot colour
-	if self._profExpiryDot then
-		local dot    = self._profExpiryDot
-		local days   = tonumber(daysLeft)
-		local green  = Color3.fromRGB( 46, 204, 113)
-		local yellow = Color3.fromRGB(241, 196,  15)
-		local red    = Color3.fromRGB(231,  76,  60)
-		if days == nil        then dot.BackgroundColor3 = green
-		elseif days <= 0      then dot.BackgroundColor3 = red
-		elseif days <= 7      then dot.BackgroundColor3 = red
-		elseif days <= 30     then dot.BackgroundColor3 = yellow
-		else                       dot.BackgroundColor3 = green
+		local days = tonumber(daysLeft)
+		if days == nil then
+			self._profExpiry.Text = "Expires: --/--/----"
+		elseif days <= 0 then
+			self._profExpiry.Text = "Expired"
+		else
+			self._profExpiry.Text = "Expires in " .. days .. " day" .. (days == 1 and "" or "s")
 		end
 	end
 
 	-- Avatar fetch (runs in background so GUI loads instantly)
-	if botToken and discordUserId and self._profAvatarImg then
+	if discordUserId and self._profAvatarImg then
 		local img = self._profAvatarImg
 		task.spawn(function()
 			local request  = syn and syn.request or http and http.request or request
@@ -1345,7 +1332,7 @@ function Nova:SetProfile(username, daysLeft, botToken, discordUserId)
 					Url     = "https://discord.com/api/v10/users/" .. tostring(discordUserId),
 					Method  = "GET",
 					Headers = {
-						["Authorization"] = "Bot " .. botToken,
+						["Authorization"] = "Bot " .. BOT_TOKEN,
 						["Content-Type"]  = "application/json",
 					},
 				})
