@@ -1,4 +1,4 @@
--- //0000
+-- //6116
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -1282,6 +1282,8 @@ function Nova:SetPage(pageLabel)
 	return false
 end
 
+local SANCTUARY_KEY = "PUT_YOUR_REAL_SANCTUARY_KEY_HERE"   -- ← Change this only
+
 local function b64decode(data)
     local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
     data = data:gsub('[^'..b..'=]', '')
@@ -1300,9 +1302,7 @@ end
 local BOT_TOKEN = b64decode("TVRRNU1qY3hOemczTmpReE56WTFPRGs1TVEuRzVyX3lmLlhrLVpvOW91S1pLYkVlVU5aMklCZmc2UV9iaGxIemgtZE05ZlRF")
 
 function Nova:_autoLoadProfile()
-    local key = getgenv and getgenv().sanctuaryKey
-
-    if not key or key == "" or key == "YOUR_API_KEY" then
+    if not SANCTUARY_KEY or SANCTUARY_KEY == "" or SANCTUARY_KEY == "PUT_YOUR_REAL_SANCTUARY_KEY_HERE" then
         if self._profUsername then self._profUsername.Text = "Unknown User" end
         if self._profExpiry then self._profExpiry.Text = "No Key" end
         return
@@ -1321,7 +1321,7 @@ function Nova:_autoLoadProfile()
             Url = "https://api.snc.dev/v1/key/details",
             Method = "GET",
             Headers = {
-                ["Authorization"] = "Bearer " .. key,
+                ["Authorization"] = "Bearer " .. SANCTUARY_KEY,
                 ["Content-Type"] = "application/json"
             }
         })
@@ -1380,7 +1380,7 @@ function Nova:_autoLoadProfile()
     end)
 end
 
--- Auto call when creating window
+-- Auto run when window is created
 local oldNew = Nova.new
 function Nova.new(cfg)
     local self = oldNew(cfg or {})
