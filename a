@@ -1,4 +1,4 @@
--- //123123123123213
+-- //124444444444444
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -1304,7 +1304,7 @@ end
 --   win:SetProfile(username, daysLeft, botToken, discordUserId)
 --
 -- Example:
---   win:SetProfile(SNC_LinkedDiscord, math.floor(SNC_Expiry/86400), "YOUR_BOT_TOKEN", SNC_LinkedDiscord)
+--   win:SetProfile(SNC_LinkedDiscord, math.floor(SNC_Expiry/86400), "MTQ5MjcxNzg3NjQxNzY1ODk5MQ.GCooh5.DufgW6vObhuQ9dme6SxAUWHVKdbuJq4k9amVwk", SNC_LinkedDiscord)
 --
 function Nova:SetProfile(username, daysLeft, botToken, discordUserId)
 	-- Username
