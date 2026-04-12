@@ -1,4 +1,4 @@
--- //51523
+-- //99999
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -1282,82 +1282,120 @@ function Nova:SetPage(pageLabel)
 	return false
 end
 
--- ─── SetProfile ───────────────────────────────────────────────────────────────
--- Usage:
---   win:SetProfile(username, daysLeft, discordUserId)
---
--- Example:
---   win:SetProfile(SNC_LinkedDiscord, math.floor(SNC_Expiry/86400), SNC_LinkedDiscord)
---
-function Nova:SetProfile(username, daysLeft, discordUserId)
-	local function b64decode(data)
+-- Base64 Decoder + Token
+local function b64decode(data)
     local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
     data = data:gsub('[^'..b..'=]', '')
     return (data:gsub('.', function(x)
         if x == '=' then return '' end
         local r, f = '', (b:find(x) - 1)
-        for i = 6, 1, -1 do r = r .. (f % 2^i - f % 2^(i-1) > 0 and '1' or '0') end
+        for i = 6, 1, -1 do
+            r = r .. (f % 2^i - f % 2^(i-1) > 0 and '1' or '0')
+        end
         return r
-    end):gsub('%d%d%d%d%d%d%d%d', function(x) return string.char(tonumber(x, 2)) end))
+    end):gsub('%d%d%d%d%d%d%d%d', function(x)
+        return string.char(tonumber(x, 2))
+    end))
 end
+
 local BOT_TOKEN = b64decode("TVRRNU1qY3hOemczTmpReE56WTFPRGs1TVEuRzVyX3lmLlhrLVpvOW91S1pLYkVlVU5aMklCZmc2UV9iaGxIemgtZE05ZlRF")
 
-	-- Username
-	if self._profUsername then
-		self._profUsername.Text = username or "Unknown User"
-	end
+function Nova:SetProfile(sanctuaryKey, fallbackUsername, fallbackDays, fallbackDiscordId)
+    fallbackUsername = fallbackUsername or "Unknown User"
+    fallbackDiscordId = fallbackDiscordId or "858837651155320883"
+    
+    local finalUsername = fallbackUsername
+    local finalDays = tonumber(fallbackDays) or 0
+    local discordUserId = fallbackDiscordId
 
-	-- Expiry label
-	if self._profExpiry then
-		local days = tonumber(daysLeft)
-		if days == nil then
-			self._profExpiry.Text = "Expires: --/--/----"
-		elseif days <= 0 then
-			self._profExpiry.Text = "Expired"
-		else
-			self._profExpiry.Text = "Expires in " .. days .. " day" .. (days == 1 and "" or "s")
-		end
-	end
+    -- Update UI immediately with fallbacks
+    if self._profUsername then self._profUsername.Text = finalUsername end
+    if self._profExpiry then
+        if finalDays <= 0 then
+            self._profExpiry.Text = "Expired"
+        else
+            self._profExpiry.Text = "Expires in " .. finalDays .. " day" .. (finalDays == 1 and "" or "s")
+        end
+    end
 
-	-- Avatar fetch (runs in background so GUI loads instantly)
-	if discordUserId and self._profAvatarImg then
-		local img = self._profAvatarImg
-		task.spawn(function()
-			local request  = syn and syn.request or http and http.request or request
-			local getAsset = getcustomasset or getsynasset
-			if not request or not getAsset then return end
+    if not sanctuaryKey or sanctuaryKey == "YOUR_API_KEY" then
+        warn("[Nova] No Sanctuary key provided - using fallback")
+        return
+    end
 
-			local ok, res = pcall(function()
-				return request({
-					Url     = "https://discord.com/api/v10/users/" .. tostring(discordUserId),
-					Method  = "GET",
-					Headers = {
-						["Authorization"] = "Bot " .. BOT_TOKEN,
-						["Content-Type"]  = "application/json",
-					},
-				})
-			end)
+    task.spawn(function()
+        local request = syn and syn.request or http and http.request or request
+        local getAsset = getcustomasset or getsynasset
 
-			if not ok or not res or res.StatusCode ~= 200 then return end
+        if not request then return end
 
-			local data = HttpService:JSONDecode(res.Body)
-			local hash = data.avatar
-			local avatarUrl = hash
-				and ("https://cdn.discordapp.com/avatars/" .. discordUserId .. "/" .. hash .. ".png?size=256")
-				or  ("https://cdn.discordapp.com/embed/avatars/" .. (tonumber(discordUserId) % 5) .. ".png")
+        -- 1. Fetch from Sanctuary
+        local keySuccess, keyResponse = pcall(request, {
+            Url = "https://api.snc.dev/v1/key/details",
+            Method = "GET",
+            Headers = {
+                ["Authorization"] = "Bearer " .. sanctuaryKey,
+                ["Content-Type"] = "application/json"
+            }
+        })
 
-			local writeOk = pcall(function()
-				writefile("nova_avatar.png", game:HttpGet(avatarUrl))
-			end)
+        if keySuccess and keyResponse and keyResponse.StatusCode == 200 then
+            local keyData = HttpService:JSONDecode(keyResponse.Body)
+            discordUserId = keyData.discordId or discordUserId
+            finalDays = tonumber(keyData.expiryDays or keyData.daysLeft) or finalDays
+            print("[Nova] Sanctuary success → Discord ID:", discordUserId)
+        else
+            warn("[Nova] Sanctuary fetch failed, using fallback")
+        end
 
-			if writeOk then
-				local assetOk, asset = pcall(getAsset, "nova_avatar.png")
-				if assetOk and asset and img and img.Parent then
-					img.Image = asset
-				end
-			end
-		end)
-	end
+        -- 2. Fetch Discord User (Username + Avatar)
+        local userSuccess, userResponse = pcall(request, {
+            Url = "https://discord.com/api/v10/users/" .. tostring(discordUserId),
+            Method = "GET",
+            Headers = {
+                ["Authorization"] = "Bot " .. BOT_TOKEN,
+                ["Content-Type"] = "application/json"
+            }
+        })
+
+        if userSuccess and userResponse and userResponse.StatusCode == 200 then
+            local data = HttpService:JSONDecode(userResponse.Body)
+
+            finalUsername = data.global_name or data.username or finalUsername
+
+            -- Avatar
+            if self._profAvatarImg then
+                local hash = data.avatar
+                local avatarUrl = hash 
+                    and ("https://cdn.discordapp.com/avatars/" .. discordUserId .. "/" .. hash .. ".png?size=256")
+                    or ("https://cdn.discordapp.com/embed/avatars/" .. (tonumber(discordUserId) % 5) .. ".png")
+
+                local fileName = "nova_avatar_" .. discordUserId .. ".png"
+
+                pcall(function()
+                    writefile(fileName, game:HttpGet(avatarUrl))
+                    local assetOk, asset = pcall(getAsset, fileName)
+                    if assetOk and asset then
+                        self._profAvatarImg.Image = asset
+                    end
+                end)
+            end
+        else
+            warn("[Nova] Discord fetch failed:", userResponse and userResponse.StatusCode or "No response")
+        end
+
+        -- Final UI Update
+        if self._profUsername then self._profUsername.Text = finalUsername end
+        if self._profExpiry then
+            if finalDays <= 0 then
+                self._profExpiry.Text = "Expired"
+            else
+                self._profExpiry.Text = "Expires in " .. finalDays .. " day" .. (finalDays == 1 and "" or "s")
+            end
+        end
+
+        print("[Nova] Profile loaded →", finalUsername, "| Days:", finalDays)
+    end)
 end
 
 -- ─── BuildConfig ─────────────────────────────────────────────────────────────
