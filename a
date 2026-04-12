@@ -1,4 +1,3 @@
--- 1231312
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -60,7 +59,8 @@ local KEY_NAMES = {
 	PrintScreen  = "PrtSc",   ScrollLock   = "ScrLk",  Pause = "Pause",
 }
 
--- Returns true if the input type is a touch or mouse press (used to unify input handling)
+local CHECKMARK_IMAGE = "http://www.roblox.com/asset/?id=18856185133"
+
 local function isPointerBegan(i)
 	return i.UserInputType == Enum.UserInputType.MouseButton1
 		or i.UserInputType == Enum.UserInputType.Touch
@@ -77,9 +77,6 @@ local function isPointerEnded(i)
 end
 
 local function getInputPosition(i)
-	if i.UserInputType == Enum.UserInputType.Touch then
-		return i.Position
-	end
 	return i.Position
 end
 
@@ -93,27 +90,27 @@ end
 
 local function defaultColors()
 	return {
-		Bg          = Color3.fromRGB( 15,  15,  22),
-		Sidebar     = Color3.fromRGB( 12,  12,  18),
+		Bg          = Color3.fromRGB(10,  10,  16),
+		Sidebar     = Color3.fromRGB( 8,   8,  13),
 		Accent      = Color3.fromRGB(255, 110, 150),
 		TextMain    = Color3.fromRGB(230, 230, 230),
 		TextDark    = Color3.fromRGB(100, 100, 115),
 		Stroke      = Color3.fromRGB( 45,  45,  55),
-		ElemBg      = Color3.fromRGB( 25,  25,  35),
-		SliderBg    = Color3.fromRGB( 30,  30,  40),
-		PopupBg     = Color3.fromRGB( 18,  18,  26),
+		ElemBg      = Color3.fromRGB( 20,  20,  28),
+		SliderBg    = Color3.fromRGB( 25,  25,  33),
+		PopupBg     = Color3.fromRGB( 13,  13,  20),
 		PopupStroke = Color3.fromRGB( 55,  55,  70),
-		DropBg      = Color3.fromRGB( 20,  20,  30),
-		DropItem    = Color3.fromRGB( 28,  28,  40),
-		DropHover   = Color3.fromRGB( 38,  38,  52),
+		DropBg      = Color3.fromRGB( 15,  15,  23),
+		DropItem    = Color3.fromRGB( 22,  22,  32),
+		DropHover   = Color3.fromRGB( 32,  32,  45),
 		White       = Color3.fromRGB(255, 255, 255),
-		InputBg     = Color3.fromRGB( 20,  20,  30),
-		InputActive = Color3.fromRGB( 28,  28,  42),
+		InputBg     = Color3.fromRGB( 15,  15,  23),
+		InputActive = Color3.fromRGB( 22,  22,  35),
 		BtnPrimary  = Color3.fromRGB(255, 110, 150),
-		BtnDisabled = Color3.fromRGB( 40,  40,  50),
+		BtnDisabled = Color3.fromRGB( 35,  35,  45),
 		Scrollbar   = Color3.fromRGB( 80,  80, 100),
 		ActiveHl    = Color3.fromRGB(255, 110, 150),
-		Sep         = Color3.fromRGB( 30,  30,  38),
+		Sep         = Color3.fromRGB( 25,  25,  32),
 	}
 end
 
@@ -157,26 +154,20 @@ end
 
 local function newFrame(props)
 	local f = Instance.new("Frame")
-	for k, v in pairs(props) do
-		f[k] = v
-	end
+	for k, v in pairs(props) do f[k] = v end
 	return f
 end
 
 local function newLabel(props)
 	local l = Instance.new("TextLabel")
-	for k, v in pairs(props) do
-		l[k] = v
-	end
+	for k, v in pairs(props) do l[k] = v end
 	return l
 end
 
 local NOVA_FOLDER = "Nova"
 
 local function _ensureFolder()
-	if not isfolder(NOVA_FOLDER) then
-		makefolder(NOVA_FOLDER)
-	end
+	if not isfolder(NOVA_FOLDER) then makefolder(NOVA_FOLDER) end
 end
 
 local function _cfgPath(name)
@@ -188,9 +179,7 @@ local function _listConfigs()
 	local out = {}
 	for _, f in ipairs(listfiles(NOVA_FOLDER)) do
 		local n = f:match("[\\/]([^\\/]+)%.json$")
-		if n then
-			out[#out + 1] = n
-		end
+		if n then out[#out + 1] = n end
 	end
 	return out
 end
@@ -203,18 +192,13 @@ end
 local function _loadConfig(name)
 	local path = _cfgPath(name)
 	if not isfile(path) then return nil end
-	local ok, t = pcall(function()
-		return HttpService:JSONDecode(readfile(path))
-	end)
+	local ok, t = pcall(function() return HttpService:JSONDecode(readfile(path)) end)
 	return ok and t or nil
 end
 
 local function _deleteConfig(name)
 	local path = _cfgPath(name)
-	if isfile(path) then
-		delfile(path)
-		return true
-	end
+	if isfile(path) then delfile(path); return true end
 	return false
 end
 
@@ -251,16 +235,21 @@ function Nova.new(cfg)
 	self._sideActs        = {}
 	self._ConfigData      = {}
 	self._ConfigCallbacks = {}
+	-- registry of all accent-colored objects for live recolor
+	self._accentObjects   = {}
 
 	self:_buildGui(cfg.guiName or "NovaLib_Window")
 	return self
 end
 
+-- Register an object property for live accent recolor
+function Nova:_regAccent(obj, prop)
+	table.insert(self._accentObjects, { obj = obj, prop = prop })
+end
+
 function Nova:_regConfig(key, defaultVal, applyFn)
 	if not key then return end
-	if self._ConfigData[key] == nil then
-		self._ConfigData[key] = defaultVal
-	end
+	if self._ConfigData[key] == nil then self._ConfigData[key] = defaultVal end
 	self._ConfigCallbacks[key] = applyFn
 end
 
@@ -268,9 +257,7 @@ function Nova:_setConfig(key, value)
 	if not key then return end
 	self._ConfigData[key] = value
 	local cb = self._ConfigCallbacks[key]
-	if cb then
-		pcall(cb, value, false)
-	end
+	if cb then pcall(cb, value, false) end
 end
 
 function Nova:_buildGui(guiName)
@@ -281,9 +268,7 @@ function Nova:_buildGui(guiName)
 	Gui.ResetOnSpawn = false
 
 	local ok = pcall(function() Gui.Parent = CoreGui end)
-	if not ok then
-		Gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-	end
+	if not ok then Gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") end
 	self._Gui = Gui
 
 	local OverlayLayer = newFrame({
@@ -314,15 +299,8 @@ function Nova:_buildGui(guiName)
 	GCD.Parent                 = OverlayLayer
 	self._GCD = GCD
 
-	-- Close popups/drops on both mouse click and touch tap
-	GCD.MouseButton1Click:Connect(function()
-		self:_closePopup()
-		self:_closeDrop()
-	end)
-	GCD.TouchTap:Connect(function()
-		self:_closePopup()
-		self:_closeDrop()
-	end)
+	GCD.MouseButton1Click:Connect(function() self:_closePopup(); self:_closeDrop() end)
+	GCD.TouchTap:Connect(function() self:_closePopup(); self:_closeDrop() end)
 
 	local icc = UIS.InputChanged:Connect(function(i)
 		for _, f in pairs(self._ICBs) do f(i) end
@@ -332,19 +310,13 @@ function Nova:_buildGui(guiName)
 		for _, f in pairs(self._IECBs) do f(i) end
 	end)
 
-	Gui.Destroying:Connect(function()
-		icc:Disconnect()
-		iec:Disconnect()
-	end)
+	Gui.Destroying:Connect(function() icc:Disconnect(); iec:Disconnect() end)
 
 	UIS.InputBegan:Connect(function(i, proc)
 		if proc then return end
 		if i.KeyCode == Enum.KeyCode.Escape then
-			if self._activePopup then
-				self:_closePopup()
-			elseif self._activeDrop then
-				self:_closeDrop()
-			end
+			if self._activePopup then self:_closePopup()
+			elseif self._activeDrop then self:_closeDrop() end
 		end
 	end)
 
@@ -360,6 +332,12 @@ function Nova:_buildGui(guiName)
 	stroke(Main, C.Stroke, 1, 0.4)
 	self._Main = Main
 	self:_setupDrag(Main)
+
+	-- UIScale for the scaling feature
+	local uiScaleObj = Instance.new("UIScale")
+	uiScaleObj.Scale  = 1
+	uiScaleObj.Parent = Main
+	self._UIScale = uiScaleObj
 
 	local Sidebar = newFrame({
 		Name             = "Sidebar",
@@ -451,6 +429,7 @@ function Nova:_buildGui(guiName)
 		Parent           = profCard,
 	})
 	corner(avatarRing, 99)
+	self:_regAccent(avatarRing, "BackgroundColor3")
 
 	local avatarImg = Instance.new("ImageLabel")
 	avatarImg.Name             = "Avatar"
@@ -527,42 +506,25 @@ function Nova:_setupDrag(Main)
 		startPos  = Main.Position
 	end
 
-	local function onEnd()
-		dragging = false
-	end
+	local function onEnd() dragging = false end
 
 	if self._dragStyle == 2 then
 		UIS.InputBegan:Connect(function(i, proc)
 			if proc then return end
 			if not isPointerBegan(i) then return end
-
 			local pos = getInputPosition(i)
 			local mp  = Main.AbsolutePosition
 			local ms  = Main.AbsoluteSize
-
-			if pos.X < mp.X or pos.X > mp.X + ms.X
-			or pos.Y < mp.Y or pos.Y > mp.Y + ms.Y then
-				return
-			end
-
-			local ok, hits = pcall(function()
-				return CoreGui:GetGuiObjectsAtPosition(pos.X, pos.Y)
-			end)
-
+			if pos.X < mp.X or pos.X > mp.X + ms.X or pos.Y < mp.Y or pos.Y > mp.Y + ms.Y then return end
+			local ok, hits = pcall(function() return CoreGui:GetGuiObjectsAtPosition(pos.X, pos.Y) end)
 			if ok and hits then
 				for _, obj in ipairs(hits) do
-					if obj:IsA("TextButton") or obj:IsA("TextBox")
-					or obj:IsA("ImageButton") or obj:IsA("ScrollingFrame") then
-						return
-					end
+					if obj:IsA("TextButton") or obj:IsA("TextBox") or obj:IsA("ImageButton") or obj:IsA("ScrollingFrame") then return end
 				end
 			end
-
 			onBegin(pos)
 			i.Changed:Connect(function()
-				if i.UserInputState == Enum.UserInputState.End then
-					onEnd()
-				end
+				if i.UserInputState == Enum.UserInputState.End then onEnd() end
 			end)
 		end)
 	else
@@ -573,35 +535,27 @@ function Nova:_setupDrag(Main)
 			ZIndex                 = 10,
 			Parent                 = Main,
 		})
-
 		dragHandle.InputBegan:Connect(function(i)
 			if not isPointerBegan(i) then return end
 			onBegin(getInputPosition(i))
 			i.Changed:Connect(function()
-				if i.UserInputState == Enum.UserInputState.End then
-					onEnd()
-				end
+				if i.UserInputState == Enum.UserInputState.End then onEnd() end
 			end)
 		end)
 	end
 
-	-- Handles both mouse move and touch move for dragging the window
 	self._ICBs["drag"] = function(i)
-		if dragging and isPointerMoved(i) then
-			onMove(getInputPosition(i))
-		end
+		if dragging and isPointerMoved(i) then onMove(getInputPosition(i)) end
 	end
 
 	self._IECBs["drag"] = function(i)
-		if isPointerEnded(i) then
-			onEnd()
-		end
+		if isPointerEnded(i) then onEnd() end
 	end
 end
 
 function Nova:_buildNotifications()
 	local ns = { _pool = {}, _active = {}, _queue = {} }
-	self._NS  = ns
+	self._NS = ns
 
 	local holder = newFrame({
 		Name                   = "NotifHolder",
@@ -622,15 +576,13 @@ end
 
 function Nova:_notifGetElem()
 	local ns = self._NS
-	if #ns._pool > 0 then
-		return table.remove(ns._pool)
-	end
+	if #ns._pool > 0 then return table.remove(ns._pool) end
 
 	local obj = Instance.new("CanvasGroup")
 	obj.Name             = "Notification"
 	obj.Size             = UDim2.new(1, 0, 0, 0)
 	obj.AutomaticSize    = Enum.AutomaticSize.Y
-	obj.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
+	obj.BackgroundColor3 = Color3.fromRGB(10, 10, 16)
 	corner(obj, 8)
 
 	local s = Instance.new("UIStroke", obj)
@@ -655,8 +607,7 @@ function Nova:_notifGetElem()
 	ic.Size                   = UDim2.new(0, 20, 0, 20)
 	ic.BackgroundTransparency = 1
 	ic.Parent                 = hdr
-	local icc = Instance.new("UICorner", ic)
-	icc.CornerRadius = UDim.new(1, 0)
+	Instance.new("UICorner", ic).CornerRadius = UDim.new(1, 0)
 
 	newLabel({
 		Name                   = "Title",
@@ -689,7 +640,7 @@ function Nova:_notifGetElem()
 		Size             = UDim2.new(1, 0, 0, 4),
 		Position         = UDim2.new(0.5, 0, 1, 10),
 		AnchorPoint      = Vector2.new(0.5, 1),
-		BackgroundColor3 = Color3.fromRGB(35, 35, 40),
+		BackgroundColor3 = Color3.fromRGB(28, 28, 35),
 		BorderSizePixel  = 0,
 		Parent           = obj,
 	})
@@ -720,7 +671,6 @@ function Nova:_notifDismiss(n)
 	local ns  = self._NS
 	local idx = table.find(ns._active, n)
 	if not idx then return end
-
 	table.remove(ns._active, idx)
 
 	local out = TweenService:Create(n,
@@ -728,7 +678,6 @@ function Nova:_notifDismiss(n)
 		{ GroupTransparency = 1, Position = UDim2.new(0, 30, 0, 0) }
 	)
 	out:Play()
-
 	out.Completed:Connect(function()
 		n.Parent = nil
 		table.insert(ns._pool, n)
@@ -789,30 +738,21 @@ function Nova:Toast(msg, style, duration)
 		self:_notifDismiss(n)
 	end
 
-	-- Dismiss works on both click and touch swipe
 	table.insert(conns, n.DismissBtn.MouseButton1Click:Connect(dismiss))
 	table.insert(conns, n.DismissBtn.TouchTap:Connect(dismiss))
 	table.insert(conns, n.MouseEnter:Connect(function() barTween:Pause() end))
 	table.insert(conns, n.MouseLeave:Connect(function() barTween:Play() end))
 	table.insert(conns, barTween.Completed:Connect(function(st)
-		if st == Enum.PlaybackState.Completed then
-			dismiss()
-		end
+		if st == Enum.PlaybackState.Completed then dismiss() end
 	end))
 end
 
 function Nova:_closePopup()
 	if not self._activePopup then return end
-
 	local p = self._activePopup
 	self._activePopup = nil
-
-	if not self._activeDrop then
-		self._GCD.Visible = false
-	end
-
+	if not self._activeDrop then self._GCD.Visible = false end
 	tw(p, self._TW.Fast, { BackgroundTransparency = 1 }):Play()
-
 	for _, c in ipairs(p:GetDescendants()) do
 		if c:IsA("TextLabel") or c:IsA("TextButton") then
 			pcall(function() tw(c, self._TW.Fast, { TextTransparency = 1 }):Play() end)
@@ -821,30 +761,21 @@ function Nova:_closePopup()
 			pcall(function() tw(c, self._TW.Fast, { BackgroundTransparency = 1 }):Play() end)
 		end
 	end
-
 	task.delay(0.22, function()
-		if p and p.Parent then
-			p:Destroy()
-		end
+		if p and p.Parent then p:Destroy() end
 	end)
 end
 
 function Nova:_closeDrop()
 	if not self._activeDrop then return end
-
 	local d = self._activeDrop
 	self._activeDrop = nil
-
-	if not self._activePopup then
-		self._GCD.Visible = false
-	end
-
+	if not self._activePopup then self._GCD.Visible = false end
 	d.close()
 end
 
 function Nova:_openKeybindPopup(anchor, kbs)
 	self:_closePopup()
-
 	local C  = self._C
 	local ap = anchor.AbsolutePosition
 	local as = anchor.AbsoluteSize
@@ -885,15 +816,12 @@ function Nova:_openKeybindPopup(anchor, kbs)
 		local conn
 		conn = UIS.InputBegan:Connect(function(i, proc)
 			if proc or i.UserInputType ~= Enum.UserInputType.Keyboard then return end
-
 			local k = tostring(i.KeyCode):gsub("Enum.KeyCode.", "")
 			kbs.key = k
-
 			if kbs.tag then
 				kbs.tag.Text = "[" .. k .. "]"
 				tw(kbs.tag, self._TW.Default, { TextTransparency = 0, TextColor3 = C.TextDark }):Play()
 			end
-
 			kb.Text = "[" .. k .. "]"
 			tw(kb, self._TW.Fast, { TextColor3 = C.Accent }):Play()
 			listening = false
@@ -933,8 +861,8 @@ function Nova:_openKeybindPopup(anchor, kbs)
 
 	local function selectMode(mode, active, inactive)
 		kbs.mode = mode
-		tw(active,   self._TW.Fast, { BackgroundColor3 = C.Accent,   TextColor3 = C.White    }):Play()
-		tw(inactive, self._TW.Fast, { BackgroundColor3 = C.ElemBg,   TextColor3 = C.TextDark }):Play()
+		tw(active,   self._TW.Fast, { BackgroundColor3 = C.Accent, TextColor3 = C.White    }):Play()
+		tw(inactive, self._TW.Fast, { BackgroundColor3 = C.ElemBg, TextColor3 = C.TextDark }):Play()
 	end
 
 	tBtn.MouseButton1Click:Connect(function() selectMode("toggle", tBtn, hBtn) end)
@@ -960,15 +888,30 @@ function Nova:_createToggle(parent, lbl, key, isOn, onChange)
 	F.Text                   = ""
 	F.Parent                 = parent
 
+	-- Checkbox background
 	local box = newFrame({
-		Size             = UDim2.new(0, 20, 0, 20),
-		Position         = UDim2.new(0, 8, 0.5, -10),
+		Size             = UDim2.new(0, 18, 0, 18),
+		Position         = UDim2.new(0, 8, 0.5, -9),
 		BackgroundColor3 = isOn and C.Accent or C.ElemBg,
 		BorderSizePixel  = 0,
 		Parent           = F,
 	})
 	corner(box, 4)
 	local bs = stroke(box, C.Stroke, 1, 0.5)
+
+	-- Checkmark image inside the box
+	local checkImg = Instance.new("ImageLabel")
+	checkImg.Size                   = UDim2.new(1, -4, 1, -4)
+	checkImg.Position               = UDim2.new(0, 2, 0, 2)
+	checkImg.BackgroundTransparency = 1
+	checkImg.Image                  = CHECKMARK_IMAGE
+	checkImg.ImageColor3            = C.White
+	checkImg.ImageTransparency      = isOn and 0 or 1
+	checkImg.ZIndex                 = 2
+	checkImg.Parent                 = box
+
+	-- Register both box and checkImg for accent recolor
+	self:_regAccent(box, "BackgroundColor3")
 
 	local keytag = newLabel({
 		Size                   = UDim2.new(0, 40, 1, 0),
@@ -1014,9 +957,9 @@ function Nova:_createToggle(parent, lbl, key, isOn, onChange)
 
 	local function setToggle(v, fire)
 		toggled = v
-		tw(box,   TW.Default, { BackgroundColor3 = v and C.Accent   or C.ElemBg   }):Play()
-		tw(lbObj, TW.Default, { TextColor3       = v and C.TextMain or C.TextDark  }):Play()
-
+		tw(box,      TW.Default, { BackgroundColor3 = v and C.Accent or C.ElemBg }):Play()
+		tw(checkImg, TW.Default, { ImageTransparency = v and 0 or 1 }):Play()
+		tw(lbObj,    TW.Default, { TextColor3 = v and C.TextMain or C.TextDark }):Play()
 		if fire ~= false then
 			if key then self._ConfigData[key] = v end
 			if onChange then onChange(v) end
@@ -1036,19 +979,14 @@ function Nova:_createToggle(parent, lbl, key, isOn, onChange)
 		if proc or not kbs.key or i.UserInputType ~= Enum.UserInputType.Keyboard then return end
 		local k = tostring(i.KeyCode):gsub("Enum.KeyCode.", "")
 		if k ~= kbs.key then return end
-		if kbs.mode == "toggle" then
-			setToggle(not toggled)
-		elseif kbs.mode == "hold" then
-			setToggle(true)
-		end
+		if kbs.mode == "toggle" then setToggle(not toggled)
+		elseif kbs.mode == "hold" then setToggle(true) end
 	end)
 
 	self._IECBs[tid] = function(i)
 		if not kbs.key or i.UserInputType ~= Enum.UserInputType.Keyboard then return end
 		local k = tostring(i.KeyCode):gsub("Enum.KeyCode.", "")
-		if k == kbs.key and kbs.mode == "hold" then
-			setToggle(false)
-		end
+		if k == kbs.key and kbs.mode == "hold" then setToggle(false) end
 	end
 
 	F.Destroying:Connect(function()
@@ -1058,26 +996,18 @@ function Nova:_createToggle(parent, lbl, key, isOn, onChange)
 	end)
 
 	local function doToggle()
-		if self._activePopup then
-			self:_closePopup()
-			return
-		end
+		if self._activePopup then self:_closePopup(); return end
 		setToggle(not toggled)
 	end
 
 	F.MouseButton1Click:Connect(doToggle)
 	F.TouchTap:Connect(doToggle)
-
-	-- Hover effects only apply on non-touch devices
 	F.MouseEnter:Connect(function() ftw(bs, { Transparency = 0   }):Play() end)
 	F.MouseLeave:Connect(function() ftw(bs, { Transparency = 0.5 }):Play() end)
 
 	local function doGear()
-		if self._activePopup then
-			self:_closePopup()
-		else
-			self:_openKeybindPopup(sgear, kbs)
-		end
+		if self._activePopup then self:_closePopup()
+		else self:_openKeybindPopup(sgear, kbs) end
 	end
 
 	sgear.MouseButton1Click:Connect(doGear)
@@ -1085,7 +1015,7 @@ function Nova:_createToggle(parent, lbl, key, isOn, onChange)
 
 	keytag:GetPropertyChangedSignal("Text"):Connect(function()
 		if kbs.key then
-			tw(keytag, TW.Default, { TextColor3 = C.Accent,   TextTransparency = 0    }):Play()
+			tw(keytag, TW.Default, { TextColor3 = C.Accent, TextTransparency = 0 }):Play()
 		else
 			tw(keytag, TW.Default, { TextColor3 = C.TextDark, TextTransparency = 0.55 }):Play()
 			keytag.Text = "[--]"
@@ -1153,8 +1083,8 @@ function Nova:_createSlider(parent, lbl, key, minV, maxV, defV, onChange)
 	valBox.ClearTextOnFocus       = false
 	valBox.ZIndex                 = 2
 	valBox.Parent                 = valBg
+	self:_regAccent(valBox, "TextColor3")
 
-	-- Taller hit area makes it easier to tap on mobile
 	local hit = Instance.new("TextButton")
 	hit.Size                   = UDim2.new(1, 0, 0, 28)
 	hit.Position               = UDim2.new(0, 0, 0, 14)
@@ -1183,6 +1113,7 @@ function Nova:_createSlider(parent, lbl, key, minV, maxV, defV, onChange)
 		Parent           = track,
 	})
 	corner(fill, 99)
+	self:_regAccent(fill, "BackgroundColor3")
 
 	local thumb = newFrame({
 		Size             = UDim2.new(0, 14, 0, 14),
@@ -1193,6 +1124,7 @@ function Nova:_createSlider(parent, lbl, key, minV, maxV, defV, onChange)
 		Parent           = track,
 	})
 	corner(thumb, 99)
+	self:_regAccent(thumb, "BackgroundColor3")
 
 	local gs = Instance.new("UIStroke", thumb)
 	gs.Color        = C.Bg
@@ -1249,11 +1181,8 @@ function Nova:_createSlider(parent, lbl, key, minV, maxV, defV, onChange)
 		tw(valBg,     TW.Fast, { BackgroundColor3 = C.InputBg }):Play()
 		tw(valStroke, TW.Fast, { Color = C.Stroke, Transparency = 0.6 }):Play()
 		local n = tonumber(valBox.Text)
-		if n then
-			applyVal(math.floor(n))
-		else
-			valBox.Text = tostring(cur)
-		end
+		if n then applyVal(math.floor(n))
+		else valBox.Text = tostring(cur) end
 	end)
 
 	valBox:GetPropertyChangedSignal("Text"):Connect(function()
@@ -1283,43 +1212,25 @@ function Nova:_createSlider(parent, lbl, key, minV, maxV, defV, onChange)
 		tw(thumb, TW.Default, { Size  = UDim2.new(0, 14, 0, 14) }):Play()
 	end
 
-	-- Mouse support
-	hit.MouseButton1Down:Connect(function()
-		onDragBegin(UIS:GetMouseLocation().X)
-	end)
+	hit.MouseButton1Down:Connect(function() onDragBegin(UIS:GetMouseLocation().X) end)
 	hit.MouseButton1Up:Connect(onDragEnd)
 
-	-- Touch support
 	hit.TouchPan:Connect(function(_, totalTranslation, _, state)
-		if state == Enum.UserInputState.Begin then
-			onDragBegin(hit.AbsolutePosition.X + hit.AbsoluteSize.X / 2)
-		end
-		if dragging then
-			local startX = hit.AbsolutePosition.X + hit.AbsoluteSize.X / 2
-			updateFromX(startX + totalTranslation.X)
-		end
-		if state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
-			onDragEnd()
-		end
+		if state == Enum.UserInputState.Begin then onDragBegin(hit.AbsolutePosition.X + hit.AbsoluteSize.X / 2) end
+		if dragging then updateFromX(hit.AbsolutePosition.X + hit.AbsoluteSize.X / 2 + totalTranslation.X) end
+		if state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then onDragEnd() end
 	end)
 
 	hit.InputBegan:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.Touch then
-			onDragBegin(i.Position.X)
-		end
+		if i.UserInputType == Enum.UserInputType.Touch then onDragBegin(i.Position.X) end
 	end)
 
-	-- Global move/end handler covers both mouse and touch drag outside the element
 	self._ICBs[sid] = function(i)
-		if dragging and isPointerMoved(i) then
-			updateFromX(i.Position.X)
-		end
+		if dragging and isPointerMoved(i) then updateFromX(i.Position.X) end
 	end
 
 	self._IECBs[sid] = function(i)
-		if dragging and isPointerEnded(i) then
-			onDragEnd()
-		end
+		if dragging and isPointerEnded(i) then onDragEnd() end
 	end
 
 	F.Destroying:Connect(function()
@@ -1359,9 +1270,7 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 	local sel = {}
 
 	if isMulti then
-		if type(defVal) == "table" then
-			for _, v in ipairs(defVal) do sel[v] = true end
-		end
+		if type(defVal) == "table" then for _, v in ipairs(defVal) do sel[v] = true end end
 	else
 		sel[type(defVal) == "string" and defVal or (opts[1] or "")] = true
 	end
@@ -1371,19 +1280,14 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 
 	local function getList()
 		local t = {}
-		for _, o in ipairs(opts) do
-			if sel[o] then t[#t + 1] = o end
-		end
+		for _, o in ipairs(opts) do if sel[o] then t[#t + 1] = o end end
 		return t
 	end
 
 	local function getDisplay()
 		local t = getList()
-		if isMulti then
-			return #t == 0 and "None" or table.concat(t, ", ")
-		else
-			return t[1] or opts[1] or ""
-		end
+		if isMulti then return #t == 0 and "None" or table.concat(t, ", ")
+		else return t[1] or opts[1] or "" end
 	end
 
 	if key then
@@ -1448,6 +1352,7 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 		ZIndex                 = 3,
 		Parent                 = H,
 	})
+	self:_regAccent(vt, "TextColor3")
 
 	local chev = Instance.new("ImageLabel")
 	chev.Size                   = UDim2.new(0, 14, 0, 14)
@@ -1539,14 +1444,12 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 			Parent                 = ib,
 		})
 		corner(dot, 99)
+		self:_regAccent(dot, "BackgroundColor3")
 		imap[o] = { btn = ib, dot = dot }
 
 		ib.MouseEnter:Connect(function()
-			if not sel[o] then
-				ftw(ib, { BackgroundTransparency = 0, BackgroundColor3 = C.DropHover, TextColor3 = C.TextMain }):Play()
-			end
+			if not sel[o] then ftw(ib, { BackgroundTransparency = 0, BackgroundColor3 = C.DropHover, TextColor3 = C.TextMain }):Play() end
 		end)
-
 		ib.MouseLeave:Connect(function()
 			ftw(ib, { BackgroundTransparency = 1, BackgroundColor3 = C.DropItem, TextColor3 = sel[o] and C.Accent or C.TextDark }):Play()
 		end)
@@ -1558,10 +1461,7 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 				vt.Text = getDisplay()
 				fire()
 			else
-				for k in pairs(sel) do
-					sel[k] = nil
-					if imap[k] then refreshItem(k) end
-				end
+				for k in pairs(sel) do sel[k] = nil; if imap[k] then refreshItem(k) end end
 				sel[o]  = true
 				refreshItem(o)
 				vt.Text = o
@@ -1578,11 +1478,8 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 		self._ConfigCallbacks[key] = function(v, fromLoad)
 			if fromLoad then
 				sel = {}
-				if isMulti and type(v) == "table" then
-					for _, o in ipairs(v) do sel[o] = true end
-				elseif type(v) == "string" then
-					sel[v] = true
-				end
+				if isMulti and type(v) == "table" then for _, o in ipairs(v) do sel[o] = true end
+				elseif type(v) == "string" then sel[v] = true end
 				vt.Text = getDisplay()
 				for _, o in ipairs(opts) do refreshItem(o) end
 			end
@@ -1590,9 +1487,7 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 		end
 	end
 
-	local function resetAllItems()
-		for _, o in ipairs(opts) do refreshItem(o) end
-	end
+	local function resetAllItems() for _, o in ipairs(opts) do refreshItem(o) end end
 
 	local function closeDD()
 		closeGen = closeGen + 1
@@ -1611,29 +1506,22 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 
 	local function openDD()
 		if self._activeDrop then self:_closeDrop() end
-
 		local ap   = H.AbsolutePosition
 		local as   = H.AbsoluteSize
 		local lw   = as.X
 		local posX = ap.X
 		local posY = ap.Y + as.Y + 4
-
-		if (posY + listH) > self._Gui.AbsoluteSize.Y then
-			posY = ap.Y - listH - 4
-		end
-
+		if (posY + listH) > self._Gui.AbsoluteSize.Y then posY = ap.Y - listH - 4 end
 		LF.Position       = UDim2.fromOffset(posX, posY)
 		LF.Size           = UDim2.new(0, lw, 0, 0)
 		LF.Visible        = true
 		sl.CanvasPosition = Vector2.new(0, 0)
 		isOpen            = true
 		closeGen          = closeGen + 1
-
 		tw(chev, TW.Fast, { Rotation = 180 }):Play()
 		tw(hs,   TW.Fast, { Transparency = 0.1 }):Play()
-		tw(H,    TW.Fast, { BackgroundColor3 = Color3.fromRGB(30, 30, 42) }):Play()
+		tw(H,    TW.Fast, { BackgroundColor3 = Color3.fromRGB(22, 22, 34) }):Play()
 		tw(LF,   TW.Drop, { Size = UDim2.new(0, lw, 0, listH) }):Play()
-
 		self._activeDrop  = { close = closeDD }
 		self._GCD.Visible = true
 	end
@@ -1645,25 +1533,15 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 
 	H.MouseButton1Click:Connect(onHeaderActivate)
 	H.TouchTap:Connect(onHeaderActivate)
-
 	H.MouseEnter:Connect(function()
-		if not isOpen then
-			tw(hs,   TW.Fast, { Transparency = 0.2 }):Play()
-			tw(chev, TW.Fast, { ImageColor3  = C.TextMain }):Play()
-		end
+		if not isOpen then tw(hs, TW.Fast, { Transparency = 0.2 }):Play(); tw(chev, TW.Fast, { ImageColor3 = C.TextMain }):Play() end
 	end)
-
 	H.MouseLeave:Connect(function()
-		if not isOpen then
-			tw(hs,   TW.Fast, { Transparency = 0.5 }):Play()
-			tw(chev, TW.Fast, { ImageColor3  = C.TextDark }):Play()
-		end
+		if not isOpen then tw(hs, TW.Fast, { Transparency = 0.5 }):Play(); tw(chev, TW.Fast, { ImageColor3 = C.TextDark }):Play() end
 	end)
 
 	local scrollParent = parent
-	while scrollParent and not scrollParent:IsA("ScrollingFrame") do
-		scrollParent = scrollParent.Parent
-	end
+	while scrollParent and not scrollParent:IsA("ScrollingFrame") do scrollParent = scrollParent.Parent end
 	if scrollParent then
 		scrollParent:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
 			if isOpen then self:_closeDrop() end
@@ -1671,11 +1549,7 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 	end
 
 	F.Destroying:Connect(function()
-		if isOpen then
-			isOpen            = false
-			self._activeDrop  = nil
-			self._GCD.Visible = false
-		end
+		if isOpen then isOpen = false; self._activeDrop = nil; self._GCD.Visible = false end
 		if LF and LF.Parent then LF:Destroy() end
 	end)
 
@@ -1686,11 +1560,9 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 	end
 	function API:SetValue(v)
 		if isMulti and type(v) == "table" then
-			sel = {}
-			for _, o in ipairs(v) do sel[o] = true end
+			sel = {}; for _, o in ipairs(v) do sel[o] = true end
 		elseif type(v) == "string" then
-			sel = {}
-			sel[v] = true
+			sel = {}; sel[v] = true
 		end
 		vt.Text = getDisplay()
 		for _, o in ipairs(opts) do refreshItem(o) end
@@ -1721,28 +1593,28 @@ function Nova:_createButton(parent, lbl, style, cb, disabled)
 	corner(btn, 6)
 
 	if isPri and not isDis then
-		stroke(btn, C.Accent,  1, 0.5)
+		stroke(btn, C.Accent, 1, 0.5)
+		self:_regAccent(btn, "BackgroundColor3")
 	else
 		stroke(btn, C.Stroke, 1, isDis and 0.7 or 0.3)
+		if not isDis then self:_regAccent(btn, "TextColor3") end
 	end
 
 	if not isDis then
 		btn.MouseEnter:Connect(function()
-			ftw(btn, { BackgroundColor3 = isPri and Color3.fromRGB(255, 130, 165) or Color3.fromRGB(32, 32, 46) }):Play()
+			ftw(btn, { BackgroundColor3 = isPri and Color3.fromRGB(255, 130, 165) or Color3.fromRGB(28, 28, 40) }):Play()
 		end)
 		btn.MouseLeave:Connect(function()
 			ftw(btn, { BackgroundColor3 = normBg }):Play()
 		end)
 		btn.MouseButton1Down:Connect(function()
-			ftw(btn, { BackgroundColor3 = isPri and Color3.fromRGB(220, 90, 130) or Color3.fromRGB(40, 40, 56) }):Play()
+			ftw(btn, { BackgroundColor3 = isPri and Color3.fromRGB(220, 90, 130) or Color3.fromRGB(36, 36, 50) }):Play()
 		end)
 		btn.MouseButton1Up:Connect(function()
 			ftw(btn, { BackgroundColor3 = normBg }):Play()
 		end)
 
-		local function doClick()
-			if cb then cb() end
-		end
+		local function doClick() if cb then cb() end end
 		btn.MouseButton1Click:Connect(doClick)
 		btn.TouchTap:Connect(doClick)
 	end
@@ -1826,9 +1698,7 @@ function Nova:_createTextInput(parent, lbl, key, ph, def, onChange)
 		end
 	end
 
-	local function refreshPH()
-		plbl.Visible = box.Text == ""
-	end
+	local function refreshPH() plbl.Visible = box.Text == "" end
 	refreshPH()
 
 	box:GetPropertyChangedSignal("Text"):Connect(function()
@@ -1875,18 +1745,13 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 		return string.format("#%02X%02X%02X",
 			math.floor(c.R * 255 + 0.5),
 			math.floor(c.G * 255 + 0.5),
-			math.floor(c.B * 255 + 0.5)
-		)
+			math.floor(c.B * 255 + 0.5))
 	end
 
 	local function curColor() return Color3.fromHSV(curH, curS, curV) end
 
 	local function toRGB(c)
-		return {
-			r = math.round(c.R * 255),
-			g = math.round(c.G * 255),
-			b = math.round(c.B * 255),
-		}
+		return { r = math.round(c.R * 255), g = math.round(c.G * 255), b = math.round(c.B * 255) }
 	end
 
 	local F = newFrame({
@@ -1948,12 +1813,9 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 		local p = activeCP
 		activeCP = nil
 		ftw(p, { BackgroundTransparency = 1 }):Play()
-		task.delay(0.20, function()
-			if p and p.Parent then p:Destroy() end
-		end)
+		task.delay(0.20, function() if p and p.Parent then p:Destroy() end end)
 	end
 
-	-- Unified drag slider that handles both mouse and touch for hue/brightness strips
 	local function makeDragSlider(trackF, onDrag)
 		local dragging = false
 		local sid      = "cpsl_" .. tostring(math.random(1e9))
@@ -1971,41 +1833,26 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 			eval(getInputPosition(i).X)
 		end)
 
-		-- TouchPan gives smooth continuous updates on mobile
 		trackF.TouchPan:Connect(function(_, totalTranslation, _, state)
-			if state == Enum.UserInputState.Begin then
-				dragging  = true
-				dragCount = dragCount + 1
-			end
+			if state == Enum.UserInputState.Begin then dragging = true; dragCount = dragCount + 1 end
 			if dragging then
 				local midX = trackF.AbsolutePosition.X + trackF.AbsoluteSize.X / 2
 				eval(midX + totalTranslation.X)
 			end
 			if state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
-				if dragging then
-					dragging  = false
-					dragCount = math.max(0, dragCount - 1)
-				end
+				if dragging then dragging = false; dragCount = math.max(0, dragCount - 1) end
 			end
 		end)
 
 		self._ICBs[sid] = function(i)
-			if dragging and isPointerMoved(i) then
-				eval(getInputPosition(i).X)
-			end
+			if dragging and isPointerMoved(i) then eval(getInputPosition(i).X) end
 		end
 
 		self._IECBs[sid] = function(i)
-			if dragging and isPointerEnded(i) then
-				dragging  = false
-				dragCount = math.max(0, dragCount - 1)
-			end
+			if dragging and isPointerEnded(i) then dragging = false; dragCount = math.max(0, dragCount - 1) end
 		end
 
-		trackF.Destroying:Connect(function()
-			self._ICBs[sid]  = nil
-			self._IECBs[sid] = nil
-		end)
+		trackF.Destroying:Connect(function() self._ICBs[sid] = nil; self._IECBs[sid] = nil end)
 	end
 
 	local function openCP()
@@ -2019,10 +1866,7 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 		local gsz = self._Gui.AbsoluteSize
 		local px  = math.clamp(ap.X + as.X / 2 - POPUP_W / 2, 4, gsz.X - POPUP_W - 4)
 		local py  = ap.Y + as.Y + 6
-
-		if py + POPUP_H > gsz.Y - 4 then
-			py = ap.Y - POPUP_H - 6
-		end
+		if py + POPUP_H > gsz.Y - 4 then py = ap.Y - POPUP_H - 6 end
 
 		local pop = newFrame({
 			Size             = UDim2.fromOffset(POPUP_W, POPUP_H),
@@ -2060,11 +1904,8 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 
 		shield.MouseButton1Click:Connect(shieldDismiss)
 		shield.TouchTap:Connect(shieldDismiss)
-
 		shield.InputEnded:Connect(function(i)
-			if isPointerEnded(i) and dragCount > 0 then
-				dragCount = math.max(0, dragCount - 1)
-			end
+			if isPointerEnded(i) and dragCount > 0 then dragCount = math.max(0, dragCount - 1) end
 		end)
 
 		local y = PAD
@@ -2080,13 +1921,13 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 		})
 		corner(svOuter, 5)
 
-		local svW = newFrame({ Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = C.White, BorderSizePixel = 0, ZIndex = 203, Parent = svOuter })
+		local svW = newFrame({ Size = UDim2.new(1,0,1,0), BackgroundColor3 = C.White, BorderSizePixel = 0, ZIndex = 203, Parent = svOuter })
 		local wg  = Instance.new("UIGradient", svW)
-		wg.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
+		wg.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0,0), NumberSequenceKeypoint.new(1,1) })
 
-		local svBl = newFrame({ Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = 204, Parent = svOuter })
+		local svBl = newFrame({ Size = UDim2.new(1,0,1,0), BackgroundColor3 = Color3.new(0,0,0), BorderSizePixel = 0, ZIndex = 204, Parent = svOuter })
 		local bg2  = Instance.new("UIGradient", svBl)
-		bg2.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) })
+		bg2.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0,1), NumberSequenceKeypoint.new(1,0) })
 		bg2.Rotation = 90
 
 		local svThumb = newFrame({
@@ -2100,9 +1941,7 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 		corner(svThumb, 99)
 		stroke(svThumb, C.White, 2, 0)
 
-		local function refreshSVGradient()
-			svOuter.BackgroundColor3 = Color3.fromHSV(curH, 1, 1)
-		end
+		local function refreshSVGradient() svOuter.BackgroundColor3 = Color3.fromHSV(curH, 1, 1) end
 
 		local refreshBright
 		local svBaseY = y
@@ -2124,59 +1963,41 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 			refreshSwatch()
 		end
 
-		-- SV pad: handle both mouse and touch drag
 		svOuter.InputBegan:Connect(function(i)
 			if not isPointerBegan(i) then return end
-			svDragging = true
-			dragCount  = dragCount + 1
-			local pos  = getInputPosition(i)
+			svDragging = true; dragCount = dragCount + 1
+			local pos = getInputPosition(i)
 			evalSV(pos.X, pos.Y)
 		end)
 
-		-- TouchPan for 2D drag on the SV pad
 		svOuter.TouchPan:Connect(function(_, totalTranslation, _, state)
-			if state == Enum.UserInputState.Begin then
-				svDragging = true
-				dragCount  = dragCount + 1
-			end
+			if state == Enum.UserInputState.Begin then svDragging = true; dragCount = dragCount + 1 end
 			if svDragging then
 				local cx = svOuter.AbsolutePosition.X + curS * IW
 				local cy = svOuter.AbsolutePosition.Y + (1 - curV) * SV_H
 				evalSV(cx + totalTranslation.X, cy + totalTranslation.Y)
 			end
 			if state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
-				if svDragging then
-					svDragging = false
-					dragCount  = math.max(0, dragCount - 1)
-				end
+				if svDragging then svDragging = false; dragCount = math.max(0, dragCount - 1) end
 			end
 		end)
 
 		self._ICBs[svId] = function(i)
 			if svDragging and isPointerMoved(i) then
-				local pos = getInputPosition(i)
-				evalSV(pos.X, pos.Y)
+				local pos = getInputPosition(i); evalSV(pos.X, pos.Y)
 			end
 		end
-
 		self._IECBs[svId] = function(i)
-			if svDragging and isPointerEnded(i) then
-				svDragging = false
-				dragCount  = math.max(0, dragCount - 1)
-			end
+			if svDragging and isPointerEnded(i) then svDragging = false; dragCount = math.max(0, dragCount - 1) end
 		end
-
-		svOuter.Destroying:Connect(function()
-			self._ICBs[svId]  = nil
-			self._IECBs[svId] = nil
-		end)
+		svOuter.Destroying:Connect(function() self._ICBs[svId] = nil; self._IECBs[svId] = nil end)
 
 		y = y + SV_H + 10
 
 		local hueTrack = newFrame({
 			Size             = UDim2.new(0, IW, 0, STRIP_H),
 			Position         = UDim2.new(0, PAD, 0, y + (STRIP_ROW - STRIP_H) / 2),
-			BackgroundColor3 = Color3.new(1, 1, 1),
+			BackgroundColor3 = Color3.new(1,1,1),
 			BorderSizePixel  = 0,
 			ZIndex           = 202,
 			Parent           = popBg,
@@ -2185,13 +2006,13 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 
 		local hg = Instance.new("UIGradient", hueTrack)
 		hg.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0/6, Color3.fromHSV(0/6, 1, 1)),
-			ColorSequenceKeypoint.new(1/6, Color3.fromHSV(1/6, 1, 1)),
-			ColorSequenceKeypoint.new(2/6, Color3.fromHSV(2/6, 1, 1)),
-			ColorSequenceKeypoint.new(3/6, Color3.fromHSV(3/6, 1, 1)),
-			ColorSequenceKeypoint.new(4/6, Color3.fromHSV(4/6, 1, 1)),
-			ColorSequenceKeypoint.new(5/6, Color3.fromHSV(5/6, 1, 1)),
-			ColorSequenceKeypoint.new(1,   Color3.fromHSV(1,   1, 1)),
+			ColorSequenceKeypoint.new(0/6, Color3.fromHSV(0/6,1,1)),
+			ColorSequenceKeypoint.new(1/6, Color3.fromHSV(1/6,1,1)),
+			ColorSequenceKeypoint.new(2/6, Color3.fromHSV(2/6,1,1)),
+			ColorSequenceKeypoint.new(3/6, Color3.fromHSV(3/6,1,1)),
+			ColorSequenceKeypoint.new(4/6, Color3.fromHSV(4/6,1,1)),
+			ColorSequenceKeypoint.new(5/6, Color3.fromHSV(5/6,1,1)),
+			ColorSequenceKeypoint.new(1,   Color3.fromHSV(1,  1,1)),
 		})
 
 		local hueThumb = newFrame({
@@ -2215,10 +2036,7 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 
 		makeDragSlider(hueTrack, function(pct)
 			curH = pct
-			refreshHueThumb()
-			refreshSVGradient()
-			refreshSVThumb()
-			refreshSwatch()
+			refreshHueThumb(); refreshSVGradient(); refreshSVThumb(); refreshSwatch()
 		end)
 
 		y = y + STRIP_ROW + 6
@@ -2226,7 +2044,7 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 		local brightTrack = newFrame({
 			Size             = UDim2.new(0, IW, 0, STRIP_H),
 			Position         = UDim2.new(0, PAD, 0, y + (STRIP_ROW - STRIP_H) / 2),
-			BackgroundColor3 = Color3.new(1, 1, 1),
+			BackgroundColor3 = Color3.new(1,1,1),
 			BorderSizePixel  = 0,
 			ZIndex           = 202,
 			ClipsDescendants = true,
@@ -2236,8 +2054,8 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 
 		local bg3 = Instance.new("UIGradient", brightTrack)
 		bg3.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
-			ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0)),
+			ColorSequenceKeypoint.new(0, Color3.new(1,1,1)),
+			ColorSequenceKeypoint.new(1, Color3.new(0,0,0)),
 		})
 
 		local brightThumb = newFrame({
@@ -2261,9 +2079,7 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 
 		makeDragSlider(brightTrack, function(pct)
 			curV = 1 - pct
-			refreshBright()
-			refreshSVThumb()
-			refreshSwatch()
+			refreshBright(); refreshSVThumb(); refreshSwatch()
 		end)
 
 		y = y + STRIP_ROW + 10
@@ -2307,28 +2123,17 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 			end
 		end
 
-		hexBox.Focused:Connect(function()
-			ftw(hexBg, { BackgroundColor3 = C.InputActive }):Play()
-		end)
-
+		hexBox.Focused:Connect(function() ftw(hexBg, { BackgroundColor3 = C.InputActive }):Play() end)
 		hexBox.FocusLost:Connect(function(enter)
 			ftw(hexBg, { BackgroundColor3 = C.ElemBg }):Play()
 			if not enter then return end
-
 			local raw = hexBox.Text:gsub("[^%x#]", ""):upper()
-			if raw:sub(1, 1) ~= "#" then raw = "#" .. raw end
-
+			if raw:sub(1,1) ~= "#" then raw = "#" .. raw end
 			local h6 = raw:sub(2)
 			local function hi(s, e) return tonumber(h6:sub(s, e), 16) or 0 end
 			if #h6 ~= 6 then return end
-
 			curH, curS, curV = Color3.toHSV(Color3.new(hi(1,2)/255, hi(3,4)/255, hi(5,6)/255))
-			refreshSVGradient()
-			refreshSVThumb()
-			refreshHueThumb()
-			refreshBright()
-			refreshSwatch()
-			syncHexBox()
+			refreshSVGradient(); refreshSVThumb(); refreshHueThumb(); refreshBright(); refreshSwatch(); syncHexBox()
 		end)
 
 		local copyB = Instance.new("TextButton")
@@ -2355,8 +2160,7 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 			for _, rc in ipairs(recentColors) do
 				local h6 = rc:sub(2)
 				local function rhi(s, e) return tonumber(h6:sub(s, e), 16) or 0 end
-				local rc3 = Color3.fromRGB(rhi(1, 2), rhi(3, 4), rhi(5, 6))
-
+				local rc3 = Color3.fromRGB(rhi(1,2), rhi(3,4), rhi(5,6))
 				local dot = Instance.new("TextButton")
 				dot.Size             = UDim2.new(0, REC_DOT, 0, REC_DOT)
 				dot.BackgroundColor3 = rc3
@@ -2367,17 +2171,10 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 				dot.Parent           = recRowRef
 				corner(dot, 4)
 				stroke(dot, C.Stroke, 1, 0.5)
-
 				local function applyRecent()
 					curH, curS, curV = Color3.toHSV(rc3)
-					refreshSVGradient()
-					refreshSVThumb()
-					refreshHueThumb()
-					refreshBright()
-					refreshSwatch()
-					syncHexBox()
+					refreshSVGradient(); refreshSVThumb(); refreshHueThumb(); refreshBright(); refreshSwatch(); syncHexBox()
 				end
-
 				dot.MouseButton1Click:Connect(applyRecent)
 				dot.TouchTap:Connect(applyRecent)
 			end
@@ -2386,16 +2183,12 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 		local function doCopy()
 			local hex = colorToHex(curColor())
 			local n   = { hex }
-			for _, x in ipairs(recentColors) do
-				if x ~= hex then n[#n + 1] = x end
-			end
+			for _, x in ipairs(recentColors) do if x ~= hex then n[#n+1] = x end end
 			while #n > 8 do table.remove(n) end
 			recentColors = n
 			rebuildRecents()
 			copyB.Text = "✓"
-			task.delay(1.2, function()
-				if copyB and copyB.Parent then copyB.Text = "Copy" end
-			end)
+			task.delay(1.2, function() if copyB and copyB.Parent then copyB.Text = "Copy" end end)
 		end
 
 		copyB.MouseButton1Click:Connect(doCopy)
@@ -2440,9 +2233,7 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 		activeCP      = pop
 		ftw(popBg, { BackgroundTransparency = 0 }):Play()
 
-		pop.Destroying:Connect(function()
-			pcall(function() shield:Destroy() end)
-		end)
+		pop.Destroying:Connect(function() pcall(function() shield:Destroy() end) end)
 	end
 
 	local function doSwatch()
@@ -2507,6 +2298,7 @@ function Nova:_createKeybind(parent, lbl, key, defaultKey, onChange)
 	badge.TextColor3             = currentKey and C.Accent or C.TextDark
 	badge.ZIndex                 = 2
 	badge.Parent                 = badgeBg
+	if currentKey then self:_regAccent(badge, "TextColor3") end
 
 	local function setBadgeIdle()
 		badge.Text = beautifyKey(currentKey)
@@ -2518,7 +2310,7 @@ function Nova:_createKeybind(parent, lbl, key, defaultKey, onChange)
 	local function setBadgeListening()
 		badge.Text = "..."
 		ftw(badge,       { TextColor3       = Color3.fromRGB(255, 200, 80) }):Play()
-		ftw(badgeBg,     { BackgroundColor3 = Color3.fromRGB(30, 28, 18) }):Play()
+		ftw(badgeBg,     { BackgroundColor3 = Color3.fromRGB(28, 26, 14) }):Play()
 		ftw(badgeStroke, { Color = Color3.fromRGB(255, 200, 80), Transparency = 0.1 }):Play()
 	end
 
@@ -2534,10 +2326,7 @@ function Nova:_createKeybind(parent, lbl, key, defaultKey, onChange)
 
 	local function stopListening()
 		listening = false
-		if listenConn then
-			listenConn:Disconnect()
-			listenConn = nil
-		end
+		if listenConn then listenConn:Disconnect(); listenConn = nil end
 		setBadgeIdle()
 	end
 
@@ -2545,12 +2334,10 @@ function Nova:_createKeybind(parent, lbl, key, defaultKey, onChange)
 		if listening then stopListening(); return end
 		listening = true
 		setBadgeListening()
-
 		listenConn = UIS.InputBegan:Connect(function(i, proc)
 			if proc then return end
 			if i.KeyCode == Enum.KeyCode.Escape then stopListening(); return end
 			if i.UserInputType ~= Enum.UserInputType.Keyboard then return end
-
 			currentKey = tostring(i.KeyCode):gsub("Enum.KeyCode.", "")
 			stopListening()
 			if key then self._ConfigData[key] = currentKey end
@@ -2560,7 +2347,6 @@ function Nova:_createKeybind(parent, lbl, key, defaultKey, onChange)
 
 	badge.MouseButton1Click:Connect(startListening)
 	badge.TouchTap:Connect(startListening)
-
 	badge.MouseEnter:Connect(function() if not listening then ftw(badgeStroke, { Transparency = 0.1  }):Play() end end)
 	badge.MouseLeave:Connect(function() if not listening then ftw(badgeStroke, { Transparency = 0.45 }):Play() end end)
 
@@ -2568,9 +2354,7 @@ function Nova:_createKeybind(parent, lbl, key, defaultKey, onChange)
 		if proc or listening or not currentKey then return end
 		if i.UserInputType ~= Enum.UserInputType.Keyboard then return end
 		local k = tostring(i.KeyCode):gsub("Enum.KeyCode.", "")
-		if k == currentKey then
-			if onChange then onChange(currentKey) end
-		end
+		if k == currentKey then if onChange then onChange(currentKey) end end
 	end)
 
 	F.Destroying:Connect(function()
@@ -2586,13 +2370,11 @@ end
 
 function Nova:_createLabel(parent, text)
 	local C = self._C
-
 	local F = newFrame({
 		Size                   = UDim2.new(1, 0, 0, 24),
 		BackgroundTransparency = 1,
 		Parent                 = parent,
 	})
-
 	newLabel({
 		Size                   = UDim2.new(1, 0, 1, 0),
 		BackgroundTransparency = 1,
@@ -2604,11 +2386,8 @@ function Nova:_createLabel(parent, text)
 		TextWrapped            = true,
 		Parent                 = F,
 	})
-
 	local API = {}
-	function API:SetText(t)
-		F:FindFirstChildWhichIsA("TextLabel").Text = t
-	end
+	function API:SetText(t) F:FindFirstChildWhichIsA("TextLabel").Text = t end
 	return F, API
 end
 
@@ -2688,6 +2467,7 @@ function Nova:_createDualSlider(parent, cfg)
 		valBox.ClearTextOnFocus       = false
 		valBox.ZIndex                 = 2
 		valBox.Parent                 = valBg
+		self:_regAccent(valBox, "TextColor3")
 
 		local TRACK_L = SUB_W + 4
 		local TRACK_R = VAL_W + 4
@@ -2709,7 +2489,7 @@ function Nova:_createDualSlider(parent, cfg)
 		})
 		corner(track, 99)
 
-		local pct  = (defV - minV) / (maxV - minV)
+		local pct = (defV - minV) / (maxV - minV)
 
 		local fill = newFrame({
 			Size             = UDim2.new(pct, 0, 1, 0),
@@ -2719,6 +2499,7 @@ function Nova:_createDualSlider(parent, cfg)
 			Parent           = track,
 		})
 		corner(fill, 99)
+		self:_regAccent(fill, "BackgroundColor3")
 
 		local thumb = newFrame({
 			Size             = UDim2.new(0, 12, 0, 12),
@@ -2729,21 +2510,18 @@ function Nova:_createDualSlider(parent, cfg)
 			Parent           = track,
 		})
 		corner(thumb, 99)
+		self:_regAccent(thumb, "BackgroundColor3")
 
 		local gs = Instance.new("UIStroke", thumb)
-		gs.Color        = C.Bg
-		gs.Thickness    = 2
-		gs.Transparency = 0
+		gs.Color = C.Bg; gs.Thickness = 2; gs.Transparency = 0
 
 		local dragging = false
 
 		local function applyVal(v)
 			local cl = math.clamp(v, minV, maxV)
 			local p  = (cl - minV) / (maxV - minV)
-			cur            = cl
-			fill.Size      = UDim2.new(p, 0, 1, 0)
-			thumb.Position = UDim2.new(p, -6, 0.5, -6)
-			valBox.Text    = tostring(cl)
+			cur = cl; fill.Size = UDim2.new(p,0,1,0); thumb.Position = UDim2.new(p,-6,0.5,-6)
+			valBox.Text = tostring(cl)
 			if key then self._ConfigData[key] = cl end
 			if onChange then onChange(cl) end
 		end
@@ -2760,98 +2538,62 @@ function Nova:_createDualSlider(parent, cfg)
 			local p2 = math.clamp((x - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
 			local v  = math.floor(minV + p2 * (maxV - minV))
 			if v ~= cur then
-				cur            = v
-				fill.Size      = UDim2.new(p2, 0, 1, 0)
-				thumb.Position = UDim2.new(p2, -6, 0.5, -6)
-				valBox.Text    = tostring(v)
+				cur = v; fill.Size = UDim2.new(p2,0,1,0); thumb.Position = UDim2.new(p2,-6,0.5,-6)
+				valBox.Text = tostring(v)
 				if key then self._ConfigData[key] = v end
 				if onChange then onChange(v) end
 			end
 		end
 
 		valBox.Focused:Connect(function()
-			tw(valBg,     TW.Fast, { BackgroundColor3 = C.InputActive }):Play()
+			tw(valBg, TW.Fast, { BackgroundColor3 = C.InputActive }):Play()
 			tw(valStroke, TW.Fast, { Color = C.Accent, Transparency = 0.2 }):Play()
 		end)
-
 		valBox.FocusLost:Connect(function()
-			tw(valBg,     TW.Fast, { BackgroundColor3 = C.InputBg }):Play()
+			tw(valBg, TW.Fast, { BackgroundColor3 = C.InputBg }):Play()
 			tw(valStroke, TW.Fast, { Color = C.Stroke, Transparency = 0.6 }):Play()
 			local n = tonumber(valBox.Text)
-			if n then
-				applyVal(math.floor(n))
-			else
-				valBox.Text = tostring(cur)
-			end
+			if n then applyVal(math.floor(n)) else valBox.Text = tostring(cur) end
 		end)
 
 		local sid = "ds_" .. tostring(math.random(1e9))
 
 		local function onDragBegin(x)
-			dragging = true
-			updateFromX(x)
-			tw(gs,    TW.GlowIn, { Color = C.Accent, Transparency = 0.25 }):Play()
-			tw(thumb, TW.BarIn,  { Size  = UDim2.new(0, 14, 0, 14) }):Play()
+			dragging = true; updateFromX(x)
+			tw(gs, TW.GlowIn, { Color = C.Accent, Transparency = 0.25 }):Play()
+			tw(thumb, TW.BarIn, { Size = UDim2.new(0, 14, 0, 14) }):Play()
 		end
 
 		local function onDragEnd()
 			dragging = false
-			tw(gs,    TW.GlowOut, { Color = C.Bg, Transparency = 0 }):Play()
-			tw(thumb, TW.Default, { Size  = UDim2.new(0, 12, 0, 12) }):Play()
+			tw(gs, TW.GlowOut, { Color = C.Bg, Transparency = 0 }):Play()
+			tw(thumb, TW.Default, { Size = UDim2.new(0, 12, 0, 12) }):Play()
 		end
 
 		hit.InputBegan:Connect(function(i)
-			if isPointerBegan(i) then
-				onDragBegin(getInputPosition(i).X)
-			end
+			if isPointerBegan(i) then onDragBegin(getInputPosition(i).X) end
 		end)
-
 		hit.InputEnded:Connect(function(i)
-			if isPointerEnded(i) then
-				onDragEnd()
-			end
+			if isPointerEnded(i) then onDragEnd() end
 		end)
-
-		-- Touch pan for smooth mobile dragging
 		hit.TouchPan:Connect(function(_, totalTranslation, _, state)
-			if state == Enum.UserInputState.Begin then
-				onDragBegin(hit.AbsolutePosition.X + hit.AbsoluteSize.X / 2)
-			end
-			if dragging then
-				local startX = hit.AbsolutePosition.X + hit.AbsoluteSize.X / 2
-				updateFromX(startX + totalTranslation.X)
-			end
-			if state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
-				onDragEnd()
-			end
+			if state == Enum.UserInputState.Begin then onDragBegin(hit.AbsolutePosition.X + hit.AbsoluteSize.X / 2) end
+			if dragging then updateFromX(hit.AbsolutePosition.X + hit.AbsoluteSize.X / 2 + totalTranslation.X) end
+			if state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then onDragEnd() end
 		end)
 
-		self._ICBs[sid] = function(i)
-			if dragging and isPointerMoved(i) then
-				updateFromX(getInputPosition(i).X)
-			end
-		end
-
-		self._IECBs[sid] = function(i)
-			if dragging and isPointerEnded(i) then
-				onDragEnd()
-			end
-		end
-
-		F.Destroying:Connect(function()
-			self._ICBs[sid]  = nil
-			self._IECBs[sid] = nil
-		end)
+		self._ICBs[sid]  = function(i) if dragging and isPointerMoved(i) then updateFromX(getInputPosition(i).X) end end
+		self._IECBs[sid] = function(i) if dragging and isPointerEnded(i) then onDragEnd() end end
+		F.Destroying:Connect(function() self._ICBs[sid] = nil; self._IECBs[sid] = nil end)
 
 		hit.MouseEnter:Connect(function()
-			tw(thumb, TW.Default, { Size = UDim2.new(0, 14, 0, 14) }):Play()
-			tw(gs,    TW.GlowIn,  { Color = C.Accent, Transparency = 0.5 }):Play()
+			tw(thumb, TW.Default, { Size = UDim2.new(0,14,0,14) }):Play()
+			tw(gs, TW.GlowIn, { Color = C.Accent, Transparency = 0.5 }):Play()
 		end)
-
 		hit.MouseLeave:Connect(function()
 			if not dragging then
-				tw(thumb, TW.Default, { Size = UDim2.new(0, 12, 0, 12) }):Play()
-				tw(gs,    TW.GlowOut, { Color = C.Bg, Transparency = 0 }):Play()
+				tw(thumb, TW.Default, { Size = UDim2.new(0,12,0,12) }):Play()
+				tw(gs, TW.GlowOut, { Color = C.Bg, Transparency = 0 }):Play()
 			end
 		end)
 
@@ -2906,19 +2648,17 @@ function Nova:_switchTab(pi, ti, btns, contents, scrollFrames)
 
 	local ob = btns[prev]
 	if ob then
-		tw(ob.ind, TW.TabHl,      { BackgroundTransparency = 1 }):Play()
+		tw(ob.ind, TW.TabHl,       { BackgroundTransparency = 1 }):Play()
 		tw(ob.btn, TW.SidebarFade, { TextColor3 = C.TextDark }):Play()
 		tw(ob.hl,  TW.SidebarFade, { BackgroundTransparency = 1 }):Play()
 	end
 
-	if contents[prev] then
-		contents[prev].Visible = false
-	end
+	if contents[prev] then contents[prev].Visible = false end
 
 	self._activeTabIdx[pi] = ti
 
 	local nb = btns[ti]
-	tw(nb.ind, TW.TabHl,      { BackgroundTransparency = 0 }):Play()
+	tw(nb.ind, TW.TabHl,       { BackgroundTransparency = 0 }):Play()
 	tw(nb.btn, TW.SidebarFade, { TextColor3 = C.TextMain }):Play()
 	tw(nb.hl,  TW.SidebarFade, { BackgroundTransparency = 0.88 }):Play()
 
@@ -3117,15 +2857,13 @@ function Tab.new(win, sc)
 end
 
 function Tab:NewSection(name)
-	local C   = self._win._C
-	local sc  = self._sc
+	local C  = self._win._C
+	local sc = self._sc
 	local sec = Section.new(self._win, sc)
 
 	local o = 0
 	for _, ch in ipairs(sc:GetChildren()) do
-		if ch:IsA("GuiObject") and ch.LayoutOrder > o then
-			o = ch.LayoutOrder
-		end
+		if ch:IsA("GuiObject") and ch.LayoutOrder > o then o = ch.LayoutOrder end
 	end
 	sec._order = o
 
@@ -3188,6 +2926,7 @@ function NovPage:NewTab(name)
 		Parent                 = btn,
 	})
 	corner(ind, 99)
+	win:_regAccent(ind, "BackgroundColor3")
 
 	local hl = newFrame({
 		Size                   = UDim2.new(1, 0, 1, 0),
@@ -3198,6 +2937,7 @@ function NovPage:NewTab(name)
 		Parent                 = btn,
 	})
 	corner(hl, 4)
+	win:_regAccent(hl, "BackgroundColor3")
 
 	cache.btns[tabIdx] = { btn = btn, ind = ind, hl = hl }
 
@@ -3209,17 +2949,13 @@ function NovPage:NewTab(name)
 		Parent                 = win._ContentClip,
 	})
 
-	if isFirst and pi == 1 then
-		wrap.Position = UDim2.new(0, 0, 0, 0)
-	end
+	if isFirst and pi == 1 then wrap.Position = UDim2.new(0, 0, 0, 0) end
 
 	local sc = win:_makeSc(wrap)
 	cache.contents[tabIdx]     = wrap
 	cache.scrollFrames[tabIdx] = sc
 
-	if isFirst then
-		win._activeTabIdx[pi] = 1
-	end
+	if isFirst then win._activeTabIdx[pi] = 1 end
 
 	local ci = tabIdx
 
@@ -3230,13 +2966,11 @@ function NovPage:NewTab(name)
 
 	btn.MouseButton1Click:Connect(doTabSwitch)
 	btn.TouchTap:Connect(doTabSwitch)
-
 	btn.MouseEnter:Connect(function()
 		if win._activeTabIdx[pi] ~= ci then
 			tw(btn, TW.SidebarHov, { TextColor3 = Color3.fromRGB(180, 180, 190) }):Play()
 		end
 	end)
-
 	btn.MouseLeave:Connect(function()
 		if win._activeTabIdx[pi] ~= ci then
 			tw(btn, TW.SidebarHov, { TextColor3 = C.TextDark }):Play()
@@ -3295,6 +3029,7 @@ function Nova:NewPage(name, icon)
 		Parent           = btn,
 	})
 	corner(line, 99)
+	self:_regAccent(line, "BackgroundColor3")
 
 	local hl = newFrame({
 		Size                   = UDim2.new(1, -4, 1, -6),
@@ -3306,6 +3041,7 @@ function Nova:NewPage(name, icon)
 		Parent                 = btn,
 	})
 	corner(hl, 6)
+	self:_regAccent(hl, "BackgroundColor3")
 
 	local function setActive(v)
 		tw(textLbl, TW.SidebarFade, { TextColor3  = v and C.Accent or C.TextDark }):Play()
@@ -3321,7 +3057,6 @@ function Nova:NewPage(name, icon)
 			tw(hl,       TW.SidebarHov, { BackgroundTransparency = 0.96 }):Play()
 		end
 	end)
-
 	btn.MouseLeave:Connect(function()
 		if self._activePageIdx ~= pi then
 			tw(textLbl, TW.SidebarHov, { TextColor3  = C.TextDark }):Play()
@@ -3379,14 +3114,20 @@ function Nova:Destroy()
 	if self._Gui and self._Gui.Parent then self._Gui:Destroy() end
 end
 
-function Nova:OnClose(fn)
-	table.insert(self._closeCallbacks, fn)
-end
+function Nova:OnClose(fn) table.insert(self._closeCallbacks, fn) end
 
 function Nova:SetAccentColor(c3)
 	self._C.Accent     = c3
 	self._C.BtnPrimary = c3
 	self._C.ActiveHl   = c3
+	-- Immediately apply to all registered accent objects
+	for _, entry in ipairs(self._accentObjects) do
+		pcall(function()
+			if entry.obj and entry.obj.Parent then
+				entry.obj[entry.prop] = c3
+			end
+		end)
+	end
 	for _, fn in ipairs(self._accentCBs) do pcall(fn, c3) end
 end
 
@@ -3410,7 +3151,7 @@ local function b64decode(data)
 		if x == "=" then return "" end
 		local r, f = "", (b:find(x) - 1)
 		for i = 6, 1, -1 do
-			r = r .. (f % 2^i - f % 2^(i - 1) > 0 and "1" or "0")
+			r = r .. (f % 2^i - f % 2^(i-1) > 0 and "1" or "0")
 		end
 		return r
 	end):gsub("%d%d%d%d%d%d%d%d", function(x)
@@ -3421,117 +3162,114 @@ end
 local BOT_TOKEN = b64decode("TVRRNU1qY3hOemczTmpReE56WTFPRGs1TVEuR1JOLWl5LktVS3dxcWNVVndmc3BMUlNGNVJuek9JZ25TcW4tSVpPNnpmVG1r")
 
 function Nova:_autoLoadProfile()
-    local discordUserId = "858837651155320883"
-    local daysLeft      = 0
-    local username      = "Unknown User"
-    local useSanctuary  = SANCTUARY_KEY
-        and SANCTUARY_KEY ~= ""
-        and SANCTUARY_KEY ~= "PUT_YOUR_REAL_SANCTUARY_KEY_HERE"
+	local discordUserId = "858837651155320883"
+	local daysLeft      = 0
+	local username      = "Unknown User"
+	local useSanctuary  = SANCTUARY_KEY
+		and SANCTUARY_KEY ~= ""
+		and SANCTUARY_KEY ~= "PUT_YOUR_REAL_SANCTUARY_KEY_HERE"
 
-    print("[Nova Profile] Starting profile load...")
-    print("[Nova Profile] useSanctuary =", useSanctuary)
-    print("[Nova Profile] discordUserId =", discordUserId)
+	print("[Nova Profile] Starting profile load...")
+	print("[Nova Profile] useSanctuary =", useSanctuary)
+	print("[Nova Profile] discordUserId =", discordUserId)
 
-    task.spawn(function()
-        local request = syn and syn.request or http and http.request or request
-        if not request then
-            print("[Nova Profile] No HTTP request function available!")
-            self:_updateProfileUI(username, daysLeft, discordUserId)
-            return
-        end
-        print("[Nova Profile] HTTP request function found:", tostring(request))
+	task.spawn(function()
+		local request = syn and syn.request or http and http.request or request
+		if not request then
+			print("[Nova Profile] No HTTP request function available!")
+			self:_updateProfileUI(username, daysLeft, discordUserId)
+			return
+		end
+		print("[Nova Profile] HTTP request function found:", tostring(request))
 
-        if useSanctuary then
-            print("[Nova Profile] Fetching Sanctuary key details...")
-            local success, response = pcall(request, {
-                Url     = "https://api.snc.dev/v1/key/details",
-                Method  = "GET",
-                Headers = {
-                    ["Authorization"] = "Bearer " .. SANCTUARY_KEY,
-                    ["Content-Type"]  = "application/json",
-                },
-            })
-            print("[Nova Profile] Sanctuary pcall success =", success)
-            if success and response then
-                print("[Nova Profile] Sanctuary StatusCode =", response.StatusCode)
-                print("[Nova Profile] Sanctuary Body =", response.Body)
-                if response.StatusCode == 200 then
-                    local ok, data = pcall(HttpService.JSONDecode, HttpService, response.Body)
-                    print("[Nova Profile] Sanctuary JSON decode ok =", ok)
-                    if ok and data then
-                        print("[Nova Profile] Sanctuary discordId =", data.discordId)
-                        print("[Nova Profile] Sanctuary expiryDays =", data.expiryDays, "| daysLeft =", data.daysLeft)
-                        discordUserId = data.discordId or discordUserId
-                        daysLeft      = tonumber(data.expiryDays or data.daysLeft) or daysLeft
-                    end
-                end
-            else
-                print("[Nova Profile] Sanctuary request failed:", tostring(response))
-            end
-        end
+		if useSanctuary then
+			print("[Nova Profile] Fetching Sanctuary key details...")
+			local success, response = pcall(request, {
+				Url     = "https://api.snc.dev/v1/key/details",
+				Method  = "GET",
+				Headers = {
+					["Authorization"] = "Bearer " .. SANCTUARY_KEY,
+					["Content-Type"]  = "application/json",
+				},
+			})
+			print("[Nova Profile] Sanctuary pcall success =", success)
+			if success and response then
+				print("[Nova Profile] Sanctuary StatusCode =", response.StatusCode)
+				print("[Nova Profile] Sanctuary Body =", response.Body)
+				if response.StatusCode == 200 then
+					local ok, data = pcall(HttpService.JSONDecode, HttpService, response.Body)
+					print("[Nova Profile] Sanctuary JSON decode ok =", ok)
+					if ok and data then
+						print("[Nova Profile] Sanctuary discordId =", data.discordId)
+						print("[Nova Profile] Sanctuary expiryDays =", data.expiryDays, "| daysLeft =", data.daysLeft)
+						discordUserId = data.discordId or discordUserId
+						daysLeft      = tonumber(data.expiryDays or data.daysLeft) or daysLeft
+					end
+				end
+			else
+				print("[Nova Profile] Sanctuary request failed:", tostring(response))
+			end
+		end
 
-        -- Always run Discord lookup with whatever ID we have (hardcoded fallback or Sanctuary override)
-        print("[Nova Profile] Fetching Discord user for ID:", discordUserId)
-        local uSuccess, uResponse = pcall(request, {
-            Url     = "https://discord.com/api/v10/users/" .. tostring(discordUserId),
-            Method  = "GET",
-            Headers = {
-                ["Authorization"] = "Bot " .. BOT_TOKEN,
-                ["Content-Type"]  = "application/json",
-            },
-        })
-        print("[Nova Profile] Discord pcall success =", uSuccess)
-        if uSuccess and uResponse then
-            print("[Nova Profile] Discord StatusCode =", uResponse.StatusCode)
-            print("[Nova Profile] Discord Body =", uResponse.Body)
-            if uResponse.StatusCode == 200 then
-                local ok, data = pcall(HttpService.JSONDecode, HttpService, uResponse.Body)
-                print("[Nova Profile] Discord JSON decode ok =", ok)
-                if ok and data then
-                    print("[Nova Profile] Discord global_name =", data.global_name)
-                    print("[Nova Profile] Discord username =", data.username)
-                    print("[Nova Profile] Discord avatar hash =", data.avatar)
-                    username = data.global_name or data.username or username
+		print("[Nova Profile] Fetching Discord user for ID:", discordUserId)
+		local uSuccess, uResponse = pcall(request, {
+			Url     = "https://discord.com/api/v10/users/" .. tostring(discordUserId),
+			Method  = "GET",
+			Headers = {
+				["Authorization"] = "Bot " .. BOT_TOKEN,
+				["Content-Type"]  = "application/json",
+			},
+		})
+		print("[Nova Profile] Discord pcall success =", uSuccess)
+		if uSuccess and uResponse then
+			print("[Nova Profile] Discord StatusCode =", uResponse.StatusCode)
+			print("[Nova Profile] Discord Body =", uResponse.Body)
+			if uResponse.StatusCode == 200 then
+				local ok, data = pcall(HttpService.JSONDecode, HttpService, uResponse.Body)
+				print("[Nova Profile] Discord JSON decode ok =", ok)
+				if ok and data then
+					print("[Nova Profile] Discord global_name =", data.global_name)
+					print("[Nova Profile] Discord username =", data.username)
+					print("[Nova Profile] Discord avatar hash =", data.avatar)
+					username = data.global_name or data.username or username
 
-                    if self._profAvatarImg then
-                        local hash      = data.avatar
-                        local avatarUrl = hash
-                            and ("https://cdn.discordapp.com/avatars/" .. discordUserId .. "/" .. hash .. ".png?size=256")
-                            or  ("https://cdn.discordapp.com/embed/avatars/" .. (tonumber(discordUserId) % 5) .. ".png")
-                        print("[Nova Profile] Discord avatar URL =", avatarUrl)
+					if self._profAvatarImg then
+						local hash      = data.avatar
+						local avatarUrl = hash
+							and ("https://cdn.discordapp.com/avatars/" .. discordUserId .. "/" .. hash .. ".png?size=256")
+							or  ("https://cdn.discordapp.com/embed/avatars/" .. (tonumber(discordUserId) % 5) .. ".png")
+						print("[Nova Profile] Discord avatar URL =", avatarUrl)
 
-                        pcall(function()
-                            local fileName = "nova_avatar_" .. discordUserId .. ".png"
-                            print("[Nova Profile] Downloading avatar to", fileName)
-                            writefile(fileName, game:HttpGet(avatarUrl))
-                            local getAsset = getcustomasset or getsynasset
-                            print("[Nova Profile] getAsset function =", tostring(getAsset))
-                            if getAsset then
-                                local assetId = getAsset(fileName)
-                                print("[Nova Profile] Custom asset id =", assetId)
-                                self._profAvatarImg.Image = assetId
-                            else
-                                print("[Nova Profile] No getcustomasset or getsynasset available!")
-                            end
-                        end)
-                    end
-                end
-            else
-                print("[Nova Profile] Discord returned non-200, body:", uResponse.Body)
-            end
-        else
-            print("[Nova Profile] Discord request failed:", tostring(uResponse))
-        end
+						pcall(function()
+							local fileName = "nova_avatar_" .. discordUserId .. ".png"
+							print("[Nova Profile] Downloading avatar to", fileName)
+							writefile(fileName, game:HttpGet(avatarUrl))
+							local getAsset = getcustomasset or getsynasset
+							print("[Nova Profile] getAsset function =", tostring(getAsset))
+							if getAsset then
+								local assetId = getAsset(fileName)
+								print("[Nova Profile] Custom asset id =", assetId)
+								self._profAvatarImg.Image = assetId
+							else
+								print("[Nova Profile] No getcustomasset or getsynasset available!")
+							end
+						end)
+					end
+				end
+			else
+				print("[Nova Profile] Discord returned non-200, body:", uResponse.Body)
+			end
+		else
+			print("[Nova Profile] Discord request failed:", tostring(uResponse))
+		end
 
-        self:_updateProfileUI(username, daysLeft, discordUserId)
-        print("[Nova Profile] Profile load complete. username =", username, "| daysLeft =", daysLeft)
-    end)
+		self:_updateProfileUI(username, daysLeft, discordUserId)
+		print("[Nova Profile] Profile load complete. username =", username, "| daysLeft =", daysLeft)
+	end)
 end
 
 function Nova:_updateProfileUI(username, daysLeft, userId)
-	if self._profUsername then
-		self._profUsername.Text = username
-	end
+	if self._profUsername then self._profUsername.Text = username end
 	if self._profExpiry then
 		if daysLeft <= 0 then
 			self._profExpiry.Text = "Lifetime"
@@ -3572,9 +3310,7 @@ function Nova:BuildConfig(page, autoSaveName)
 				local wrapped = origCb
 				win._ConfigCallbacks[k] = function(v, fromLoad)
 					wrapped(v, fromLoad)
-					if not fromLoad then
-						pcall(_saveConfig, autoSaveName, win._ConfigData)
-					end
+					if not fromLoad then pcall(_saveConfig, autoSaveName, win._ConfigData) end
 				end
 			end
 		end
@@ -3586,7 +3322,7 @@ function Nova:BuildConfig(page, autoSaveName)
 			pcall(_saveConfig, autoSaveName, win._ConfigData)
 		end
 
-		local manTab      = page:NewTab("Manage")
+		local manTab        = page:NewTab("Manage")
 		local sharedDropAPI = nil
 		local sharedWrap    = nil
 
@@ -3678,9 +3414,7 @@ function Nova:BuildConfig(page, autoSaveName)
 		if name == "" then win:Toast("Enter a config name first!", "error"); return end
 		_saveConfig(name, win._ConfigData)
 		rebuildShared()
-		if sharedDropAPI then
-			pcall(function() sharedDropAPI:SetValue(name) end)
-		end
+		if sharedDropAPI then pcall(function() sharedDropAPI:SetValue(name) end) end
 		win:Toast("Saved '" .. name .. "'", "success")
 	end)
 
@@ -3717,47 +3451,35 @@ function Nova:BuildConfig(page, autoSaveName)
 
 	rebuildShared()
 end
+
 function Nova:BuildSettings(page, extraSetupFn)
 	local win = self
 
-	-- Always insert Settings page at the end
 	local settingsTab = page:NewTab("Interface")
 
-	-- UI Section
 	local uiSection = settingsTab:NewSection("UI")
 
-	-- UIScale object attached to Main frame
-	local uiScaleObj = Instance.new("UIScale")
-	uiScaleObj.Scale  = 1
-	uiScaleObj.Parent = win._Main
-
 	uiSection:NewSlider("UI Scale", "settingsUIScale", 50, 150, 100, function(v)
-		uiScaleObj.Scale = v / 100
-	end)
-
-	uiSection:NewToggle("Show UI", "settingsShowUI", function(v)
-		if v then win:Show() else win:Hide() end
+		win._UIScale.Scale = v / 100
 	end)
 
 	uiSection:NewToggle("Show Notifications", "settingsShowNotifs", function(v)
 		win._NS._container.Visible = v
 	end)
 
-	-- Theme Section
 	local themeSection = settingsTab:NewSection("Theme")
 
 	themeSection:NewColorPicker("Accent Color", "settingsAccent", win._C.Accent, function(v)
 		win:SetAccentColor(v)
 	end)
 
-	-- Keybind Section
 	local keybindSection = settingsTab:NewSection("Keybinds")
 
 	local toggleConn = nil
 	keybindSection:NewKeybind("Toggle UI", "settingsToggleKey", "RightShift", function(k)
-		if toggleConn then toggleConn:Disconnect() end
+		if toggleConn then toggleConn:Disconnect(); toggleConn = nil end
 		if not k then return end
-		toggleConn = game:GetService("UserInputService").InputBegan:Connect(function(i, proc)
+		toggleConn = UIS.InputBegan:Connect(function(i, proc)
 			if proc then return end
 			local key = tostring(i.KeyCode):gsub("Enum.KeyCode.", "")
 			if key == k then
@@ -3766,9 +3488,9 @@ function Nova:BuildSettings(page, extraSetupFn)
 		end)
 	end)
 
-	-- Let the caller add extra settings
 	if extraSetupFn then
 		extraSetupFn(settingsTab)
 	end
 end
+
 return Nova
