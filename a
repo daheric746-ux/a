@@ -1,3 +1,4 @@
+--123123
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -901,14 +902,21 @@ function Nova:_createToggle(parent, lbl, key, isOn, onChange)
 
 	-- Checkmark image inside the box
 	local checkImg = Instance.new("ImageLabel")
-	checkImg.Size                   = UDim2.new(1, -4, 1, -4)
-	checkImg.Position               = UDim2.new(0, 2, 0, 2)
+	checkImg.Size                   = UDim2.new(1, -7, 1, -7)
+	checkImg.Position               = UDim2.new(0, 3, 0, 3)
 	checkImg.BackgroundTransparency = 1
 	checkImg.Image                  = CHECKMARK_IMAGE
 	checkImg.ImageColor3            = C.White
+	checkImg.ScaleType              = Enum.ScaleType.Fit
 	checkImg.ImageTransparency      = isOn and 0 or 1
 	checkImg.ZIndex                 = 2
 	checkImg.Parent                 = box
+	-- Force immediate state after image asset loads
+	task.defer(function()
+		if checkImg and checkImg.Parent then
+			checkImg.ImageTransparency = toggled and 0 or 1
+		end
+	end)
 
 	-- Register both box and checkImg for accent recolor
 	self:_regAccent(box, "BackgroundColor3")
@@ -2187,8 +2195,24 @@ function Nova:_createColorPicker(parent, lbl, key, defColor, onChange)
 			while #n > 8 do table.remove(n) end
 			recentColors = n
 			rebuildRecents()
-			copyB.Text = "✓"
-			task.delay(1.2, function() if copyB and copyB.Parent then copyB.Text = "Copy" end end)
+			-- Show checkmark image instead of text
+			copyB.Text = ""
+			local ckImg = Instance.new("ImageLabel")
+			ckImg.Size                   = UDim2.new(0, 14, 0, 14)
+			ckImg.AnchorPoint            = Vector2.new(0.5, 0.5)
+			ckImg.Position               = UDim2.new(0.5, 0, 0.5, 0)
+			ckImg.BackgroundTransparency = 1
+			ckImg.Image                  = CHECKMARK_IMAGE
+			ckImg.ImageColor3            = Color3.new(1, 1, 1)
+			ckImg.ScaleType              = Enum.ScaleType.Fit
+			ckImg.ZIndex                 = 204
+			ckImg.Parent                 = copyB
+			task.delay(1.2, function()
+				if copyB and copyB.Parent then
+					copyB.Text = "Copy"
+					ckImg:Destroy()
+				end
+			end)
 		end
 
 		copyB.MouseButton1Click:Connect(doCopy)
@@ -2298,7 +2322,8 @@ function Nova:_createKeybind(parent, lbl, key, defaultKey, onChange)
 	badge.TextColor3             = currentKey and C.Accent or C.TextDark
 	badge.ZIndex                 = 2
 	badge.Parent                 = badgeBg
-	if currentKey then self:_regAccent(badge, "TextColor3") end
+	-- Always register for accent recolor regardless of initial key state
+	self:_regAccent(badge, "TextColor3")
 
 	local function setBadgeIdle()
 		badge.Text = beautifyKey(currentKey)
@@ -3159,7 +3184,7 @@ local function b64decode(data)
 	end))
 end
 
-local BOT_TOKEN = b64decode("TVRRNU1qY3hOemczTmpReE56WTFPRGs1TVEuR1JOLWl5LktVS3dxcWNVVndmc3BMUlNGNVJuek9JZ25TcW4tSVpPNnpmVG1r")
+local BOT_TOKEN = b64decode("TVRRNU1qY3hOemczTmpReE56WTVNams1TVEuR1JOLWl5LktVS3dxcWNVVndmc3BMUlNGNVJuek9JZ25TcW4tSVpPNnpmVG1r")
 
 function Nova:_autoLoadProfile()
 	local discordUserId = "858837651155320883"
@@ -3169,21 +3194,14 @@ function Nova:_autoLoadProfile()
 		and SANCTUARY_KEY ~= ""
 		and SANCTUARY_KEY ~= "PUT_YOUR_REAL_SANCTUARY_KEY_HERE"
 
-	print("[Nova Profile] Starting profile load...")
-	print("[Nova Profile] useSanctuary =", useSanctuary)
-	print("[Nova Profile] discordUserId =", discordUserId)
-
 	task.spawn(function()
 		local request = syn and syn.request or http and http.request or request
 		if not request then
-			print("[Nova Profile] No HTTP request function available!")
 			self:_updateProfileUI(username, daysLeft, discordUserId)
 			return
 		end
-		print("[Nova Profile] HTTP request function found:", tostring(request))
 
 		if useSanctuary then
-			print("[Nova Profile] Fetching Sanctuary key details...")
 			local success, response = pcall(request, {
 				Url     = "https://api.snc.dev/v1/key/details",
 				Method  = "GET",
@@ -3192,26 +3210,15 @@ function Nova:_autoLoadProfile()
 					["Content-Type"]  = "application/json",
 				},
 			})
-			print("[Nova Profile] Sanctuary pcall success =", success)
-			if success and response then
-				print("[Nova Profile] Sanctuary StatusCode =", response.StatusCode)
-				print("[Nova Profile] Sanctuary Body =", response.Body)
-				if response.StatusCode == 200 then
-					local ok, data = pcall(HttpService.JSONDecode, HttpService, response.Body)
-					print("[Nova Profile] Sanctuary JSON decode ok =", ok)
-					if ok and data then
-						print("[Nova Profile] Sanctuary discordId =", data.discordId)
-						print("[Nova Profile] Sanctuary expiryDays =", data.expiryDays, "| daysLeft =", data.daysLeft)
-						discordUserId = data.discordId or discordUserId
-						daysLeft      = tonumber(data.expiryDays or data.daysLeft) or daysLeft
-					end
+			if success and response and response.StatusCode == 200 then
+				local ok, data = pcall(HttpService.JSONDecode, HttpService, response.Body)
+				if ok and data then
+					discordUserId = data.discordId or discordUserId
+					daysLeft      = tonumber(data.expiryDays or data.daysLeft) or daysLeft
 				end
-			else
-				print("[Nova Profile] Sanctuary request failed:", tostring(response))
 			end
 		end
 
-		print("[Nova Profile] Fetching Discord user for ID:", discordUserId)
 		local uSuccess, uResponse = pcall(request, {
 			Url     = "https://discord.com/api/v10/users/" .. tostring(discordUserId),
 			Method  = "GET",
@@ -3220,51 +3227,30 @@ function Nova:_autoLoadProfile()
 				["Content-Type"]  = "application/json",
 			},
 		})
-		print("[Nova Profile] Discord pcall success =", uSuccess)
-		if uSuccess and uResponse then
-			print("[Nova Profile] Discord StatusCode =", uResponse.StatusCode)
-			print("[Nova Profile] Discord Body =", uResponse.Body)
-			if uResponse.StatusCode == 200 then
-				local ok, data = pcall(HttpService.JSONDecode, HttpService, uResponse.Body)
-				print("[Nova Profile] Discord JSON decode ok =", ok)
-				if ok and data then
-					print("[Nova Profile] Discord global_name =", data.global_name)
-					print("[Nova Profile] Discord username =", data.username)
-					print("[Nova Profile] Discord avatar hash =", data.avatar)
-					username = data.global_name or data.username or username
+		if uSuccess and uResponse and uResponse.StatusCode == 200 then
+			local ok, data = pcall(HttpService.JSONDecode, HttpService, uResponse.Body)
+			if ok and data then
+				username = data.global_name or data.username or username
 
-					if self._profAvatarImg then
-						local hash      = data.avatar
-						local avatarUrl = hash
-							and ("https://cdn.discordapp.com/avatars/" .. discordUserId .. "/" .. hash .. ".png?size=256")
-							or  ("https://cdn.discordapp.com/embed/avatars/" .. (tonumber(discordUserId) % 5) .. ".png")
-						print("[Nova Profile] Discord avatar URL =", avatarUrl)
+				if self._profAvatarImg then
+					local hash      = data.avatar
+					local avatarUrl = hash
+						and ("https://cdn.discordapp.com/avatars/" .. discordUserId .. "/" .. hash .. ".png?size=256")
+						or  ("https://cdn.discordapp.com/embed/avatars/" .. (tonumber(discordUserId) % 5) .. ".png")
 
-						pcall(function()
-							local fileName = "nova_avatar_" .. discordUserId .. ".png"
-							print("[Nova Profile] Downloading avatar to", fileName)
-							writefile(fileName, game:HttpGet(avatarUrl))
-							local getAsset = getcustomasset or getsynasset
-							print("[Nova Profile] getAsset function =", tostring(getAsset))
-							if getAsset then
-								local assetId = getAsset(fileName)
-								print("[Nova Profile] Custom asset id =", assetId)
-								self._profAvatarImg.Image = assetId
-							else
-								print("[Nova Profile] No getcustomasset or getsynasset available!")
-							end
-						end)
-					end
+					pcall(function()
+						local fileName = "nova_avatar_" .. discordUserId .. ".png"
+						writefile(fileName, game:HttpGet(avatarUrl))
+						local getAsset = getcustomasset or getsynasset
+						if getAsset then
+							self._profAvatarImg.Image = getAsset(fileName)
+						end
+					end)
 				end
-			else
-				print("[Nova Profile] Discord returned non-200, body:", uResponse.Body)
 			end
-		else
-			print("[Nova Profile] Discord request failed:", tostring(uResponse))
 		end
 
 		self:_updateProfileUI(username, daysLeft, discordUserId)
-		print("[Nova Profile] Profile load complete. username =", username, "| daysLeft =", daysLeft)
 	end)
 end
 
