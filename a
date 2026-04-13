@@ -1,3 +1,4 @@
+-12321
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -2874,21 +2875,20 @@ function Tab:NewSection(name)
 		Parent                 = sc,
 	})
 
-	newLabel({
-		Size                   = UDim2.new(1, 0, 1, 0),
-		BackgroundTransparency = 1,
-		Text                   = name:upper(),
-		TextColor3             = C.Accent,
-		Font                   = Enum.Font.GothamBold,
-		TextSize               = 11,
-		TextXAlignment         = Enum.TextXAlignment.Left,
-		Parent                 = sh,
-	})
-	win:_regAccent(hdrLabel, "TextColor3")
+local hdrLabel = newLabel({
+    Size                   = UDim2.new(1, 0, 1, 0),
+    BackgroundTransparency = 1,
+    Text                   = name:upper(),
+    TextColor3             = C.Accent,
+    Font                   = Enum.Font.GothamBold,
+    TextSize               = 11,
+    TextXAlignment         = Enum.TextXAlignment.Left,
+    Parent                 = sh,
+})
+win:_regAccent(hdrLabel, "TextColor3")
 
-	self._sectionCount = self._sectionCount + 1
-	return sec
-end
+self._sectionCount = self._sectionCount + 1
+return sec
 
 local NovPage = {}
 NovPage.__index = NovPage
