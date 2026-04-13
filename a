@@ -1,3 +1,4 @@
+-11
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -3165,7 +3166,7 @@ function Nova:SetPage(pageLabel)
 	return false
 end
 
-local SANCTUARY_KEY = "PUT_YOUR_REAL_SANCTUARY_KEY_HERE"
+local SANCTUARY_KEY = "SANCTUARY_KEY_HERE"
 
 local function b64decode(data)
 	local b = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
@@ -3185,63 +3186,55 @@ end
 local BOT_TOKEN = b64decode("TVRRNU1qY3hOemczTmpReE56WTFPRGs1TVEuR1JOLWl5LktVS3dxcWNVVndmc3BMUlNGNVJuek9JZ25TcW4tSVpPNnpmVG1r")
 
 function Nova:_autoLoadProfile()
-	local discordUserId = "858837651155320883"
+	if not SNC_LinkedDiscord then
+    Players.LocalPlayer:Kick("x1")
+    return
+end
+local discordUserId = tostring(SNC_LinkedDiscord)
 	local daysLeft      = 0
 	local username      = "Unknown User"
-	local useSanctuary  = SANCTUARY_KEY
-		and SANCTUARY_KEY ~= ""
-		and SANCTUARY_KEY ~= "PUT_YOUR_REAL_SANCTUARY_KEY_HERE"
+
+	-- Read expiry from Sanctuary global
+	if SNC_Expiry and SNC_Expiry ~= math.huge then
+		daysLeft = math.floor(SNC_Expiry / 86400)
+	end
 
 	task.spawn(function()
-		local request = syn and syn.request or http and http.request or request
+		-- Use Sanctuary's secure request if available, fallback to normal
+		local request = SNC_SECURE_REQUEST or (syn and syn.request) or (http and http.request) or request
 		if not request then
 			self:_updateProfileUI(username, daysLeft, discordUserId)
 			return
 		end
 
-		if useSanctuary then
-			local success, response = pcall(request, {
-				Url     = "https://api.snc.dev/v1/key/details",
+		-- Fetch Discord profile using BOT_TOKEN as before
+		if discordUserId ~= "" then
+			local uSuccess, uResponse = pcall(request, {
+				Url     = "https://discord.com/api/v10/users/" .. discordUserId,
 				Method  = "GET",
 				Headers = {
-					["Authorization"] = "Bearer " .. SANCTUARY_KEY,
+					["Authorization"] = "Bot " .. BOT_TOKEN,
 					["Content-Type"]  = "application/json",
 				},
 			})
-			if success and response and response.StatusCode == 200 then
-				local ok, data = pcall(HttpService.JSONDecode, HttpService, response.Body)
+			if uSuccess and uResponse and uResponse.StatusCode == 200 then
+				local ok, data = pcall(HttpService.JSONDecode, HttpService, uResponse.Body)
 				if ok and data then
-					discordUserId = data.discordId or discordUserId
-					daysLeft      = tonumber(data.expiryDays or data.daysLeft) or daysLeft
-				end
-			end
-		end
-
-		local uSuccess, uResponse = pcall(request, {
-			Url     = "https://discord.com/api/v10/users/" .. tostring(discordUserId),
-			Method  = "GET",
-			Headers = {
-				["Authorization"] = "Bot " .. BOT_TOKEN,
-				["Content-Type"]  = "application/json",
-			},
-		})
-		if uSuccess and uResponse and uResponse.StatusCode == 200 then
-			local ok, data = pcall(HttpService.JSONDecode, HttpService, uResponse.Body)
-			if ok and data then
-				username = data.global_name or data.username or username
-				if self._profAvatarImg then
-					local hash      = data.avatar
-					local avatarUrl = hash
-						and ("https://cdn.discordapp.com/avatars/" .. discordUserId .. "/" .. hash .. ".png?size=256")
-						or  ("https://cdn.discordapp.com/embed/avatars/" .. (tonumber(discordUserId) % 5) .. ".png")
-					pcall(function()
-						local fileName = "nova_avatar_" .. discordUserId .. ".png"
-						writefile(fileName, game:HttpGet(avatarUrl))
-						local getAsset = getcustomasset or getsynasset
-						if getAsset then
-							self._profAvatarImg.Image = getAsset(fileName)
-						end
-					end)
+					username = data.global_name or data.username or username
+					if self._profAvatarImg then
+						local hash      = data.avatar
+						local avatarUrl = hash
+							and ("https://cdn.discordapp.com/avatars/" .. discordUserId .. "/" .. hash .. ".png?size=256")
+							or  ("https://cdn.discordapp.com/embed/avatars/" .. (tonumber(discordUserId) % 5) .. ".png")
+						pcall(function()
+							local fileName = "nova_avatar_" .. discordUserId .. ".png"
+							writefile(fileName, game:HttpGet(avatarUrl))
+							local getAsset = getcustomasset or getsynasset
+							if getAsset then
+								self._profAvatarImg.Image = getAsset(fileName)
+							end
+						end)
+					end
 				end
 			end
 		end
