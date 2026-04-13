@@ -1,4 +1,4 @@
---12321
+--125215125125
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -3464,9 +3464,9 @@ function Nova:BuildSettings(page, extraSetupFn)
 		win._UIScale.Scale = v / 100
 	end)
 
-	uiSection:NewToggle("Show Notifications", "settingsShowNotifs", function(v)
-		win._NS._container.Visible = v
-	end)
+uiSection:NewToggle("Show Notifications", "settingsShowNotifs", true, function(v)
+    win._NS._container.Visible = v
+end)
 
 	local themeSection = settingsTab:NewSection("Theme")
 
