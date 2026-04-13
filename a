@@ -1,4 +1,4 @@
---125215125125
+--1111
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -2885,7 +2885,7 @@ local hdrLabel = newLabel({
     TextXAlignment         = Enum.TextXAlignment.Left,
     Parent                 = sh,
 })
-win:_regAccent(hdrLabel, "TextColor3")
+self._win:_regAccent(hdrLabel, "TextColor3")
 
 self._sectionCount = self._sectionCount + 1
 return sec
@@ -3496,4 +3496,3 @@ end
 
 return Nova
 
--- colors arent being changed sometimes and checkboxes when enabled by default dont show the checkmark
