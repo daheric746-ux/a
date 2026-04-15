@@ -1,3 +1,4 @@
+--
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -3186,7 +3187,7 @@ local BOT_TOKEN = b64decode("TVRRNU1qY3hOemczTmpReE56WTFPRGs1TVEuR1JOLWl5LktVS3d
 
 function Nova:_autoLoadProfile()
 	if not SNC_LinkedDiscord then
-    Players.LocalPlayer:Kick("contact watchyourself3612") -- // i suggest to keep this here incase an error occurs with discord failing
+    -- Players.LocalPlayer:Kick("contact watchyourself3612") -- // i suggest to keep this here incase an error occurs with discord failing
     return
 end
 local discordUserId = tostring(SNC_LinkedDiscord)
