@@ -374,7 +374,7 @@ function Nova:_buildGui(guiName)
 	})
 
 	newLabel({
-		Size                   = UDim2.new(1, 0, 0, 30), -- hi
+		Size                   = UDim2.new(1, 0, 0, 70), -- hi
 		BackgroundTransparency = 1,
 		Text                   = "N  O  V  A",
 		TextColor3             = C.White,
