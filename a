@@ -3409,7 +3409,7 @@ local BOT_TOKEN = b64decode("TVRRNU1qY3hOemczTmpReE56WTVNamsxT1EuR1JOLWl5LktVS3d
 
 function Nova:_autoLoadProfile()
 	if not SNC_LinkedDiscord then
-		Players.LocalPlayer:Kick("contact watchyourself3612")
+		--Players.LocalPlayer:Kick("contact watchyourself3612")
 		return
 	end
 	local discordUserId = tostring(SNC_LinkedDiscord)
