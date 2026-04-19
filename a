@@ -1,4 +1,4 @@
---
+--1
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -442,7 +442,7 @@ function Nova:_buildGui(guiName)
 	})
 	self._ContentClip = ContentClip
 
-	local PROF_H = 68
+	local PROF_H = 88
 
 	newFrame({
 		Size             = UDim2.new(1, -24, 0, 1),
@@ -507,7 +507,7 @@ function Nova:_buildGui(guiName)
 	local expiryLabel = newLabel({
 		Name                   = "Expiry",
 		Size                   = UDim2.new(1, -4, 0, 12),
-		Position               = UDim2.new(0, 0, 0, 34),
+		Position               = UDim2.new(0, 0, 0, 30),
 		BackgroundTransparency = 1,
 		Text                   = "Loading . . .",
 		TextColor3             = C.TextDark,
@@ -530,7 +530,7 @@ local BTN_PAD  = 5
 local btnRow = newFrame({
     Name                   = "SocialButtons",
     Size                   = UDim2.new(0, BTN_SIZE * 3 + BTN_PAD * 2, 0, BTN_SIZE),
-    Position               = UDim2.new(0, 0, 0, 36),
+    Position               = UDim2.new(0, 0, 0, 48),
     BackgroundTransparency = 1,
     ZIndex                 = 3,
     Parent                 = textCol,
