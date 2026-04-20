@@ -1,4 +1,3 @@
---1
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -463,7 +462,7 @@ function Nova:_buildGui(guiName)
 
 	local avatarRing = newFrame({
 		Size             = UDim2.new(0, 38, 0, 38),
-		Position         = UDim2.new(0, 12, 0.5, -19),
+		Position         = UDim2.new(0, 12, 0, 10),
 		BackgroundColor3 = C.Accent,
 		BorderSizePixel  = 0,
 		Parent           = profCard,
@@ -485,7 +484,7 @@ function Nova:_buildGui(guiName)
 
 	local textCol = newFrame({
 		Size                   = UDim2.new(1, -58, 0, PROF_H),
-		Position               = UDim2.new(0, 56, 0, 0),
+		Position               = UDim2.new(0, 56, 0, -4),
 		BackgroundTransparency = 1,
 		Parent                 = profCard,
 	})
@@ -525,7 +524,7 @@ self._profExpiry     = expiryLabel
 
 -- // Social icon buttons (Discord, Chat, UpdateLog)
 local BTN_SIZE = 14
-local BTN_PAD  = 5
+local BTN_PAD  = 3
 
 local btnRow = newFrame({
     Name                   = "SocialButtons",
@@ -538,8 +537,8 @@ local btnRow = newFrame({
 
 local socialDefs = {
     { image = "rbxassetid://85914276777940",                 name = "Discord"   },
-    { image = "http://www.roblox.com/asset/?id=11707615313", name = "Chat"      },
-    { image = "http://www.roblox.com/asset/?id=7634887649",  name = "UpdateLog" },
+    { image = "rbxassetid://104639538354109", name = "Chat"      },
+    { image = "rbxassetid://104385152907017",  name = "UpdateLog" },
 }
 
 for i, def in ipairs(socialDefs) do
