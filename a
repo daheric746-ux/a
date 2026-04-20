@@ -1,3 +1,4 @@
+--4
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -537,8 +538,8 @@ local btnRow = newFrame({
 
 local socialDefs = {
     { image = "rbxassetid://85914276777940",                 name = "Discord"   },
-    { image = "rbxassetid://104639538354109", name = "Chat"      },
-    { image = "rbxassetid://104385152907017",  name = "UpdateLog" },
+    { image = "rbxassetid://106726324368958", name = "Chat"      },
+    { image = "rbxassetid://135453418174430",  name = "UpdateLog" },
 }
 
 for i, def in ipairs(socialDefs) do
