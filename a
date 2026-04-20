@@ -1,3 +1,4 @@
+--
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -523,7 +524,7 @@ self._profUsername   = usernameLabel
 self._profExpiry     = expiryLabel
 
 -- // Social icon buttons (Discord, Chat, UpdateLog)
-local BTN_SIZE = 14
+local BTN_SIZE = 25
 local BTN_PAD  = 8
 
 local btnRow = newFrame({
