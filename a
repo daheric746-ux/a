@@ -1,4 +1,3 @@
---
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -523,35 +522,42 @@ self._profAvatarRing = avatarRing
 self._profUsername   = usernameLabel
 self._profExpiry     = expiryLabel
 
--- // Social icon buttons (Discord, Chat, UpdateLog)
-local BTN_SIZE = 25
-local BTN_PAD  = 8
-
-local btnRow = newFrame({
-    Name                   = "SocialButtons",
-    Size                   = UDim2.new(0, BTN_SIZE * 3 + BTN_PAD * 2, 0, BTN_SIZE),
-    Position               = UDim2.new(0, 0, 0, 48),
-    BackgroundTransparency = 1,
-    ZIndex                 = 3,
-    Parent                 = textCol,
-})
-
-local socialDefs = {
-    { image = "rbxassetid://85914276777940",                 name = "Discord"   },
+-- // Social icon popup — expands upward from pfp on click
+local BTN_SIZE     = 28
+local BTN_PAD      = 6
+local SOCIAL_DEFS  = {
+    { image = "rbxassetid://85914276777940", name = "Discord"   },
     { image = "rbxassetid://95428700423362", name = "Chat"      },
-    { image = "rbxassetid://15386360153",  name = "UpdateLog" },
+    { image = "rbxassetid://15386360153",    name = "UpdateLog" },
 }
+local POPUP_FULL_H = #SOCIAL_DEFS * BTN_SIZE + (#SOCIAL_DEFS + 1) * BTN_PAD
+local POPUP_W      = BTN_SIZE + BTN_PAD * 2
 
-for i, def in ipairs(socialDefs) do
+local socialPopup = newFrame({
+    Name             = "SocialPopup",
+    Size             = UDim2.new(0, POPUP_W, 0, 0),   -- starts collapsed
+    Position         = UDim2.new(0, 6, 1, -(PROF_H + 4)),
+    AnchorPoint      = Vector2.new(0, 1),              -- anchored at bottom → expands upward
+    BackgroundColor3 = C.PopupBg,
+    BorderSizePixel  = 0,
+    ClipsDescendants = true,
+    ZIndex           = 10,
+    Visible          = false,
+    Parent           = Sidebar,
+})
+corner(socialPopup, 8)
+stroke(socialPopup, C.Stroke, 1, 0.3)
+
+for i, def in ipairs(SOCIAL_DEFS) do
     local btn = Instance.new("ImageButton")
     btn.Name                   = def.name
     btn.Size                   = UDim2.new(0, BTN_SIZE, 0, BTN_SIZE)
-    btn.Position               = UDim2.new(0, (i - 1) * (BTN_SIZE + BTN_PAD), 0, 0)
+    btn.Position               = UDim2.fromOffset(BTN_PAD, BTN_PAD + (i - 1) * (BTN_SIZE + BTN_PAD))
     btn.BackgroundTransparency = 1
     btn.Image                  = def.image
     btn.ImageColor3            = C.TextDark
-    btn.ZIndex                 = 3
-    btn.Parent                 = btnRow
+    btn.ZIndex                 = 11
+    btn.Parent                 = socialPopup
 
     btn.MouseEnter:Connect(function()
         tw(btn, self._TW.Fast, { ImageColor3 = C.Accent }):Play()
@@ -561,8 +567,50 @@ for i, def in ipairs(socialDefs) do
     end)
 end
 
-self._profSocialBtns = btnRow
+-- // pfp click state
+local popupOpen = false
 
+local function toggleSocialPopup()
+    popupOpen = not popupOpen
+    if popupOpen then
+        socialPopup.Visible = true
+        tw(socialPopup, self._TW.Fast, { Size = UDim2.new(0, POPUP_W, 0, POPUP_FULL_H) }):Play()
+        tw(avatarRing,  self._TW.Fast, { BackgroundColor3 = accentHover(C.Accent) }):Play()
+    else
+        tw(socialPopup, self._TW.Fast, { Size = UDim2.new(0, POPUP_W, 0, 0) }):Play()
+        tw(avatarRing,  self._TW.Fast, { BackgroundColor3 = C.Accent }):Play()
+        task.delay(0.22, function()
+            if not popupOpen and socialPopup and socialPopup.Parent then
+                socialPopup.Visible = false
+            end
+        end)
+    end
+end
+
+-- // overlay the avatar ring with a transparent button
+local avatarBtn = Instance.new("TextButton")
+avatarBtn.Size                   = UDim2.new(1, 0, 1, 0)
+avatarBtn.BackgroundTransparency = 1
+avatarBtn.Text                   = ""
+avatarBtn.ZIndex                 = 5
+avatarBtn.Parent                 = avatarRing
+
+avatarBtn.MouseButton1Click:Connect(toggleSocialPopup)
+avatarBtn.TouchTap:Connect(toggleSocialPopup)
+
+avatarBtn.MouseEnter:Connect(function()
+    if not popupOpen then
+        tw(avatarRing, self._TW.Fast, { BackgroundColor3 = accentHover(C.Accent) }):Play()
+    end
+end)
+avatarBtn.MouseLeave:Connect(function()
+    if not popupOpen then
+        tw(avatarRing, self._TW.Fast, { BackgroundColor3 = C.Accent }):Play()
+    end
+end)
+
+self._profSocialBtns = socialPopup
+self._profAvatarBtn  = avatarBtn
 
 
 self:_buildNotifications()
