@@ -1,9 +1,16 @@
---1
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
 local CoreGui      = game:GetService("CoreGui")
 local HttpService  = game:GetService("HttpService")
+
+local DEFAULT_W = 720
+local DEFAULT_H = 480
+local ITEM_H    = 28
+local LIST_PAD  = 6
+local LABEL_H   = 18
+local HEADER_H  = 28
+local TOTAL_H   = LABEL_H + HEADER_H + 4
 local LOAD_TIME = 12
 
 local loadGui = Instance.new("ScreenGui")
@@ -82,14 +89,6 @@ task.wait(0.4)
 loadGui:Destroy()
 
 -- Rest of Nova continues here...
-local DEFAULT_W = 720
-local DEFAULT_H = 480
-local ITEM_H    = 28
-local LIST_PAD  = 6
-local LABEL_H   = 18
-local HEADER_H  = 28
-local TOTAL_H   = LABEL_H + HEADER_H + 4
-
 local screenWCheck  = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.X or 800
 local isMobileCheck = screenWCheck < 600
 local EH = {
