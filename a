@@ -1,3 +1,4 @@
+--4124
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -31,25 +32,35 @@ ws.Color = Color3.fromRGB(45, 45, 55)
 ws.Thickness = 1
 
 local logo = Instance.new("ImageLabel")
-logo.Size = UDim2.new(0, 60, 0, 60)
-logo.Position = UDim2.new(0.5, -30, 0.5, -110)
+logo.Size = UDim2.new(0, 120, 0, 120)
+logo.Position = UDim2.new(0.5, -60, 0.5, -170)
 logo.BackgroundTransparency = 1
-logo.Image = "rbxassetid://103482188821800"
+logo.Image = "rbxassetid://137141170524277"
 logo.Parent = loadWin
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 40)
-title.Position = UDim2.new(0, 0, 0.5, -40)
+title.Size = UDim2.new(1, 0, 0, 50)
+title.Position = UDim2.new(0, 0, 0.5, -45)
 title.BackgroundTransparency = 1
 title.Text = "N  O  V  A"
 title.TextColor3 = Color3.fromRGB(230, 230, 230)
 title.Font = Enum.Font.GothamBold
-title.TextSize = 18
+title.TextSize = 32
 title.Parent = loadWin
+
+local gameLbl = Instance.new("TextLabel")
+gameLbl.Size = UDim2.new(1, 0, 0, 20)
+gameLbl.Position = UDim2.new(0, 0, 0.5, 10)
+gameLbl.BackgroundTransparency = 1
+gameLbl.Text = game.Name or ""
+gameLbl.TextColor3 = Color3.fromRGB(100, 100, 115)
+gameLbl.Font = Enum.Font.Gotham
+gameLbl.TextSize = 13
+gameLbl.Parent = loadWin
 
 local barBg = Instance.new("Frame")
 barBg.Size = UDim2.new(0, DEFAULT_W - 80, 0, 4)
-barBg.Position = UDim2.new(0, 40, 0.5, 10)
+barBg.Position = UDim2.new(0, 40, 0.5, 40)
 barBg.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
 barBg.BorderSizePixel = 0
 barBg.Parent = loadWin
@@ -64,7 +75,7 @@ Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
 
 local statusLbl = Instance.new("TextLabel")
 statusLbl.Size = UDim2.new(1, -80, 0, 20)
-statusLbl.Position = UDim2.new(0, 40, 0.5, 22)
+statusLbl.Position = UDim2.new(0, 40, 0.5, 52)
 statusLbl.BackgroundTransparency = 1
 statusLbl.Text = "Initializing..."
 statusLbl.TextColor3 = Color3.fromRGB(100, 100, 115)
@@ -89,6 +100,7 @@ task.wait(LOAD_TIME)
 TweenService:Create(loadWin, TweenInfo.new(0.4, Enum.EasingStyle.Quint), { BackgroundTransparency = 1 }):Play()
 TweenService:Create(logo, TweenInfo.new(0.4), { ImageTransparency = 1 }):Play()
 TweenService:Create(title, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
+TweenService:Create(gameLbl, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
 TweenService:Create(statusLbl, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
 TweenService:Create(barBg, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play()
 TweenService:Create(bar, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play()
