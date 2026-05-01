@@ -1,4 +1,3 @@
---11
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -624,10 +623,16 @@ self._profUsername   = usernameLabel
 self._profExpiry     = expiryLabel
 
 -- // Social icon popup — expands upward from pfp on click
-local BTN_SIZE    = 32
-local BTN_PAD     = 8
-local POPUP_W     = BTN_SIZE + BTN_PAD * 2   -- 48px
-local ITEM_SLOT   = BTN_SIZE + BTN_PAD        -- 40px per icon slot
+local SOCIAL_DEFS = {
+    { image = "rbxassetid://85914276777940", name = "Discord"   },
+    { image = "rbxassetid://95428700423362", name = "Chat"      },
+    { image = "rbxassetid://15386360153",    name = "UpdateLog" },
+}
+
+local BTN_SIZE     = 32
+local BTN_PAD      = 8
+local POPUP_W      = BTN_SIZE + BTN_PAD * 2
+local ITEM_SLOT    = BTN_SIZE + BTN_PAD
 local POPUP_FULL_H = #SOCIAL_DEFS * ITEM_SLOT + BTN_PAD
 
 local socialPopup = newFrame({
@@ -642,20 +647,19 @@ local socialPopup = newFrame({
     Visible          = false,
     Parent           = Sidebar,
 })
-corner(socialPopup, 14)  -- big radius for pill look
+corner(socialPopup, 14)
 stroke(socialPopup, C.PopupStroke, 1, 0.25)
 
 for i, def in ipairs(SOCIAL_DEFS) do
-    -- per-icon hover background
     local slot = newFrame({
-        Name             = def.name .. "Slot",
-        Size             = UDim2.new(0, BTN_SIZE, 0, BTN_SIZE),
-        Position         = UDim2.fromOffset(BTN_PAD, BTN_PAD + (i - 1) * ITEM_SLOT),
-        BackgroundColor3 = C.Accent,
+        Name                   = def.name .. "Slot",
+        Size                   = UDim2.new(0, BTN_SIZE, 0, BTN_SIZE),
+        Position               = UDim2.fromOffset(BTN_PAD, BTN_PAD + (i - 1) * ITEM_SLOT),
+        BackgroundColor3       = C.Accent,
         BackgroundTransparency = 1,
-        BorderSizePixel  = 0,
-        ZIndex           = 10,
-        Parent           = socialPopup,
+        BorderSizePixel        = 0,
+        ZIndex                 = 10,
+        Parent                 = socialPopup,
     })
     corner(slot, 8)
 
@@ -677,8 +681,49 @@ for i, def in ipairs(SOCIAL_DEFS) do
         tw(btn,  self._TW.Fast, { ImageColor3 = C.TextDark }):Play()
     end)
 end
-self._profAvatarBtn  = avatarBtn
 
+local popupOpen = false
+
+local function toggleSocialPopup()
+    popupOpen = not popupOpen
+    if popupOpen then
+        socialPopup.Visible = true
+        tw(socialPopup, self._TW.Fast, { Size = UDim2.new(0, POPUP_W, 0, POPUP_FULL_H) }):Play()
+        tw(avatarRing,  self._TW.Fast, { BackgroundColor3 = accentHover(C.Accent) }):Play()
+    else
+        tw(socialPopup, self._TW.Fast, { Size = UDim2.new(0, POPUP_W, 0, 0) }):Play()
+        tw(avatarRing,  self._TW.Fast, { BackgroundColor3 = C.Accent }):Play()
+        task.delay(0.22, function()
+            if not popupOpen and socialPopup and socialPopup.Parent then
+                socialPopup.Visible = false
+            end
+        end)
+    end
+end
+
+local avatarBtn = Instance.new("TextButton")
+avatarBtn.Size                   = UDim2.new(1, 0, 1, 0)
+avatarBtn.BackgroundTransparency = 1
+avatarBtn.Text                   = ""
+avatarBtn.ZIndex                 = 5
+avatarBtn.Parent                 = avatarRing
+
+avatarBtn.MouseButton1Click:Connect(toggleSocialPopup)
+avatarBtn.TouchTap:Connect(toggleSocialPopup)
+
+avatarBtn.MouseEnter:Connect(function()
+    if not popupOpen then
+        tw(avatarRing, self._TW.Fast, { BackgroundColor3 = accentHover(C.Accent) }):Play()
+    end
+end)
+avatarBtn.MouseLeave:Connect(function()
+    if not popupOpen then
+        tw(avatarRing, self._TW.Fast, { BackgroundColor3 = C.Accent }):Play()
+    end
+end)
+
+self._profSocialBtns = socialPopup
+self._profAvatarBtn  = avatarBtn
 
 self:_buildNotifications()
 end
