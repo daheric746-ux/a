@@ -1,3 +1,4 @@
+--1321
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -622,39 +623,41 @@ self._profAvatarRing = avatarRing
 self._profUsername   = usernameLabel
 self._profExpiry     = expiryLabel
 
--- // Social icon popup — expands upward from pfp on click
 local SOCIAL_DEFS = {
     { image = "rbxassetid://85914276777940", name = "Discord"   },
     { image = "rbxassetid://95428700423362", name = "Chat"      },
     { image = "rbxassetid://15386360153",    name = "UpdateLog" },
 }
 
-local BTN_SIZE     = 32
-local BTN_PAD      = 8
-local POPUP_W      = BTN_SIZE + BTN_PAD * 2
-local ITEM_SLOT    = BTN_SIZE + BTN_PAD
-local POPUP_FULL_H = #SOCIAL_DEFS * ITEM_SLOT + BTN_PAD
+local BTN_SIZE     = 28
+local BTN_PAD      = 10
+local POPUP_W      = BTN_SIZE + BTN_PAD * 2   -- 48px wide pill
+local ITEM_SLOT    = BTN_SIZE + 10             -- spacing between icons
+local POPUP_FULL_H = #SOCIAL_DEFS * ITEM_SLOT + BTN_PAD * 2
 
+-- // centered over the avatar ring (avatar is at x=12, w=38 → center=31)
 local socialPopup = newFrame({
     Name             = "SocialPopup",
     Size             = UDim2.new(0, POPUP_W, 0, 0),
-    Position         = UDim2.new(0, 6, 1, -(PROF_H + 8)),
+    Position         = UDim2.new(0, 31 - POPUP_W / 2, 1, -(PROF_H + 10)),
     AnchorPoint      = Vector2.new(0, 1),
-    BackgroundColor3 = C.PopupBg,
+    BackgroundColor3 = C.ElemBg,
     BorderSizePixel  = 0,
     ClipsDescendants = true,
     ZIndex           = 10,
     Visible          = false,
     Parent           = Sidebar,
 })
-corner(socialPopup, 14)
-stroke(socialPopup, C.PopupStroke, 1, 0.25)
+corner(socialPopup, 99)  -- true pill — radius = half of width
+stroke(socialPopup, C.Stroke, 1, 0.3)
 
 for i, def in ipairs(SOCIAL_DEFS) do
+    local slotY = BTN_PAD + (i - 1) * ITEM_SLOT
+
     local slot = newFrame({
         Name                   = def.name .. "Slot",
         Size                   = UDim2.new(0, BTN_SIZE, 0, BTN_SIZE),
-        Position               = UDim2.fromOffset(BTN_PAD, BTN_PAD + (i - 1) * ITEM_SLOT),
+        Position               = UDim2.fromOffset((POPUP_W - BTN_SIZE) / 2, slotY),
         BackgroundColor3       = C.Accent,
         BackgroundTransparency = 1,
         BorderSizePixel        = 0,
