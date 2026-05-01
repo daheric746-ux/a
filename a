@@ -1,3 +1,4 @@
+--11
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -676,30 +677,6 @@ for i, def in ipairs(SOCIAL_DEFS) do
         tw(btn,  self._TW.Fast, { ImageColor3 = C.TextDark }):Play()
     end)
 end
-
--- // overlay the avatar ring with a transparent button
-local avatarBtn = Instance.new("TextButton")
-avatarBtn.Size                   = UDim2.new(1, 0, 1, 0)
-avatarBtn.BackgroundTransparency = 1
-avatarBtn.Text                   = ""
-avatarBtn.ZIndex                 = 5
-avatarBtn.Parent                 = avatarRing
-
-avatarBtn.MouseButton1Click:Connect(toggleSocialPopup)
-avatarBtn.TouchTap:Connect(toggleSocialPopup)
-
-avatarBtn.MouseEnter:Connect(function()
-    if not popupOpen then
-        tw(avatarRing, self._TW.Fast, { BackgroundColor3 = accentHover(C.Accent) }):Play()
-    end
-end)
-avatarBtn.MouseLeave:Connect(function()
-    if not popupOpen then
-        tw(avatarRing, self._TW.Fast, { BackgroundColor3 = C.Accent }):Play()
-    end
-end)
-
-self._profSocialBtns = socialPopup
 self._profAvatarBtn  = avatarBtn
 
 
