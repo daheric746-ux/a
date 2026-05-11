@@ -1,4 +1,3 @@
--- 123123
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -645,7 +644,33 @@ for i, def in ipairs(SOCIAL_DEFS) do
 
     local hit = Instance.new("TextButton")
     hit.Size                   = UDim2.new(0, ICON_SIZE + 16, 0, ICON_SIZE + 16)
-    hit.Position               =
+    hit.Position               = UDim2.fromOffset(-8, -8)
+    hit.BackgroundTransparency = 1
+    hit.Text                   = ""
+    hit.ZIndex                 = 3
+    hit.Parent                 = btn
+
+    hit.MouseEnter:Connect(function()
+        tw(btn, self._TW.Fast, { ImageColor3 = C.Accent }):Play()
+    end)
+    hit.MouseLeave:Connect(function()
+        tw(btn, self._TW.Fast, { ImageColor3 = C.TextDark }):Play()
+    end)
+
+    local function onPress()
+        tw(btn, self._TW.Fast, { ImageColor3 = C.Accent }):Play()
+        task.delay(0.18, function()
+            if btn and btn.Parent then
+                tw(btn, self._TW.Fast, { ImageColor3 = C.TextDark }):Play()
+            end
+        end)
+    end
+
+    hit.MouseButton1Click:Connect(onPress)
+    hit.TouchTap:Connect(onPress)
+end
+
+
 self:_buildNotifications()
 end
 
