@@ -1,3 +1,4 @@
+--111
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -628,46 +629,66 @@ local SOCIAL_DEFS = {
     { image = "rbxassetid://15386360153",    name = "UpdateLog" },
 }
 
-local ICON_SIZE = 26
-local ICON_GAP  = 10
+local socialBaseY = self._H - PROF_H - (#SOCIAL_DEFS * 38) - 10
 
 for i, def in ipairs(SOCIAL_DEFS) do
-    local btn = Instance.new("ImageButton")
-    btn.Name                   = def.name
-    btn.Size                   = UDim2.new(0, ICON_SIZE, 0, ICON_SIZE)
-    btn.Position               = UDim2.fromOffset((i - 1) * (ICON_SIZE + ICON_GAP), 48)
-    btn.BackgroundTransparency = 1
-    btn.Image                  = def.image
-    btn.ImageColor3            = C.TextDark
-    btn.ZIndex                 = 2
-    btn.Parent                 = textCol
+    local sb = Instance.new("TextButton")
+    sb.Size                   = UDim2.new(1, 0, 0, 38)
+    sb.Position               = UDim2.new(0, 0, 0, socialBaseY + (i - 1) * 38)
+    sb.BackgroundTransparency = 1
+    sb.Text                   = ""
+    sb.Parent                 = self._Sidebar
 
-    local hit = Instance.new("TextButton")
-    hit.Size                   = UDim2.new(0, ICON_SIZE + 16, 0, ICON_SIZE + 16)
-    hit.Position               = UDim2.fromOffset(-8, -8)
-    hit.BackgroundTransparency = 1
-    hit.Text                   = ""
-    hit.ZIndex                 = 3
-    hit.Parent                 = btn
+    local ic = Instance.new("ImageLabel")
+    ic.Size                   = UDim2.new(0, 14, 0, 14)
+    ic.Position               = UDim2.new(0, 14, 0.5, -7)
+    ic.BackgroundTransparency = 1
+    ic.Image                  = def.image
+    ic.ImageColor3            = C.TextDark
+    ic.ZIndex                 = 2
+    ic.Parent                 = sb
 
-    hit.MouseEnter:Connect(function()
-        tw(btn, self._TW.Fast, { ImageColor3 = C.Accent }):Play()
+    local lbl = newLabel({
+        Size                   = UDim2.new(1, -38, 1, 0),
+        Position               = UDim2.new(0, 36, 0, 0),
+        BackgroundTransparency = 1,
+        Text                   = def.name:upper(),
+        TextColor3             = C.TextDark,
+        Font                   = Enum.Font.GothamMedium,
+        TextSize               = 11,
+        TextXAlignment         = Enum.TextXAlignment.Left,
+        Parent                 = sb,
+    })
+
+    local hl = newFrame({
+        Size                   = UDim2.new(1, -4, 1, -6),
+        Position               = UDim2.new(0, 2, 0, 3),
+        BackgroundColor3       = C.Accent,
+        BackgroundTransparency = 1,
+        BorderSizePixel        = 0,
+        ZIndex                 = 0,
+        Parent                 = sb,
+    })
+    corner(hl, 6)
+    self:_regAccent(hl, "BackgroundColor3")
+
+    sb.MouseEnter:Connect(function()
+        tw(ic,  self._TW.SidebarHov, { ImageColor3 = Color3.fromRGB(165, 165, 180) }):Play()
+        tw(lbl, self._TW.SidebarHov, { TextColor3  = Color3.fromRGB(165, 165, 180) }):Play()
+        tw(hl,  self._TW.SidebarHov, { BackgroundTransparency = 0.96 }):Play()
     end)
-    hit.MouseLeave:Connect(function()
-        tw(btn, self._TW.Fast, { ImageColor3 = C.TextDark }):Play()
+    sb.MouseLeave:Connect(function()
+        tw(ic,  self._TW.SidebarHov, { ImageColor3 = C.TextDark }):Play()
+        tw(lbl, self._TW.SidebarHov, { TextColor3  = C.TextDark }):Play()
+        tw(hl,  self._TW.SidebarHov, { BackgroundTransparency = 1 }):Play()
     end)
 
     local function onPress()
-        tw(btn, self._TW.Fast, { ImageColor3 = C.Accent }):Play()
-        task.delay(0.18, function()
-            if btn and btn.Parent then
-                tw(btn, self._TW.Fast, { ImageColor3 = C.TextDark }):Play()
-            end
-        end)
+        -- wire up your links here per def.name
     end
 
-    hit.MouseButton1Click:Connect(onPress)
-    hit.TouchTap:Connect(onPress)
+    sb.MouseButton1Click:Connect(onPress)
+    sb.TouchTap:Connect(onPress)
 end
 
 
