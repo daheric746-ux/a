@@ -1,3 +1,4 @@
+--123213123123
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -621,82 +622,12 @@ self._profAvatarImg  = avatarImg
 self._profAvatarRing = avatarRing
 self._profUsername   = usernameLabel
 self._profExpiry     = expiryLabel
-
-local communitySection = settingsTab:NewSection("Community")
-
-local rowFrame = newFrame({
-    Size                   = UDim2.new(1, 0, 0, 34),
-    BackgroundTransparency = 1,
-    LayoutOrder            = communitySection:_no(),
-    Parent                 = communitySection._sc,
-})
-
-local SOCIAL = {
-    { label = "Discord", image = "rbxassetid://85914276777940" },
-    { label = "Chat",    image = "rbxassetid://95428700423362" },
-    { label = "Updates", image = "rbxassetid://15386360153"    },
-}
-
-local GAP   = 6
-local btnW  = (1 / #SOCIAL)
-
-for i, def in ipairs(SOCIAL) do
-    local xOffset = (i - 1) * GAP
-    local btn = Instance.new("TextButton")
-    btn.Size             = UDim2.new(btnW, i == #SOCIAL and -xOffset or -(GAP - GAP / #SOCIAL), 1, 0)
-    btn.Position         = UDim2.new(btnW * (i - 1), xOffset, 0, 0)
-    btn.BackgroundColor3 = self._C.ElemBg
-    btn.BorderSizePixel  = 0
-    btn.Text             = ""
-    btn.AutoButtonColor  = false
-    btn.Parent           = rowFrame
-    corner(btn, 6)
-    stroke(btn, self._C.Stroke, 1, 0.4)
-
-    local ic = Instance.new("ImageLabel")
-    ic.Size                   = UDim2.new(0, 14, 0, 14)
-    ic.Position               = UDim2.new(0.5, -30, 0.5, -7)
-    ic.BackgroundTransparency = 1
-    ic.Image                  = def.image
-    ic.ImageColor3            = self._C.TextDark
-    ic.ZIndex                 = 2
-    ic.Parent                 = btn
-
-    local lbl = newLabel({
-        Size                   = UDim2.new(1, -20, 1, 0),
-        Position               = UDim2.new(0.5, -12, 0, 0),
-        BackgroundTransparency = 1,
-        Text                   = def.label,
-        TextColor3             = self._C.TextDark,
-        Font                   = Enum.Font.GothamMedium,
-        TextSize               = 11,
-        TextXAlignment         = Enum.TextXAlignment.Left,
-        ZIndex                 = 2,
-        Parent                 = btn,
-    })
-
-    btn.MouseEnter:Connect(function()
-        tw(btn, self._TW.Fast, { BackgroundColor3 = Color3.fromRGB(28, 28, 40) }):Play()
-        tw(ic,  self._TW.Fast, { ImageColor3      = self._C.Accent }):Play()
-        tw(lbl, self._TW.Fast, { TextColor3       = self._C.TextMain }):Play()
-    end)
-    btn.MouseLeave:Connect(function()
-        tw(btn, self._TW.Fast, { BackgroundColor3 = self._C.ElemBg }):Play()
-        tw(ic,  self._TW.Fast, { ImageColor3      = self._C.TextDark }):Play()
-        tw(lbl, self._TW.Fast, { TextColor3       = self._C.TextDark }):Play()
-    end)
-
-    local function onPress()
-        -- wire up per def.label
-    end
-
-    btn.MouseButton1Click:Connect(onPress)
-    btn.TouchTap:Connect(onPress)
-end
-
-
 self:_buildNotifications()
 end
+
+
+
+
 
 function Nova:_buildMobileToggle()
 	local PC_DEBUG_MODE = true
@@ -3816,6 +3747,77 @@ function Nova:BuildSettings(page, extraSetupFn)
 			end
 		end)
 	end)
+local communitySection = settingsTab:NewSection("Community")
+
+local rowFrame = newFrame({
+    Size                   = UDim2.new(1, 0, 0, 34),
+    BackgroundTransparency = 1,
+    LayoutOrder            = communitySection:_no(),
+    Parent                 = communitySection._sc,
+})
+
+local SOCIAL = {
+    { label = "Discord", image = "rbxassetid://85914276777940" },
+    { label = "Chat",    image = "rbxassetid://95428700423362" },
+    { label = "Updates", image = "rbxassetid://15386360153"    },
+}
+
+local GAP   = 6
+local btnW  = (1 / #SOCIAL)
+
+for i, def in ipairs(SOCIAL) do
+    local xOffset = (i - 1) * GAP
+    local btn = Instance.new("TextButton")
+    btn.Size             = UDim2.new(btnW, i == #SOCIAL and -xOffset or -(GAP - GAP / #SOCIAL), 1, 0)
+    btn.Position         = UDim2.new(btnW * (i - 1), xOffset, 0, 0)
+    btn.BackgroundColor3 = self._C.ElemBg
+    btn.BorderSizePixel  = 0
+    btn.Text             = ""
+    btn.AutoButtonColor  = false
+    btn.Parent           = rowFrame
+    corner(btn, 6)
+    stroke(btn, self._C.Stroke, 1, 0.4)
+
+    local ic = Instance.new("ImageLabel")
+    ic.Size                   = UDim2.new(0, 14, 0, 14)
+    ic.Position               = UDim2.new(0.5, -30, 0.5, -7)
+    ic.BackgroundTransparency = 1
+    ic.Image                  = def.image
+    ic.ImageColor3            = self._C.TextDark
+    ic.ZIndex                 = 2
+    ic.Parent                 = btn
+
+    local lbl = newLabel({
+        Size                   = UDim2.new(1, -20, 1, 0),
+        Position               = UDim2.new(0.5, -12, 0, 0),
+        BackgroundTransparency = 1,
+        Text                   = def.label,
+        TextColor3             = self._C.TextDark,
+        Font                   = Enum.Font.GothamMedium,
+        TextSize               = 11,
+        TextXAlignment         = Enum.TextXAlignment.Left,
+        ZIndex                 = 2,
+        Parent                 = btn,
+    })
+
+    btn.MouseEnter:Connect(function()
+        tw(btn, self._TW.Fast, { BackgroundColor3 = Color3.fromRGB(28, 28, 40) }):Play()
+        tw(ic,  self._TW.Fast, { ImageColor3      = self._C.Accent }):Play()
+        tw(lbl, self._TW.Fast, { TextColor3       = self._C.TextMain }):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        tw(btn, self._TW.Fast, { BackgroundColor3 = self._C.ElemBg }):Play()
+        tw(ic,  self._TW.Fast, { ImageColor3      = self._C.TextDark }):Play()
+        tw(lbl, self._TW.Fast, { TextColor3       = self._C.TextDark }):Play()
+    end)
+
+    local function onPress()
+        -- wire up per def.label
+    end
+
+    btn.MouseButton1Click:Connect(onPress)
+    btn.TouchTap:Connect(onPress)
+end
 
 	if extraSetupFn then
 		extraSetupFn(settingsTab)
