@@ -463,7 +463,18 @@ function Nova:_buildGui(guiName)
 	self:_setupDrag(Main)
 
 	local uiScaleObj = Instance.new("UIScale")
-	uiScaleObj.Scale  = 1
+
+	local screenW = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.X or 800
+	local screenH = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.Y or 600
+
+	if isMobile then
+		local scaleX = (screenW - 20) / DEFAULT_W
+		local scaleY = (screenH - 20) / DEFAULT_H
+		uiScaleObj.Scale = math.clamp(math.min(scaleX, scaleY), 0.45, 1)
+	else
+		uiScaleObj.Scale = 1
+	end
+
 	uiScaleObj.Parent = Main
 	self._UIScale = uiScaleObj
 
@@ -643,7 +654,13 @@ function Nova:_buildMobileToggle()
 		end
 		return inst
 	end
-
+	local toggleGui = Instance.new("ScreenGui")
+	toggleGui.Name         = "NovaToggle"
+	toggleGui.DisplayOrder = 999999999
+	toggleGui.ResetOnSpawn = false
+	local _ok = pcall(function() toggleGui.Parent = CoreGui end)
+	if not _ok then toggleGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") end
+	Gui.Destroying:Connect(function() toggleGui:Destroy() end)
 	local Open = makeInst("ImageButton", {
 		Name             = "Open",
 		Position         = UDim2.new(0.851, 0, 0.368, 0),
@@ -654,7 +671,7 @@ function Nova:_buildMobileToggle()
 		Image            = "rbxassetid://83980783044684",
 		BorderSizePixel  = 0,
 		ZIndex           = 500,
-		Parent           = Gui,
+		Parent = toggleGui,
 	})
 	makeInst("UICorner", { Parent = Open, CornerRadius = UDim.new(1, 0) })
 
@@ -1634,6 +1651,7 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 			Parent                 = F,
 		})
 		corner(mb, 3)
+		self:_regAccent(mb, "BackgroundColor3")
 	end
 
 	local H = Instance.new("TextButton")
@@ -1736,7 +1754,7 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 		ib.LayoutOrder            = idx
 		ib.Parent                 = sl
 		corner(ib, 4)
-
+		self:_regAccent(ib, "TextColor3")
 		local ip = Instance.new("UIPadding", ib)
 		ip.PaddingLeft = UDim.new(0, 10)
 
@@ -3427,20 +3445,30 @@ end
 function Nova:OnClose(fn) table.insert(self._closeCallbacks, fn) end
 
 function Nova:SetAccentColor(c3)
-	self._C.Accent     = c3
-	self._C.BtnPrimary = c3
-	self._C.ActiveHl   = c3
+    self._C.Accent     = c3
+    self._C.BtnPrimary = c3
+    self._C.ActiveHl   = c3
 
-	-- // push the new color to every registered object immediately, no hover required
-	for _, entry in ipairs(self._accentObjects) do
-		pcall(function()
-			if entry.obj and entry.obj.Parent then
-				entry.obj[entry.prop] = c3
-			end
-		end)
-	end
+    for _, entry in ipairs(self._accentObjects) do
+        pcall(function()
+            if entry.obj and entry.obj.Parent then
+                entry.obj[entry.prop] = c3
+            end
+        end)
+    end
 
-	for _, fn in ipairs(self._accentCBs) do pcall(fn, c3) end
+    -- ADD THIS: re-apply to active tab indicator immediately
+    local pi = self._activePageIdx
+    if pi and self._pageCache[pi] then
+        local ti = self._activeTabIdx[pi] or 1
+        local b  = self._pageCache[pi].btns[ti]
+        if b then
+            b.ind.BackgroundColor3       = c3
+            b.hl.BackgroundColor3        = c3
+        end
+    end
+
+    for _, fn in ipairs(self._accentCBs) do pcall(fn, c3) end
 end
 
 function Nova:SetPage(pageLabel)
@@ -3731,7 +3759,34 @@ function Nova:BuildSettings(page, extraSetupFn)
 	themeSection:NewColorPicker("Accent Color", "settingsAccent", win._C.Accent, function(v)
 		win:SetAccentColor(v)
 	end)
+	themeSection:NewTextInput("Background Image", "settingsBgImage", "rbxassetid://...", "", function(v)
+		if not win._Main then return end
+		local id = v:match("%d+")
+		if id and id ~= "" then
+			local existing = win._Main:FindFirstChild("CustomBg")
+			local bg = existing or Instance.new("ImageLabel")
+			bg.Name               = "CustomBg"
+			bg.Size               = UDim2.new(1, 0, 1, 0)
+			bg.Position           = UDim2.new(0, 0, 0, 0)
+			bg.ZIndex             = 0
+			bg.BackgroundTransparency = 1
+			bg.Image              = "rbxassetid://" .. id
+			bg.ScaleType          = Enum.ScaleType.Crop
+			bg.ImageTransparency  = 0.35 
+			bg.Parent             = win._Main
+			bg:GetPropertyChangedSignal("Parent"):Connect(function()
+				if bg.Parent then bg.ZIndex = 0 end
+			end)
+		else
+			local existing = win._Main:FindFirstChild("CustomBg")
+			if existing then existing:Destroy() end
+		end
+	end)
 
+	themeSection:NewSlider("BG Transparency", "settingsBgAlpha", 0, 90, 35, function(v)
+		local bg = win._Main and win._Main:FindFirstChild("CustomBg")
+		if bg then bg.ImageTransparency = v / 100 end
+	end)
 	local keybindSection = settingsTab:NewSection("Keybinds")
 
 	local toggleConn = nil
