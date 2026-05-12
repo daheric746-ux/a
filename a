@@ -1,3 +1,4 @@
+--123
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -766,7 +767,7 @@ function Nova:_buildMobileToggle()
 		if dt < DOUBLE_TAP_THRESHOLD then
 			locked = not locked
 			if locked then
-				HintLabel.Text = "🔒 Locked"
+				HintLabel.Text = "Locked"
 				TweenService:Create(Open, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {
 					ImageColor3      = Color3.fromRGB(108, 59, 170),
 					BackgroundColor3 = Color3.fromRGB(20, 10, 35),
@@ -1779,16 +1780,36 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 			ftw(ib, { BackgroundTransparency = 1, BackgroundColor3 = C.DropItem, TextColor3 = sel[o] and C.Accent or C.TextDark }):Play()
 		end)
 
-		local function onItemSelect()
+local function onItemSelect()
 			if isMulti then
 				sel[o] = not sel[o] or nil
 				refreshItem(o)
+				if sel[o] then
+					self:_regAccent(ib, "TextColor3")
+				else
+					for i = #self._accentObjects, 1, -1 do
+						if self._accentObjects[i].obj == ib then
+							table.remove(self._accentObjects, i)
+						end
+					end
+				end
 				vt.Text = getDisplay()
 				fire()
 			else
-				for k in pairs(sel) do sel[k] = nil; if imap[k] then refreshItem(k) end end
+				for k in pairs(sel) do
+					sel[k] = nil
+					if imap[k] then
+						refreshItem(k)
+						for i = #self._accentObjects, 1, -1 do
+							if self._accentObjects[i].obj == imap[k].btn then
+								table.remove(self._accentObjects, i)
+							end
+						end
+					end
+				end
 				sel[o]  = true
 				refreshItem(o)
+				self:_regAccent(ib, "TextColor3")
 				vt.Text = o
 				fire()
 				self:_closeDrop()
@@ -3467,7 +3488,15 @@ function Nova:SetAccentColor(c3)
             b.hl.BackgroundColor3        = c3
         end
     end
-
+local pi = self._activePageIdx
+	if pi and self._pageCache[pi] then
+		local ti = self._activeTabIdx[pi] or 1
+		local b  = self._pageCache[pi].btns[ti]
+		if b then
+			b.ind.BackgroundColor3 = c3
+			b.hl.BackgroundColor3  = c3
+		end
+	end
     for _, fn in ipairs(self._accentCBs) do pcall(fn, c3) end
 end
 
@@ -3759,24 +3788,23 @@ function Nova:BuildSettings(page, extraSetupFn)
 	themeSection:NewColorPicker("Accent Color", "settingsAccent", win._C.Accent, function(v)
 		win:SetAccentColor(v)
 	end)
-	themeSection:NewTextInput("Background Image", "settingsBgImage", "rbxassetid://...", "", function(v)
+	themeSection:NewTextInput("Background Image", "settingsBgImage", "rbxassetid:// or ID", "", function(v)
 		if not win._Main then return end
 		local id = v:match("%d+")
 		if id and id ~= "" then
-			local existing = win._Main:FindFirstChild("CustomBg")
-			local bg = existing or Instance.new("ImageLabel")
-			bg.Name               = "CustomBg"
-			bg.Size               = UDim2.new(1, 0, 1, 0)
-			bg.Position           = UDim2.new(0, 0, 0, 0)
-			bg.ZIndex             = 0
+			local bg = win._Main:FindFirstChild("CustomBg") or Instance.new("ImageLabel")
+			bg.Name                   = "CustomBg"
+			bg.Size                   = UDim2.new(1, 0, 1, 0)
+			bg.Position               = UDim2.new(0, 0, 0, 0)
+			bg.ZIndex                 = 2
 			bg.BackgroundTransparency = 1
-			bg.Image              = "rbxassetid://" .. id
-			bg.ScaleType          = Enum.ScaleType.Crop
-			bg.ImageTransparency  = 0.35 
-			bg.Parent             = win._Main
-			bg:GetPropertyChangedSignal("Parent"):Connect(function()
-				if bg.Parent then bg.ZIndex = 0 end
-			end)
+			bg.Image                  = "rbxassetid://" .. id
+			bg.ScaleType              = Enum.ScaleType.Crop
+			bg.ImageTransparency      = 0.35
+			bg.Parent                 = win._Main
+			if not bg:FindFirstChildWhichIsA("UICorner") then
+				Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 10)
+			end
 		else
 			local existing = win._Main:FindFirstChild("CustomBg")
 			if existing then existing:Destroy() end
@@ -3787,6 +3815,7 @@ function Nova:BuildSettings(page, extraSetupFn)
 		local bg = win._Main and win._Main:FindFirstChild("CustomBg")
 		if bg then bg.ImageTransparency = v / 100 end
 	end)
+
 	local keybindSection = settingsTab:NewSection("Keybinds")
 
 	local toggleConn = nil
