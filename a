@@ -1,4 +1,3 @@
---123
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -1755,7 +1754,7 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 		ib.LayoutOrder            = idx
 		ib.Parent                 = sl
 		corner(ib, 4)
-		self:_regAccent(ib, "TextColor3")
+		if s then self:_regAccent(ib, "TextColor3") end
 		local ip = Instance.new("UIPadding", ib)
 		ip.PaddingLeft = UDim.new(0, 10)
 
@@ -3393,11 +3392,21 @@ function Nova:NewPage(name, icon)
 	self:_regAccent(hl, "BackgroundColor3")
 
 	local function setActive(v)
-		tw(textLbl, TW.SidebarFade, { TextColor3  = v and C.Accent or C.TextDark }):Play()
-		tw(iconImg,  TW.SidebarFade, { ImageColor3 = v and C.Accent or C.TextDark }):Play()
-		tw(line,     TW.SidebarLine, { Size = UDim2.new(0, 3, 0, v and 22 or 0) }):Play()
-		tw(hl,       TW.SidebarFade, { BackgroundTransparency = v and 0.87 or 1 }):Play()
-	end
+			tw(textLbl, TW.SidebarFade, { TextColor3  = v and C.Accent or C.TextDark }):Play()
+			tw(iconImg,  TW.SidebarFade, { ImageColor3 = v and C.Accent or C.TextDark }):Play()
+			tw(line,     TW.SidebarLine, { Size = UDim2.new(0, 3, 0, v and 22 or 0) }):Play()
+			tw(hl,       TW.SidebarFade, { BackgroundTransparency = v and 0.87 or 1 }):Play()
+			for i = #self._accentObjects, 1, -1 do
+				local obj = self._accentObjects[i].obj
+				if obj == textLbl or obj == iconImg then
+					table.remove(self._accentObjects, i)
+				end
+			end
+			if v then
+				self:_regAccent(textLbl, "TextColor3")
+				self:_regAccent(iconImg,  "ImageColor3")
+			end
+		end
 
 	btn.MouseEnter:Connect(function()
 		if self._activePageIdx ~= pi then
