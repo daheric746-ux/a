@@ -1,3 +1,4 @@
+--123
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -1234,7 +1235,6 @@ function Nova:_createToggle(parent, lbl, key, isOn, onChange)
 	checkImg.ZIndex                 = 2
 	checkImg.Parent                 = box
 
-	self:_regAccent(box, "BackgroundColor3")
 
 	local keytag = newLabel({
 		Size                   = UDim2.new(0, 40, 1, 0),
@@ -1278,25 +1278,25 @@ function Nova:_createToggle(parent, lbl, key, isOn, onChange)
 
 	local kbs = { key = nil, mode = "toggle", tag = keytag }
 
-	local function setToggle(v, fire)
+local function setToggle(v, fire)
 		toggled = v
-		-- // box color is driven through _regAccent, but we still tween it directly for instant feedback
 		tw(box,      TW.Default, { BackgroundColor3 = v and C.Accent or C.ElemBg }):Play()
 		tw(checkImg, TW.Default, { ImageTransparency = v and 0 or 1 }):Play()
 		tw(lbObj,    TW.Default, { TextColor3 = v and C.TextMain or C.TextDark }):Play()
+		-- keep accent registration in sync with state
+		for i = #self._accentObjects, 1, -1 do
+			if self._accentObjects[i].obj == box then
+				table.remove(self._accentObjects, i)
+			end
+		end
+		if v then self:_regAccent(box, "BackgroundColor3") end
 		if fire ~= false then
 			if key then self._ConfigData[key] = v end
 			if onChange then onChange(v) end
 		end
 	end
 
-	if key then
-		self._ConfigData[key] = isOn
-		self._ConfigCallbacks[key] = function(v, fromLoad)
-			if fromLoad then setToggle(v, false) end
-			if not fromLoad and onChange then onChange(v) end
-		end
-	end
+
 
 	local tid   = "tog_" .. tostring(math.random(1e9))
 	local kconn = UIS.InputBegan:Connect(function(i, proc)
