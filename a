@@ -1,4 +1,3 @@
---1232
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -3907,9 +3906,9 @@ for i, def in ipairs(SOCIAL) do
 
 	local function onPress()
 		if def.label == "Updates" then
-			win:_openUpdateLog({
-				{ version = "v1.0", date = "May 2025", notes = { "Initial release" } },
-			})
+		win:_openUpdateLog({
+			{ version = "v1.0", date = "May 2025", notes = { "Initial release" } },
+		}, Icons)
 		end
 	end
 
@@ -4121,7 +4120,7 @@ function Nova:NovaCreateQBACards()
 
 	return api
 end
-function Nova:_openUpdateLog(updates)
+	function Nova:_openUpdateLog(updates, Icons)
     -- updates = { { version="v1.2", date="May 2025", notes={"Fixed X","Added Y"} }, ... }
     local C  = self._C
     local TW = self._TW
