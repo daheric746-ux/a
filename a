@@ -1,3 +1,4 @@
+--11
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -2896,13 +2897,13 @@ function Nova:_createDualSlider(parent, cfg)
 			tw(valBg, TW.Fast, { BackgroundColor3 = C.InputActive, BackgroundTransparency = 0 }):Play()
 		end)
 
-		valBox.FocusLost:Connect(function()
-			tw(valBg,     TW.Fast, { BackgroundTransparency = 1 }):Play()
-			tw(valStroke, TW.Fast, { Color = C.Stroke, Transparency = 0.6 }):Play()
-			local n = tonumber(valBox.Text)
-			if n then applyVal(math.floor(n))
-			else valBox.Text = tostring(cur) end
-		end)
+	valBox.FocusLost:Connect(function()
+		tw(valBg,     TW.Fast, { BackgroundTransparency = 1 }):Play()
+		tw(valStroke, TW.Fast, { Color = C.Stroke, Transparency = 0.6 }):Play()
+		local n = tonumber(valBox.Text)
+		if n then applyVal(math.floor(n))
+		else valBox.Text = tostring(cur) end
+	end)
 
 		local sid = "ds_" .. tostring(math.random(1e9))
 
@@ -3906,9 +3907,9 @@ for i, def in ipairs(SOCIAL) do
 
 	local function onPress()
 		if def.label == "Updates" then
-		win:_openUpdateLog({
-			{ version = "v1.0", date = "May 2025", notes = { "Initial release" } },
-		}, Icons)
+			win:_openUpdateLog({
+				{ version = "v1.0", date = "May 2025", notes = { "Initial release" } },
+			})
 		end
 	end
 
@@ -4120,7 +4121,7 @@ function Nova:NovaCreateQBACards()
 
 	return api
 end
-	function Nova:_openUpdateLog(updates, Icons)
+function Nova:_openUpdateLog(updates)
     -- updates = { { version="v1.2", date="May 2025", notes={"Fixed X","Added Y"} }, ... }
     local C  = self._C
     local TW = self._TW
@@ -4179,7 +4180,7 @@ end
 	closeIcon.Size = UDim2.new(0, 14, 0, 14)
 	closeIcon.Position = UDim2.new(0.5, -7, 0.5, -7)
 	closeIcon.BackgroundTransparency = 1
-	closeIcon.Image = "rbxassetid://" .. Icons:get_icon("x", "Lucide")
+	closeIcon.Image = "rbxassetid://9886659671"
 	closeIcon.ImageColor3 = C.TextDark
 	closeIcon.ZIndex = 2
 	closeIcon.Parent = closeBtn
