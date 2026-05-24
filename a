@@ -1,3 +1,4 @@
+--12312321
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -1290,9 +1291,18 @@ local function setToggle(v, fire)
 			end
 		end
 			if v then
-		self:_regAccent(box, "BackgroundColor3")
-		self:_regAccent(checkImg, "ImageColor3")
-	end
+			self:_regAccent(box, "BackgroundColor3")
+			self:_regAccent(checkImg, "ImageColor3")
+			local r, g, b    = self._C.Accent.R, self._C.Accent.G, self._C.Accent.B
+			local luminance  = 0.299*r + 0.587*g + 0.114*b
+			checkImg.ImageColor3 = luminance > 0.5 and Color3.new(0,0,0) or Color3.new(1,1,1)
+		else
+    for i = #self._accentObjects, 1, -1 do
+        if self._accentObjects[i].obj == checkImg then
+            table.remove(self._accentObjects, i)
+        end
+    end
+end
 		if fire ~= false then
 			if key then self._ConfigData[key] = v end
 			if onChange then onChange(v) end
