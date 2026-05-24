@@ -1,3 +1,5 @@
+
+--123123
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -1496,7 +1498,6 @@ function Nova:_createSlider(parent, lbl, key, minV, maxV, defV, onChange)
 		end
 	end
 
-	valBox.Focused:Connect(function()
 valBox.Focused:Connect(function()
     tw(valBg,     TW.Fast, { BackgroundColor3 = C.InputActive, BackgroundTransparency = 0 }):Play()
     tw(valStroke, TW.Fast, { Color = C.Accent, Transparency = 0.2 }):Play()
