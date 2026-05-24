@@ -1,5 +1,3 @@
-
---123123
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -1394,7 +1392,7 @@ function Nova:_createSlider(parent, lbl, key, minV, maxV, defV, onChange)
 		Parent           = row,
 	})
 	corner(valBg, 4)
-	local valStroke = stroke(valBg, C.Stroke, 1, 0.6)
+	local valStroke = stroke(valBg, C.Stroke, 1, 1)
 
 	local valBox = Instance.new("TextBox")
 	valBox.Size                   = UDim2.new(1, -8, 1, 0)
@@ -2802,7 +2800,7 @@ function Nova:_createDualSlider(parent, cfg)
 			Parent           = col,
 		})
 		corner(valBg, 4)
-		local valStroke = stroke(valBg, C.Stroke, 1, 0.6)
+		local valStroke = stroke(valBg, C.Stroke, 1, 1)
 
 		local valBox = Instance.new("TextBox")
 		valBox.Size                   = UDim2.new(1, -6, 1, 0)
@@ -3908,9 +3906,13 @@ for i, def in ipairs(SOCIAL) do
         tw(lbl, self._TW.Fast, { TextColor3       = self._C.TextDark }):Play()
     end)
 
-    local function onPress()
-        -- wire up per def.label
-    end
+	local function onPress()
+		if def.label == "Updates" then
+			win:_openUpdateLog({
+				{ version = "v1.0", date = "May 2025", notes = { "Initial release" } },
+			})
+		end
+	end
 
     btn.MouseButton1Click:Connect(onPress)
     btn.TouchTap:Connect(onPress)
