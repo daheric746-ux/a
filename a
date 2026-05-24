@@ -1,3 +1,4 @@
+--123123
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -3508,18 +3509,23 @@ function Nova:SetAccentColor(c3)
         end
     end
 
-    local r, g, b = c3.R, c3.G, c3.B
-    local luminance  = 0.299*r + 0.587*g + 0.114*b
-    local checkColor = luminance > 0.5 and Color3.new(0,0,0) or Color3.new(1,1,1)
-    for _, entry in ipairs(self._accentObjects) do
-        if entry.prop == "ImageColor3" and entry.obj.Name == "checkmark" then
-            pcall(function()
-                if entry.obj and entry.obj.Parent then
-                    entry.obj.ImageColor3 = checkColor
-                end
-            end)
+local r, g, b    = c3.R, c3.G, c3.B
+local luminance  = 0.299*r + 0.587*g + 0.114*b
+local checkColor = luminance > 0.5 and Color3.new(0,0,0) or Color3.new(1,1,1)
+
+for _, entry in ipairs(self._accentObjects) do
+    pcall(function()
+        if entry.obj and entry.obj.Parent then
+            if entry.obj.Name == "checkmark" then
+                entry.obj.ImageColor3    = checkColor
+                entry.obj.ImageTransparency = 0
+            end
+            if entry.prop == "BackgroundColor3" and entry.obj.ClassName == "Frame" then
+                entry.obj.BackgroundColor3 = c3
+            end
         end
-    end
+    end)
+end
 
     for _, fn in ipairs(self._accentCBs) do pcall(fn, c3) end
 end
