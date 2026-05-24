@@ -1,4 +1,3 @@
---123
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -162,7 +161,7 @@ local KEY_NAMES = {
 	PrintScreen  = "PrtSc",   ScrollLock   = "ScrLk",  Pause = "Pause",
 }
 
-local CHECKMARK_IMAGE = "http://www.roblox.com/asset/?id=18856185133"
+local CHECKMARK_IMAGE = "rbxassetid://6031094667"
 
 local function isPointerBegan(i)
 	return i.UserInputType == Enum.UserInputType.MouseButton1
