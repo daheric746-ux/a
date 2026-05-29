@@ -1,3 +1,4 @@
+--111
 local TweenService = game:GetService("TweenService")
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -1512,17 +1513,17 @@ function Nova:_createSlider(parent, lbl, key, minV, maxV, defV, onChange)
 		end
 	end
 
-valBox.Focused:Connect(function()
-    tw(valBg, TW.Fast, { BackgroundColor3 = C.InputActive, BackgroundTransparency = 0 }):Play()
-end)
+		valBox.Focused:Connect(function()
+			tw(valBg, TW.Fast, { BackgroundColor3 = C.InputActive, BackgroundTransparency = 0 }):Play()
+		end)
 
-valBox.FocusLost:Connect(function()
-    tw(valBg,     TW.Fast, { BackgroundTransparency = 1 }):Play()
-    tw(valStroke, TW.Fast, { Color = C.Stroke, Transparency = 0.6 }):Play()
-    local n = tonumber(valBox.Text)
-    if n then applyVal(math.floor(n))
-    else valBox.Text = tostring(cur) end
-end)
+		valBox.FocusLost:Connect(function()
+			tw(valBg,     TW.Fast, { BackgroundTransparency = 1, BackgroundColor3 = C.InputBg }):Play()
+			tw(valStroke, TW.Fast, { Transparency = 1 }):Play()
+			local n = tonumber(valBox.Text)
+			if n then applyVal(math.floor(n))
+			else valBox.Text = tostring(cur) end
+		end)
 
 	valBox:GetPropertyChangedSignal("Text"):Connect(function()
 		if valBox:IsFocused() then
@@ -2913,8 +2914,8 @@ function Nova:_createDualSlider(parent, cfg)
 		end)
 
 	valBox.FocusLost:Connect(function()
-		tw(valBg,     TW.Fast, { BackgroundTransparency = 1 }):Play()
-		tw(valStroke, TW.Fast, { Color = C.Stroke, Transparency = 0.6 }):Play()
+		tw(valBg,     TW.Fast, { BackgroundTransparency = 1, BackgroundColor3 = C.InputBg }):Play()
+		tw(valStroke, TW.Fast, { Transparency = 1 }):Play()
 		local n = tonumber(valBox.Text)
 		if n then applyVal(math.floor(n))
 		else valBox.Text = tostring(cur) end
@@ -3807,7 +3808,7 @@ function Nova:BuildConfig(page, autoSaveName)
 	rebuildShared()
 end
 
-function Nova:BuildSettings(page, extraSetupFn, updates)
+function Nova:BuildSettings(page, extraSetupFn, updates, closeIconId)
 	local win = self
 
 	local settingsTab = page:NewTab("Interface")
@@ -3932,13 +3933,13 @@ for i, def in ipairs(SOCIAL) do
         tw(lbl, self._TW.Fast, { TextColor3       = self._C.TextDark }):Play()
     end)
 
-		local function onPress()
-		if def.label == "Updates" then
-			win:_openUpdateLog(updates or {
-				{ version = "v1.0", date = "May 2025", notes = { "Initial release" } },
-			})
-		end
-	end
+	local function onPress()
+    if def.label == "Updates" then
+        win:_openUpdateLog(updates or {
+            { version = "v1.0", date = "May 2025", notes = { "Initial release" } },
+        }, closeIconId)
+    end
+end
 
     btn.MouseButton1Click:Connect(onPress)
     btn.TouchTap:Connect(onPress)
@@ -4148,8 +4149,8 @@ function Nova:NovaCreateQBACards()
 
 	return api
 end
-function Nova:_openUpdateLog(updates)
-    -- updates = { { version="v1.2", date="May 2025", notes={"Fixed X","Added Y"} }, ... }
+function Nova:_openUpdateLog(updates, closeIconId)
+    
     local C  = self._C
     local TW = self._TW
 
@@ -4195,30 +4196,57 @@ function Nova:_openUpdateLog(updates)
         Parent                 = bar,
     })
 
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Size             = UDim2.new(0, 24, 0, 24)
-    closeBtn.Position         = UDim2.new(1, -32, 0.5, -12)
-    closeBtn.BackgroundColor3 = C.ElemBg
-    closeBtn.BorderSizePixel  = 0
-	closeBtn.Text = ""
-	closeBtn.Size = UDim2.new(0, 24, 0, 24)
+		local closeBtn = Instance.new("TextButton")
+		closeBtn.Size             = UDim2.new(0, 24, 0, 24)
+		closeBtn.Position         = UDim2.new(1, -32, 0.5, -12)
+		closeBtn.BackgroundColor3 = C.ElemBg
+		closeBtn.BorderSizePixel  = 0
+		closeBtn.Text             = ""
+		closeBtn.AutoButtonColor  = false
+		closeBtn.ZIndex           = 2
+		closeBtn.Parent           = bar
+		corner(closeBtn, 6)
+		local closeBtnStroke = stroke(closeBtn, C.Stroke, 1, 0.4)
 
-	local closeIcon = Instance.new("ImageLabel")
-	closeIcon.Size = UDim2.new(0, 14, 0, 14)
-	closeIcon.Position = UDim2.new(0.5, -7, 0.5, -7)
-	closeIcon.BackgroundTransparency = 1
-	closeIcon.Image = "rbxassetid://73070135088117"
-	closeIcon.ImageColor3 = C.TextDark
-	closeIcon.ZIndex = 2
-	closeIcon.Parent = closeBtn
-    corner(closeBtn, 6)
+		local closeIcon = Instance.new("ImageLabel")
+		closeIcon.Size                   = UDim2.new(0, 12, 0, 12)
+		closeIcon.Position               = UDim2.new(0.5, -6, 0.5, -6)
+		closeIcon.BackgroundTransparency = 1
+		closeIcon.Image                  =    closeIconId and ("rbxassetid://" .. closeIconId) or "rbxassetid://73070135088117"
+		closeIcon.ImageColor3            = C.TextDark
+		closeIcon.ZIndex                 = 3
+		closeIcon.Parent                 = closeBtn
 
-    local function doClose()
-        tw(win, TW.Fast, { BackgroundTransparency = 1 }):Play()
-        task.delay(0.2, function() gui:Destroy() end)
-    end
-    closeBtn.MouseButton1Click:Connect(doClose)
-    closeBtn.TouchTap:Connect(doClose)
+		closeBtn.MouseEnter:Connect(function()
+			tw(closeBtn,       TW.Fast, { BackgroundColor3 = Color3.fromRGB(28, 28, 40) }):Play()
+			tw(closeIcon,      TW.Fast, { ImageColor3      = C.TextMain }):Play()
+			tw(closeBtnStroke, TW.Fast, { Transparency     = 0.1 }):Play()
+		end)
+		closeBtn.MouseLeave:Connect(function()
+			tw(closeBtn,       TW.Fast, { BackgroundColor3 = C.ElemBg }):Play()
+			tw(closeIcon,      TW.Fast, { ImageColor3      = C.TextDark }):Play()
+			tw(closeBtnStroke, TW.Fast, { Transparency     = 0.4 }):Play()
+		end)
+
+		local function doClose()
+			tw(win, TW.Fast, { BackgroundTransparency = 1 }):Play()
+			task.delay(0.2, function() gui:Destroy() end)
+		end
+
+		closeBtn.MouseButton1Click:Connect(doClose)
+		closeBtn.TouchTap:Connect(doClose)
+		closeBtn.InputBegan:Connect(function(i)
+			if i.UserInputType == Enum.UserInputType.Touch then
+				tw(closeBtn,  TW.Fast, { BackgroundColor3 = Color3.fromRGB(28, 28, 40) }):Play()
+				tw(closeIcon, TW.Fast, { ImageColor3      = C.TextMain }):Play()
+			end
+		end)
+		closeBtn.InputEnded:Connect(function(i)
+			if i.UserInputType == Enum.UserInputType.Touch then
+				tw(closeBtn,  TW.Fast, { BackgroundColor3 = C.ElemBg }):Play()
+				tw(closeIcon, TW.Fast, { ImageColor3      = C.TextDark }):Play()
+			end
+		end)
 
     -- drag
     bar.InputBegan:Connect(function(i)
