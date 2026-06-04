@@ -1955,7 +1955,7 @@ function Nova:_createButton(parent, lbl, style, cb, disabled)
 	corner(btn, 6)
 
 	if isPri and not isDis then
-		stroke(btn, C.Accent, 1, 0.5)
+		stroke(btn, C.Accent, 1, 1)
 		self:_regAccent(btn, "BackgroundColor3")
 	else
 		stroke(btn, C.Stroke, 1, 1)
@@ -3932,22 +3932,30 @@ for i, def in ipairs(SOCIAL) do
         tw(lbl, self._TW.Fast, { TextColor3       = self._C.TextDark }):Play()
     end)
 
-	local function onPress()
-    if def.label == "Updates" then
-        win:_openUpdateLog(updates or {
-            { version = "v1.0", date = "May 2025", notes = { "Initial release" } },
-        }, closeIconId)
-    end
-end
+		local function onPress()
+			if def.label == "Updates" then
+				win:_openUpdateLog(updates or {
+					{ version = "v1.0", date = "May 2025", notes = { "Initial release" } },
+				}, closeIconId)
+			elseif def.label == "Discord" then
+				pcall(function()
+					openurl("https://discord.gg/getnova")
+				end)
+			elseif def.label == "Chat" then
+				pcall(function()
+					loadstring(game:HttpGet("URL"))()
+				end)
+			end
+		end
 
-    btn.MouseButton1Click:Connect(onPress)
-    btn.TouchTap:Connect(onPress)
-end
+		btn.MouseButton1Click:Connect(onPress)
+		btn.TouchTap:Connect(onPress)
+		end
 
-	if extraSetupFn then
-		extraSetupFn(settingsTab)
-	end
-end
+		if extraSetupFn then
+			extraSetupFn(settingsTab)
+			end
+		end
 
 function Nova:NovaCreateQBACards()
 	local C = self._C
@@ -4210,7 +4218,7 @@ function Nova:_openUpdateLog(updates, closeIconId)
 		closeIcon.Size                   = UDim2.new(0, 12, 0, 12)
 		closeIcon.Position               = UDim2.new(0.5, -6, 0.5, -6)
 		closeIcon.BackgroundTransparency = 1
-		closeIcon.Image                  = closeIconId and ("rbxassetid://" .. closeIconId) or ""
+		closeIcon.Image                  = "rbxassetid://73070135088117"
 		closeIcon.ImageColor3            = C.TextDark
 		closeIcon.ZIndex                 = 3
 		closeIcon.Parent                 = closeBtn
