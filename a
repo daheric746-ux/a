@@ -73,7 +73,7 @@ Instance.new("UICorner", barBg).CornerRadius = UDim.new(1, 0)
 
 local bar = Instance.new("Frame")
 bar.Size = UDim2.new(0, 0, 1, 0)
-bar.BackgroundColor3 = Color3.fromRGB(255, 110, 150)
+bar.BackgroundColor3 = Color3.fromRGB(108, 59, 170)
 bar.BorderSizePixel = 0
 bar.Parent = barBg
 Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
@@ -93,7 +93,7 @@ TweenService:Create(bar, TweenInfo.new(LOAD_TIME, Enum.EasingStyle.Quint, Enum.E
     Size = UDim2.new(1, 0, 1, 0)
 }):Play()
 
-local statuses = { "Skidding 1", "Skidding 2", "Skidding 3", "Skidding 4" }
+local statuses = { "Skidding 1", "Skidding 2", "Skidding 3", "Skidding 4" } -- // ofc change this 
 for i, s in ipairs(statuses) do
     task.delay((LOAD_TIME / #statuses) * (i - 1), function()
         if statusLbl and statusLbl.Parent then statusLbl.Text = s end
@@ -127,7 +127,7 @@ local EH = {
 local NOTIF_ICON = "rbxassetid://103482188821800"
 
 local NOTIF_THEMES = {
-	info    = { Color = Color3.fromRGB(255, 110, 150), Icon = NOTIF_ICON },
+	info    = { Color = Color3.fromRGB(108, 59, 170),  Icon = NOTIF_ICON },
 	warning = { Color = Color3.fromRGB(241, 196,  15), Icon = NOTIF_ICON },
 	error   = { Color = Color3.fromRGB(231,  76,  60), Icon = NOTIF_ICON },
 	success = { Color = Color3.fromRGB( 46, 204, 113), Icon = NOTIF_ICON },
@@ -1678,7 +1678,7 @@ function Nova:_createDropdown(parent, lbl, key, opts, defVal, isMulti, onChange)
 	H.ZIndex           = 2
 	H.Parent           = F
 	corner(H, 6)
-	local hs = stroke(H, C.Stroke, 1, 0.5)
+	local bs = stroke(bg, C.Stroke, 1, 1)
 
 	local vt = newLabel({
 		Size                   = UDim2.new(1, -36, 1, 0),
@@ -1958,7 +1958,7 @@ function Nova:_createButton(parent, lbl, style, cb, disabled)
 		stroke(btn, C.Accent, 1, 0.5)
 		self:_regAccent(btn, "BackgroundColor3")
 	else
-		stroke(btn, C.Stroke, 1, isDis and 0.7 or 0.3)
+		stroke(btn, C.Stroke, 1, 1)
 		if not isDis then self:_regAccent(btn, "TextColor3") end
 	end
 
@@ -2022,7 +2022,7 @@ function Nova:_createTextInput(parent, lbl, key, ph, def, onChange)
 		Parent           = F,
 	})
 	corner(bg, 6)
-	local bs = stroke(bg, C.Stroke, 1, 0.4)
+	local bs = stroke(bg, C.Stroke, 1, 1)
 
 	local plbl = newLabel({
 		Size                   = UDim2.new(1, -20, 1, 0),
@@ -3566,6 +3566,7 @@ local function b64decode(data)
 end
 
 local BOT_TOKEN = b64decode("TVRRNU1qY3hOemczTmpReE56WTVNamsxT1EuR1JOLWl5LktVS3dxcWNVVndmc3BMUlNGNVJuek9JZ25TcW4tSVpPNnpmVG1r")
+-- // Dont edit the bot token at all
 
 function Nova:_autoLoadProfile()
 	if not SNC_LinkedDiscord then
