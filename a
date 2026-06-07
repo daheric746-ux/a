@@ -560,8 +560,12 @@ local function buildSlider(parent, minVal, maxVal, defaultVal)
 	valLabel.Parent = parent
 
 	local dragging = false
+
 	local function update(inputX)
-		local rel = math.clamp((inputX - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+		local trackPos  = track.AbsolutePosition.X
+		local trackSize = track.AbsoluteSize.X
+		if trackSize == 0 then return end
+		local rel = math.clamp((inputX - trackPos) / trackSize, 0, 1)
 		value = math.round(minVal + rel * (maxVal - minVal))
 		local pct = (value - minVal) / (maxVal - minVal)
 		fill.Size = UDim2.new(pct, 0, 1, 0)
@@ -570,25 +574,40 @@ local function buildSlider(parent, minVal, maxVal, defaultVal)
 	end
 
 	local hitbox = Instance.new("TextButton")
-	hitbox.Size = UDim2.new(1, 0, 1, 8)
-	hitbox.Position = UDim2.new(0, 0, 0.5, -4)
+	hitbox.Size = UDim2.new(1, 16, 0, 20)
+	hitbox.Position = UDim2.new(0, -8, 0.5, -10)
 	hitbox.BackgroundTransparency = 1
 	hitbox.Text = ""
 	hitbox.ZIndex = track.ZIndex + 1
 	hitbox.Parent = track
 
-	hitbox.MouseButton1Down:Connect(function()
+	hitbox.MouseButton1Down:Connect(function(x)
 		dragging = true
-		update(UserInputService:GetMouseLocation().X)
+		update(x)
 	end)
+
+	hitbox.MouseMoved:Connect(function(x)
+		if dragging then
+			update(x)
+		end
+	end)
+
+	hitbox.MouseButton1Up:Connect(function()
+		dragging = false
+	end)
+
 	UserInputService.InputChanged:Connect(function(input)
 		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
 			update(input.Position.X)
 		end
 	end)
+
 	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = false
+		end
 	end)
+
 	return function() return value end
 end
 
