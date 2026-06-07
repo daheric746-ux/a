@@ -558,8 +558,10 @@ local function buildSlider(parent, minVal, maxVal, defaultVal)
 
 local valBox = Instance.new("TextLabel")
 	valBox.Size = UDim2.new(0, 46, 0, 16)
-	valBox.Position = UDim2.new(0, 160, 0, -18)
+	valBox.ClearTextOnFocus = false
+	valBox.Position = UDim2.new(1, -46, 0, -18)
 	valBox.BackgroundTransparency = 1
+	valBox.BorderSizePixel = 0
 	valBox.Text = tostring(value)
 	valBox.TextColor3 = ACCENT
 	valBox.TextSize = 13
@@ -632,7 +634,14 @@ local valBox = Instance.new("TextLabel")
 			dragging = false
 		end
 	end)
-
+valBox.FocusLost:Connect(function()
+		local parsed = tonumber(valBox.Text)
+		if parsed then
+			applyValue(roundValue(parsed))
+		else
+			valBox.Text = tostring(value)
+		end
+	end)
 
 	return function() return value end
 end
