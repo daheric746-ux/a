@@ -46,6 +46,8 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "SyftUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+-- ↓ sit above CoreGui (topbar, chat, etc.)
+ScreenGui.DisplayOrder = 999999
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local MainFrame = Instance.new("Frame")
@@ -522,12 +524,26 @@ local function buildToggle(parent, defaultOn)
 	return function() return state end
 end
 
+-- ────────────────────────────────────────────────────────────────────────────
+-- SLIDER — now with an editable value label
+-- Click the number to type an exact value (decimals supported if range needs it)
+-- ────────────────────────────────────────────────────────────────────────────
 local function buildSlider(parent, minVal, maxVal, defaultVal)
-	local value = defaultVal or minVal
+	-- Decide precision: if either bound is a float, allow decimals
+	local allowDecimals = (math.floor(minVal) ~= minVal) or (math.floor(maxVal) ~= maxVal) or (defaultVal and math.floor(defaultVal) ~= defaultVal)
+	local function roundValue(v)
+		if allowDecimals then
+			return math.clamp(math.floor(v * 10 + 0.5) / 10, minVal, maxVal)
+		else
+			return math.clamp(math.round(v), minVal, maxVal)
+		end
+	end
+
+	local value = roundValue(defaultVal or minVal)
 
 	local track = Instance.new("Frame")
-	track.Size = UDim2.new(0, 155, 0, 4)
-	track.Position = UDim2.new(1, -155, 1, -22)
+	track.Size = UDim2.new(0, 140, 0, 4)
+	track.Position = UDim2.new(1, -185, 1, -22)
 	track.BackgroundColor3 = BG_INPUT
 	track.BorderSizePixel = 0
 	track.Parent = parent
@@ -548,25 +564,41 @@ local function buildSlider(parent, minVal, maxVal, defaultVal)
 	thumb.Parent = track
 	corner(thumb, 6)
 
-	local valLabel = Instance.new("TextLabel")
-	valLabel.Size = UDim2.new(0, 36, 0, 16)
-	valLabel.Position = UDim2.new(1, -36, 0, 10)
-	valLabel.BackgroundTransparency = 1
-	valLabel.Text = tostring(value)
-	valLabel.TextColor3 = ACCENT
-	valLabel.TextSize = 13
-	valLabel.Font = Enum.Font.GothamBold
-	valLabel.TextXAlignment = Enum.TextXAlignment.Right
-	valLabel.Parent = parent
+	-- Editable value label: shows as a TextBox so user can click & type
+	local valBox = Instance.new("TextBox")
+	valBox.Size = UDim2.new(0, 42, 0, 22)
+	valBox.Position = UDim2.new(1, -44, 0, 6)
+	valBox.BackgroundColor3 = BG_INPUT
+	valBox.BorderSizePixel = 0
+	valBox.Text = tostring(value)
+	valBox.TextColor3 = ACCENT
+	valBox.TextSize = 13
+	valBox.Font = Enum.Font.GothamBold
+	valBox.TextXAlignment = Enum.TextXAlignment.Center
+	valBox.ClearTextOnFocus = false
+	valBox.ZIndex = parent.ZIndex + 3
+	valBox.Parent = parent
+	corner(valBox, 4)
 
-	local dragging = false
-	local function update(inputX)
-		local rel = math.clamp((inputX - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
-		value = math.round(minVal + rel * (maxVal - minVal))
+	local valStroke = Instance.new("UIStroke")
+	valStroke.Color = Color3.fromRGB(42, 40, 62)
+	valStroke.Transparency = 1   -- hidden by default
+	valStroke.Thickness = 1
+	valStroke.Parent = valBox
+
+	local function applyValue(v)
+		value = v
 		local pct = (value - minVal) / (maxVal - minVal)
 		fill.Size = UDim2.new(pct, 0, 1, 0)
 		thumb.Position = UDim2.new(pct, -6, 0.5, -6)
-		valLabel.Text = tostring(value)
+		valBox.Text = tostring(value)
+	end
+
+	-- Dragging
+	local dragging = false
+	local function updateFromX(inputX)
+		local rel = math.clamp((inputX - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+		applyValue(roundValue(minVal + rel * (maxVal - minVal)))
 	end
 
 	local hitbox = Instance.new("TextButton")
@@ -579,16 +611,48 @@ local function buildSlider(parent, minVal, maxVal, defaultVal)
 
 	hitbox.MouseButton1Down:Connect(function()
 		dragging = true
-		update(UserInputService:GetMouseLocation().X)
+		updateFromX(UserInputService:GetMouseLocation().X)
 	end)
 	UserInputService.InputChanged:Connect(function(input)
 		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-			update(input.Position.X)
+			updateFromX(input.Position.X)
 		end
 	end)
 	UserInputService.InputEnded:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
 	end)
+
+	-- Editable box: focus highlight
+	valBox.Focused:Connect(function()
+		tween(valStroke, { Transparency = 0, Color = ACCENT }, tweenInfoFast)
+		valBox.Text = tostring(value)
+	end)
+
+	valBox.FocusLost:Connect(function(enterPressed)
+		tween(valStroke, { Transparency = 1 }, tweenInfoFast)
+		local raw = valBox.Text:gsub("%s", "")
+		local parsed = tonumber(raw)
+		if parsed then
+			applyValue(roundValue(parsed))
+		else
+			-- Invalid: flash red then restore
+			tween(valStroke, { Transparency = 0, Color = Color3.fromRGB(200, 60, 60) }, tweenInfoFast)
+			task.delay(0.6, function()
+				tween(valStroke, { Transparency = 1 }, tweenInfo)
+				valBox.Text = tostring(value)
+			end)
+		end
+	end)
+
+	-- Prevent typing non-numeric characters live (optional quality-of-life)
+	valBox:GetPropertyChangedSignal("Text"):Connect(function()
+		-- allow digits, minus, dot only
+		local cleaned = valBox.Text:gsub("[^%d%.%-]", "")
+		if cleaned ~= valBox.Text then
+			valBox.Text = cleaned
+		end
+	end)
+
 	return function() return value end
 end
 
@@ -1561,8 +1625,10 @@ function Lib:Init(defaultNavEntry, defaultTabName, keybindCode)
 	setActiveNav(defaultNavEntry or navButtons[1])
 	if defaultTabName then setTab(defaultTabName) end
 
-	UserInputService.InputBegan:Connect(function(input, gpe)
-		if gpe then return end
+	-- ↓ Use InputBegan WITHOUT ignoring GameProcessedEvent so RightShift
+	--   still fires even when shiftlock is consuming the input.
+	UserInputService.InputBegan:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 		if input.KeyCode == currentKeybind then
 			MainFrame.Visible = not MainFrame.Visible
 		end
