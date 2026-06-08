@@ -1030,7 +1030,7 @@ local function buildColorPicker(parent, defaultColor)
 		local track = Instance.new("Frame")
 		track.Size = UDim2.new(1, -42, 0, 8)
 		track.Position = UDim2.new(0, 42, 0.5, -4)
-		track.BackgroundColor3 = BG_INPUT
+		track.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
 		track.BorderSizePixel = 0
 		track.ZIndex = 52
 		track.Parent = holder
