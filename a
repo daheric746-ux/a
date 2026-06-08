@@ -1,7 +1,3 @@
--- // slider number is way to far up
--- // cant click the card to just enable the toggles anymore, have to click the actual toggle button
--- // make the color picker actually nice whre the color picker is circle in the middle then two sliders with transperncy below it 
-
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -9,11 +5,49 @@ local RunService = game:GetService("RunService")
 local ContextActionService = game:GetService("ContextActionService")
 local LocalPlayer = Players.LocalPlayer
 local GuiService = game:GetService("GuiService")
+local HttpService = game:GetService("HttpService")
+
 local icons = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/Kryos69/icons/refs/heads/main/icons"))()
 local function getIcon(name, library)
 	library = library or "Material"
 	return "rbxassetid://" .. icons:get_icon(name, library)
 end
+
+local CONFIG_KEY = "syft_config"
+
+local function saveConfig(registry)
+	local data = {}
+	for key, entry in pairs(registry) do
+		if entry.getter then
+			local ok, val = pcall(entry.getter)
+			if ok then
+				local t = type(val)
+				if t == "boolean" or t == "number" or t == "string" then
+					data[key] = { type = t, value = val }
+				elseif t == "userdata" and val.R then
+					data[key] = { type = "color", r = val.R, g = val.G, b = val.B }
+				elseif t == "table" then
+					data[key] = { type = "table", value = val }
+				elseif t == "userdata" and val.Name then
+					data[key] = { type = "keycode", name = val.Name }
+				end
+			end
+		end
+	end
+	pcall(function()
+		writefile(CONFIG_KEY .. ".json", HttpService:JSONEncode(data))
+	end)
+end
+
+local function loadConfig()
+	local ok, raw = pcall(readfile, CONFIG_KEY .. ".json")
+	if not ok or not raw then return {} end
+	local ok2, data = pcall(function() return HttpService:JSONDecode(raw) end)
+	if not ok2 then return {} end
+	return data or {}
+end
+
+local savedConfig = loadConfig()
 
 local BG_SIDEBAR = Color3.fromRGB(9, 8, 13)
 local BG_CONTENT = Color3.fromRGB(12, 11, 17)
@@ -47,7 +81,6 @@ local function pad(p, t, b, l, r)
 	u.Parent = p
 end
 
--- Parent to CoreGui so DisplayOrder actually beats the Roblox topbar/chat
 local guiParent = (pcall(function() return game:GetService("CoreGui") end) and game:GetService("CoreGui")) or LocalPlayer:WaitForChild("PlayerGui")
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -68,8 +101,8 @@ MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 corner(MainFrame, 10)
 
-local notifEnabled = true
-local notifCount   = 0
+local notifEnabled  = true
+local notifCount    = 0
 local notifPosition = "bottom-right"
 
 local notifHolder = Instance.new("Frame")
@@ -90,19 +123,15 @@ local function updateNotifPosition()
 	if p == "top-left" then
 		notifHolder.Position = UDim2.new(0, 12, 0, 12)
 		notifLayout.VerticalAlignment = Enum.VerticalAlignment.Top
-		notifLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 	elseif p == "top-right" then
 		notifHolder.Position = UDim2.new(1, -272, 0, 12)
 		notifLayout.VerticalAlignment = Enum.VerticalAlignment.Top
-		notifLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 	elseif p == "bottom-left" then
 		notifHolder.Position = UDim2.new(0, 12, 1, -412)
 		notifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-		notifLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 	else
 		notifHolder.Position = UDim2.new(1, -272, 1, -412)
 		notifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-		notifLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 	end
 end
 updateNotifPosition()
@@ -301,13 +330,12 @@ Avatar.Image = ""
 Avatar.Parent = ProfileCard
 corner(Avatar, 17)
 
-local FingerprintIcon = Instance.new("ImageLabel")
-FingerprintIcon.Size = UDim2.new(0, 18, 0, 18)
-FingerprintIcon.Position = UDim2.new(0.5, -9, 0.5, -9)
-FingerprintIcon.BackgroundTransparency = 1
-FingerprintIcon.Image = "rbxassetid://14309140772"
-FingerprintIcon.ImageColor3 = TEXT_MUTED
-FingerprintIcon.Parent = Avatar
+task.spawn(function()
+	local ok, thumb = pcall(function()
+		return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+	end)
+	if ok and thumb then Avatar.Image = thumb end
+end)
 
 local Username = Instance.new("TextLabel")
 Username.Size = UDim2.new(1, -68, 0, 16)
@@ -415,12 +443,13 @@ searchResultsLayout.SortOrder = Enum.SortOrder.LayoutOrder
 searchResultsLayout.Padding = UDim.new(0, 8)
 searchResultsLayout.Parent = searchResultsScroll
 
-local pages       = {}
-local navButtons  = {}
-local activeNavBtn = nil
+local pages          = {}
+local navButtons     = {}
+local activeNavBtn   = nil
 local featureRegistry = {}
-local activeTabDefs = {}
-local activeTabName = ""
+local configRegistry  = {}
+local activeTabDefs  = {}
+local activeTabName  = ""
 local currentKeybind = Enum.KeyCode.RightShift
 
 local function makeScrollPage(yStart)
@@ -494,8 +523,10 @@ local function setTab(name)
 	end
 end
 
-local function buildToggle(parent, defaultOn)
-	local state = defaultOn or false
+local function buildToggle(parent, defaultOn, configKey)
+	local saved = savedConfig[configKey]
+	local state = (saved and saved.type == "boolean") and saved.value or (defaultOn or false)
+
 	local track = Instance.new("Frame")
 	track.Size = UDim2.new(0, 44, 0, 24)
 	track.Position = UDim2.new(1, -44, 0.5, -12)
@@ -521,23 +552,30 @@ local function buildToggle(parent, defaultOn)
 	hitBtn.ZIndex = 5
 	hitBtn.Parent = track
 
+	local onChange = nil
+
 	local function doToggle()
 		state = not state
 		tween(track, { BackgroundColor3 = state and ACCENT or BG_INPUT })
 		tween(ball, { Position = state and UDim2.new(1, -20, 0.5, -8) or UDim2.new(0, 4, 0.5, -8) }, tweenInfoSpring)
 		tween(parent, { BackgroundColor3 = Color3.fromRGB(20, 19, 30) }, tweenInfoFast)
 		task.delay(0.12, function() tween(parent, { BackgroundColor3 = BG_ROW }, tweenInfo) end)
+		if configKey and configRegistry[configKey] then
+			saveConfig(configRegistry)
+		end
+		if onChange then onChange(state) end
 	end
+
 	hitBtn.MouseButton1Click:Connect(doToggle)
 	hitBtn.MouseEnter:Connect(function() tween(parent, { BackgroundColor3 = Color3.fromRGB(18, 17, 26) }, tweenInfoFast) end)
 	hitBtn.MouseLeave:Connect(function() tween(parent, { BackgroundColor3 = BG_ROW }, tweenInfoFast) end)
-	return (function() return state end), doToggle
+
+	local getter = function() return state end
+
+	return getter, doToggle, function(fn) onChange = fn end
 end
 
--- ────────────────────────────────────────────────────────────────────────────
--- SLIDER — draggable + click the number to type an exact value
--- ────────────────────────────────────────────────────────────────────────────
-local function buildSlider(parent, minVal, maxVal, defaultVal)
+local function buildSlider(parent, minVal, maxVal, defaultVal, configKey)
 	local allowDecimals = (math.floor(minVal) ~= minVal) or (math.floor(maxVal) ~= maxVal)
 		or (defaultVal and math.floor(defaultVal) ~= defaultVal)
 
@@ -549,9 +587,10 @@ local function buildSlider(parent, minVal, maxVal, defaultVal)
 		end
 	end
 
-	local value = roundValue(defaultVal or minVal)
+	local saved = savedConfig[configKey]
+	local startVal = (saved and saved.type == "number") and saved.value or defaultVal
+	local value = roundValue(startVal or minVal)
 
-	-- Container so we can position things cleanly without fighting UIPadding
 	local container = Instance.new("Frame")
 	container.Size = UDim2.new(0, 210, 0, 40)
 	container.Position = UDim2.new(1, -210, 0.5, -20)
@@ -560,7 +599,7 @@ local function buildSlider(parent, minVal, maxVal, defaultVal)
 	container.ZIndex = 3
 	container.Parent = parent
 
-local valBox = Instance.new("TextBox")
+	local valBox = Instance.new("TextBox")
 	valBox.Size = UDim2.new(0, 46, 0, 16)
 	valBox.ClearTextOnFocus = false
 	valBox.Position = UDim2.new(0, 0, 0.5, -8)
@@ -574,7 +613,6 @@ local valBox = Instance.new("TextBox")
 	valBox.ZIndex = 4
 	valBox.Parent = container
 
-	-- Track (right side of container)
 	local track = Instance.new("Frame")
 	track.Size = UDim2.new(0, 150, 0, 4)
 	track.Position = UDim2.new(0, 56, 0.5, -2)
@@ -601,15 +639,20 @@ local valBox = Instance.new("TextBox")
 	thumb.Parent = track
 	corner(thumb, 6)
 
+	local onChange = nil
+
 	local function applyValue(v)
 		value = v
 		local pct = (value - minVal) / (maxVal - minVal)
 		fill.Size = UDim2.new(pct, 0, 1, 0)
 		thumb.Position = UDim2.new(pct, -6, 0.5, -6)
 		valBox.Text = tostring(value)
+		if configKey and configRegistry[configKey] then
+			saveConfig(configRegistry)
+		end
+		if onChange then onChange(value) end
 	end
 
-	-- Drag hitbox over the track
 	local dragging = false
 	local hitbox = Instance.new("TextButton")
 	hitbox.Size = UDim2.new(1, 12, 1, 14)
@@ -638,7 +681,8 @@ local valBox = Instance.new("TextBox")
 			dragging = false
 		end
 	end)
-valBox.FocusLost:Connect(function()
+
+	valBox.FocusLost:Connect(function()
 		local parsed = tonumber(valBox.Text)
 		if parsed then
 			applyValue(roundValue(parsed))
@@ -647,15 +691,19 @@ valBox.FocusLost:Connect(function()
 		end
 	end)
 
-	return function() return value end
+	return function() return value end, function(fn) onChange = fn end
 end
 
-local function buildDropdown(parent, options, default)
-	local selected = default or options[1]
+local function buildDropdown(parent, options, default, configKey)
+	local saved = savedConfig[configKey]
+	local selected = (saved and saved.type == "string") and saved.value or (default or options[1])
 	local open = false
 	local ITEM_H = 32
 	local closedH = 0
 	local openH = #options * ITEM_H + 8
+	local trackConn
+
+	local onChange = nil
 
 	local frame = Instance.new("Frame")
 	frame.Size = UDim2.new(0, 165, 0, 34)
@@ -717,6 +765,7 @@ local function buildDropdown(parent, options, default)
 	pad(listBg, 4, 4, 0, 0)
 
 	local itemBtns = {}
+
 	local function refreshColors()
 		for _, e in ipairs(itemBtns) do
 			tween(e.btn, { BackgroundColor3 = e.opt == selected and Color3.fromRGB(30, 28, 44) or Color3.fromRGB(22, 21, 32) }, tweenInfoFast)
@@ -730,7 +779,14 @@ local function buildDropdown(parent, options, default)
 		listClip.Position = UDim2.new(0, absPos.X - fPos.X, 0, absPos.Y - fPos.Y + 38)
 	end
 
-	local trackConn
+	local function closeList()
+		open = false
+		tween(listClip, { Size = UDim2.new(0, 165, 0, closedH) })
+		tween(chevron, { Rotation = 0 }, tweenInfo)
+		tween(frame, { BackgroundColor3 = BG_INPUT }, tweenInfoFast)
+		if trackConn then trackConn:Disconnect(); trackConn = nil end
+	end
+
 	for i, opt in ipairs(options) do
 		local item = Instance.new("TextButton")
 		item.Size = UDim2.new(1, 0, 0, ITEM_H)
@@ -755,17 +811,22 @@ local function buildDropdown(parent, options, default)
 		itemLbl.Parent = item
 
 		table.insert(itemBtns, { btn = item, lbl = itemLbl, opt = opt })
-		item.MouseEnter:Connect(function() if opt ~= selected then tween(item, { BackgroundColor3 = Color3.fromRGB(26, 25, 38) }, tweenInfoFast) end end)
-		item.MouseLeave:Connect(function() if opt ~= selected then tween(item, { BackgroundColor3 = Color3.fromRGB(22, 21, 32) }, tweenInfoFast) end end)
+
+		item.MouseEnter:Connect(function()
+			if opt ~= selected then tween(item, { BackgroundColor3 = Color3.fromRGB(26, 25, 38) }, tweenInfoFast) end
+		end)
+		item.MouseLeave:Connect(function()
+			if opt ~= selected then tween(item, { BackgroundColor3 = Color3.fromRGB(22, 21, 32) }, tweenInfoFast) end
+		end)
 		item.MouseButton1Click:Connect(function()
 			selected = opt
 			label.Text = opt
-			open = false
-			tween(listClip, { Size = UDim2.new(0, 165, 0, closedH) })
-			tween(chevron, { Rotation = 0 }, tweenInfo)
-			tween(frame, { BackgroundColor3 = BG_INPUT }, tweenInfoFast)
+			closeList()
 			refreshColors()
-			if trackConn then trackConn:Disconnect(); trackConn = nil end
+			if configKey and configRegistry[configKey] then
+				saveConfig(configRegistry)
+			end
+			if onChange then onChange(selected) end
 		end)
 	end
 
@@ -776,20 +837,28 @@ local function buildDropdown(parent, options, default)
 			tween(listClip, { Size = UDim2.new(0, 165, 0, openH) })
 			tween(chevron, { Rotation = 180 }, tweenInfo)
 			tween(frame, { BackgroundColor3 = Color3.fromRGB(24, 23, 34) }, tweenInfoFast)
-			trackConn = RunService.RenderStepped:Connect(positionList)
+			trackConn = RunService.RenderStepped:Connect(function()
+				positionList()
+				if not frame or not frame.Parent then
+					if trackConn then trackConn:Disconnect(); trackConn = nil end
+				end
+			end)
 		else
-			tween(listClip, { Size = UDim2.new(0, 165, 0, closedH) })
-			tween(chevron, { Rotation = 0 }, tweenInfo)
-			tween(frame, { BackgroundColor3 = BG_INPUT }, tweenInfoFast)
-			if trackConn then trackConn:Disconnect(); trackConn = nil end
+			closeList()
 		end
 	end)
 
-	return function() return selected end
+	return function() return selected end, function(fn) onChange = fn end
 end
 
-local function buildKeybind(parent, default)
+local function buildKeybind(parent, default, configKey, onChanged)
+	local saved = savedConfig[configKey]
 	local currentKey = default or Enum.KeyCode.RightShift
+	if saved and saved.type == "keycode" then
+		local ok, kc = pcall(function() return Enum.KeyCode[saved.name] end)
+		if ok and kc then currentKey = kc end
+	end
+
 	local listening = false
 
 	local btn = Instance.new("TextButton")
@@ -812,7 +881,7 @@ local function buildKeybind(parent, default)
 		tween(btn, { TextColor3 = ACCENT })
 	end)
 
-	UserInputService.InputBegan:Connect(function(input, gpe)
+	UserInputService.InputBegan:Connect(function(input)
 		if not listening then return end
 		if input.UserInputType == Enum.UserInputType.Keyboard then
 			currentKey = input.KeyCode
@@ -820,19 +889,26 @@ local function buildKeybind(parent, default)
 			tween(btn, { TextColor3 = TEXT_MAIN })
 			tween(btn, { BackgroundColor3 = BG_INPUT }, tweenInfoFast)
 			listening = false
+			if configKey and configRegistry[configKey] then
+				saveConfig(configRegistry)
+			end
+			if onChanged then onChanged(currentKey) end
 		end
 	end)
 
 	return function() return currentKey end
 end
 
-local function buildInput(parent, default)
+local function buildInput(parent, default, configKey)
+	local saved = savedConfig[configKey]
+	local startVal = (saved and saved.type == "string") and saved.value or (default or "")
+
 	local box = Instance.new("TextBox")
 	box.Size = UDim2.new(0, 165, 0, 34)
 	box.Position = UDim2.new(1, -165, 0.5, -17)
 	box.BackgroundColor3 = BG_INPUT
 	box.BorderSizePixel = 0
-	box.Text = default or ""
+	box.Text = startVal
 	box.TextColor3 = TEXT_MAIN
 	box.TextSize = 13
 	box.Font = Enum.Font.Gotham
@@ -842,6 +918,13 @@ local function buildInput(parent, default)
 	box.Parent = parent
 	corner(box, 5)
 	pad(box, 0, 0, 12, 12)
+
+	box.FocusLost:Connect(function()
+		if configKey and configRegistry[configKey] then
+			saveConfig(configRegistry)
+		end
+	end)
+
 	return box
 end
 
@@ -868,19 +951,35 @@ local function buildButton(parent, iconName, iconLibrary, callback)
 		task.delay(0.12, function() tween(parent, { BackgroundColor3 = BG_ROW }, tweenInfo) end)
 		if callback then callback() end
 	end)
-	hitBtn.MouseEnter:Connect(function() tween(parent, { BackgroundColor3 = Color3.fromRGB(18, 17, 26) }, tweenInfoFast); tween(ico, { ImageColor3 = ACCENT }, tweenInfoFast) end)
-	hitBtn.MouseLeave:Connect(function() tween(parent, { BackgroundColor3 = BG_ROW }, tweenInfoFast); tween(ico, { ImageColor3 = TEXT_MUTED }, tweenInfoFast) end)
+	hitBtn.MouseEnter:Connect(function()
+		tween(parent, { BackgroundColor3 = Color3.fromRGB(18, 17, 26) }, tweenInfoFast)
+		tween(ico, { ImageColor3 = ACCENT }, tweenInfoFast)
+	end)
+	hitBtn.MouseLeave:Connect(function()
+		tween(parent, { BackgroundColor3 = BG_ROW }, tweenInfoFast)
+		tween(ico, { ImageColor3 = TEXT_MUTED }, tweenInfoFast)
+	end)
 
 	return ico
 end
 
-local function buildColorPicker(parent, defaultColor)
-	local currentColor = defaultColor or Color3.fromRGB(135, 96, 220)
+local function buildColorPicker(parent, defaultColor, configKey)
+	local saved = savedConfig[configKey]
+	local startColor = defaultColor or Color3.fromRGB(135, 96, 220)
+	if saved and saved.type == "color" then
+		startColor = Color3.fromRGB(
+			math.clamp(math.round(saved.r * 255), 0, 255),
+			math.clamp(math.round(saved.g * 255), 0, 255),
+			math.clamp(math.round(saved.b * 255), 0, 255)
+		)
+	end
+
+	local currentColor = startColor
 	local open = false
 	local h, s, v = currentColor:ToHSV()
 	local alpha = 0
+	local onChange = nil
 
-	-- ── Swatch ────────────────────────────────────────────────────────────────
 	local swatch = Instance.new("Frame")
 	swatch.Size = UDim2.new(0, 34, 0, 34)
 	swatch.Position = UDim2.new(1, -34, 0.5, -17)
@@ -903,7 +1002,6 @@ local function buildColorPicker(parent, defaultColor)
 	swatchBtn.ZIndex = 4
 	swatchBtn.Parent = swatch
 
-	-- ── Popup ─────────────────────────────────────────────────────────────────
 	local POPUP_W = 240
 	local POPUP_H = 320
 	local popup = Instance.new("Frame")
@@ -928,7 +1026,6 @@ local function buildColorPicker(parent, defaultColor)
 	inner.ZIndex = 51
 	inner.Parent = popup
 
-	-- ── HSV wheel image ───────────────────────────────────────────────────────
 	local DISC_SIZE = 180
 	local DISC_R    = DISC_SIZE / 2
 
@@ -941,7 +1038,6 @@ local function buildColorPicker(parent, defaultColor)
 	discContainer.ZIndex = 51
 	discContainer.Parent = inner
 
-	-- Wheel image (public HSV wheel asset)
 	local discImage = Instance.new("ImageLabel")
 	discImage.Size = UDim2.new(1, 0, 1, 0)
 	discImage.BackgroundTransparency = 1
@@ -949,7 +1045,6 @@ local function buildColorPicker(parent, defaultColor)
 	discImage.ZIndex = 52
 	discImage.Parent = discContainer
 
-	-- Value darkening overlay — black frame, transparency = v
 	local valOverlay = Instance.new("Frame")
 	valOverlay.Size = UDim2.new(1, 0, 1, 0)
 	valOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
@@ -959,7 +1054,6 @@ local function buildColorPicker(parent, defaultColor)
 	valOverlay.Parent = discContainer
 	corner(valOverlay, DISC_R)
 
-	-- Knob
 	local discKnob = Instance.new("Frame")
 	discKnob.AnchorPoint = Vector2.new(0.5, 0.5)
 	discKnob.Size = UDim2.new(0, 14, 0, 14)
@@ -982,7 +1076,6 @@ local function buildColorPicker(parent, defaultColor)
 	discHit.ZIndex = 57
 	discHit.Parent = discContainer
 
-	-- ── Slider helper ─────────────────────────────────────────────────────────
 	local function makeSliderRow(yPos, labelText)
 		local holder = Instance.new("Frame")
 		holder.Size = UDim2.new(1, 0, 0, 22)
@@ -1047,7 +1140,6 @@ local function buildColorPicker(parent, defaultColor)
 	local valS = makeSliderRow(VAL_Y, "Val")
 	local alpS = makeSliderRow(ALP_Y, "Alpha")
 
-	-- ── Hex input ─────────────────────────────────────────────────────────────
 	local HEX_Y = ALP_Y + 34
 	local inputBox = Instance.new("TextBox")
 	inputBox.Size = UDim2.new(1, 0, 0, 26)
@@ -1066,37 +1158,36 @@ local function buildColorPicker(parent, defaultColor)
 	inputBox.Parent = inner
 	corner(inputBox, 6)
 
-	-- ── Refresh ───────────────────────────────────────────────────────────────
 	local function refresh()
 		local col = Color3.fromHSV(h, s, v)
 		currentColor = col
 		swatch.BackgroundColor3 = col
 
-		-- knob pixel position on disc (offset by -90° to match wheel image)
 		local ang = (h * math.pi * 2) - (math.pi * 0.5)
 		local px = DISC_R + math.cos(ang) * s * DISC_R
 		local py = DISC_R + math.sin(ang) * s * DISC_R
 		discKnob.Position = UDim2.new(0, px, 0, py)
 
-		-- value overlay: v=1 fully transparent (bright), v=0 fully black
 		valOverlay.BackgroundTransparency = v
 
-		-- val slider: black → current hue at full brightness
 		valS.knob.Position = UDim2.new(v, 0, 0.5, 0)
 		valS.grad.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0,   Color3.fromRGB(0, 0, 0)),
-			ColorSequenceKeypoint.new(1,   Color3.fromHSV(h, math.max(s, 0.6), 1)),
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
+			ColorSequenceKeypoint.new(1, Color3.fromHSV(h, math.max(s, 0.6), 1)),
 		})
 
-		-- alpha slider: colour → faded
 		alpS.knob.Position = UDim2.new(1 - alpha, 0, 0.5, 0)
 		alpS.grad.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0,   Color3.fromRGB(17, 16, 26)),
-			ColorSequenceKeypoint.new(1,   col),
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(17, 16, 26)),
+			ColorSequenceKeypoint.new(1, col),
 		})
+
+		if configKey and configRegistry[configKey] then
+			saveConfig(configRegistry)
+		end
+		if onChange then onChange(col) end
 	end
 
-	-- ── Mouse helpers ─────────────────────────────────────────────────────────
 	local function getMousePos()
 		local mp = UserInputService:GetMouseLocation()
 		local inset = GuiService:GetGuiInset()
@@ -1106,11 +1197,11 @@ local function buildColorPicker(parent, defaultColor)
 	local dragTarget = nil
 
 	local function discFromMouse()
-		local mp   = getMousePos()
-		local ap   = discContainer.AbsolutePosition
-		local sz   = discContainer.AbsoluteSize
-		local dx   = mp.X - (ap.X + sz.X / 2)
-		local dy   = mp.Y - (ap.Y + sz.Y / 2)
+		local mp  = getMousePos()
+		local ap  = discContainer.AbsolutePosition
+		local sz  = discContainer.AbsoluteSize
+		local dx  = mp.X - (ap.X + sz.X / 2)
+		local dy  = mp.Y - (ap.Y + sz.Y / 2)
 		local dist = math.sqrt(dx*dx + dy*dy)
 		local ang  = math.atan2(dy, dx) + (math.pi * 0.5)
 		if ang < 0 then ang = ang + math.pi * 2 end
@@ -1131,9 +1222,9 @@ local function buildColorPicker(parent, defaultColor)
 
 	UserInputService.InputChanged:Connect(function(input)
 		if not dragTarget or input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
-		if dragTarget == "disc"  then discFromMouse()
-		elseif dragTarget == "val"   then v     = linearPct(valS.track);          refresh()
-		elseif dragTarget == "alpha" then alpha = 1 - linearPct(alpS.track);      refresh()
+		if dragTarget == "disc" then discFromMouse()
+		elseif dragTarget == "val" then v = linearPct(valS.track); refresh()
+		elseif dragTarget == "alpha" then alpha = 1 - linearPct(alpS.track); refresh()
 		end
 	end)
 
@@ -1163,7 +1254,6 @@ local function buildColorPicker(parent, defaultColor)
 		inputBox.Text = ""
 	end)
 
-	-- ── Popup positioning ─────────────────────────────────────────────────────
 	local function positionPopup()
 		local ap = swatch.AbsolutePosition
 		local fp = MainFrame.AbsolutePosition
@@ -1203,17 +1293,24 @@ local function buildColorPicker(parent, defaultColor)
 	end)
 
 	refresh()
-	return function() return currentColor end
+	return function() return currentColor end, function(fn) onChange = fn end
 end
 
-local function buildMultiSelect(parent, options, defaults)
+local function buildMultiSelect(parent, options, defaults, configKey)
 	local selected = {}
-	if defaults then for _, v in ipairs(defaults) do selected[v] = true end end
+	local saved = savedConfig[configKey]
+	if saved and saved.type == "table" then
+		for _, v in ipairs(saved.value) do selected[v] = true end
+	elseif defaults then
+		for _, v in ipairs(defaults) do selected[v] = true end
+	end
 
 	local open = false
 	local ITEM_H  = 30
 	local closedH = 0
 	local openH   = #options * ITEM_H + 8
+	local trackConn
+	local onChange = nil
 
 	local function getLabel()
 		local parts = {}
@@ -1284,6 +1381,7 @@ local function buildMultiSelect(parent, options, defaults)
 	pad(listBg, 4, 4, 0, 0)
 
 	local itemBtns = {}
+
 	local function refreshItems()
 		label.Text = getLabel()
 		for _, e in ipairs(itemBtns) do
@@ -1300,7 +1398,6 @@ local function buildMultiSelect(parent, options, defaults)
 		listClip.Position = UDim2.new(0, ap.X - fp.X, 0, ap.Y - fp.Y + 38)
 	end
 
-	local trackConn
 	for i, opt in ipairs(options) do
 		local item = Instance.new("TextButton")
 		item.Size = UDim2.new(1, 0, 0, ITEM_H)
@@ -1344,9 +1441,21 @@ local function buildMultiSelect(parent, options, defaults)
 		il.Parent = item
 
 		table.insert(itemBtns, { btn = item, lbl = il, check = cf, checkMark = cm, opt = opt })
+
 		item.MouseEnter:Connect(function() tween(item, { BackgroundColor3 = Color3.fromRGB(26, 25, 38) }, tweenInfoFast) end)
 		item.MouseLeave:Connect(function() tween(item, { BackgroundColor3 = Color3.fromRGB(22, 21, 32) }, tweenInfoFast) end)
-		item.MouseButton1Click:Connect(function() selected[opt] = not selected[opt]; refreshItems() end)
+		item.MouseButton1Click:Connect(function()
+			selected[opt] = not selected[opt]
+			refreshItems()
+			if configKey and configRegistry[configKey] then
+				saveConfig(configRegistry)
+			end
+			if onChange then
+				local out = {}
+				for _, o in ipairs(options) do if selected[o] then table.insert(out, o) end end
+				onChange(out)
+			end
+		end)
 	end
 
 	clickBtn.MouseButton1Click:Connect(function()
@@ -1356,7 +1465,12 @@ local function buildMultiSelect(parent, options, defaults)
 			tween(listClip, { Size = UDim2.new(0, 165, 0, openH) })
 			tween(chevron, { Rotation = 180 }, tweenInfo)
 			tween(frame, { BackgroundColor3 = Color3.fromRGB(24, 23, 34) }, tweenInfoFast)
-			trackConn = RunService.RenderStepped:Connect(positionList)
+			trackConn = RunService.RenderStepped:Connect(function()
+				positionList()
+				if not frame or not frame.Parent then
+					if trackConn then trackConn:Disconnect(); trackConn = nil end
+				end
+			end)
 		else
 			tween(listClip, { Size = UDim2.new(0, 165, 0, closedH) })
 			tween(chevron, { Rotation = 0 }, tweenInfo)
@@ -1369,7 +1483,28 @@ local function buildMultiSelect(parent, options, defaults)
 		local out = {}
 		for _, opt in ipairs(options) do if selected[opt] then table.insert(out, opt) end end
 		return out
+	end, function(fn) onChange = fn end
+end
+
+local function fuzzyMatch(str, query)
+	str = str:lower()
+	query = query:lower()
+	if str:find(query, 1, true) then return true end
+	local si = 1
+	for qi = 1, #query do
+		local qc = query:sub(qi, qi)
+		local found = false
+		while si <= #str do
+			if str:sub(si, si) == qc then
+				si += 1
+				found = true
+				break
+			end
+			si += 1
+		end
+		if not found then return false end
 	end
+	return true
 end
 
 local function buildRow(parent, titleText, descText, order, widgetDef, pageEntry, navEntry, tabName)
@@ -1407,35 +1542,57 @@ local function buildRow(parent, titleText, descText, order, widgetDef, pageEntry
 	desc.ZIndex = 2
 	desc.Parent = row
 
-	-- hoverZone only covers the LEFT half (text area) so widgets on the right remain clickable
 	local hoverZone = Instance.new("TextButton")
-	hoverZone.Size = UDim2.new(0.5, 0, 1, 0)
+	hoverZone.Size = UDim2.new(1, 0, 1, 0)
 	hoverZone.BackgroundTransparency = 1
 	hoverZone.Text = ""
-	hoverZone.ZIndex = 2
+	hoverZone.ZIndex = 1
 	hoverZone.Parent = row
 
 	hoverZone.MouseEnter:Connect(function() tween(row, { BackgroundColor3 = Color3.fromRGB(18, 17, 26) }, tweenInfoFast) end)
 	hoverZone.MouseLeave:Connect(function() tween(row, { BackgroundColor3 = BG_ROW }, tweenInfoFast) end)
 
+	local configKey = navEntry and navEntry.name .. "_" .. tostring(titleText) or tostring(titleText)
+
 	local getter
 	local toggleFn
 	local wt = widgetDef and widgetDef.type or nil
-	if wt == "toggle"        then getter, toggleFn = buildToggle(row, widgetDef.default)
-	elseif wt == "slider"    then getter = buildSlider(row, widgetDef.min, widgetDef.max, widgetDef.default)
-	elseif wt == "dropdown"  then getter = buildDropdown(row, widgetDef.options, widgetDef.default)
-	elseif wt == "keybind"   then getter = buildKeybind(row, widgetDef.default)
-	elseif wt == "input"     then getter = buildInput(row, widgetDef.default)
-	elseif wt == "button"    then getter = buildButton(row, widgetDef.icon, widgetDef.iconLibrary, widgetDef.callback)
-	elseif wt == "colorpicker"  then getter = buildColorPicker(row, widgetDef.default)
-	elseif wt == "multiselect"  then getter = buildMultiSelect(row, widgetDef.options, widgetDef.defaults)
+
+	if wt == "toggle" then
+		local g, fn, oc = buildToggle(row, widgetDef.default, configKey)
+		getter = g
+		toggleFn = fn
+		if widgetDef.onChange then oc(widgetDef.onChange) end
+	elseif wt == "slider" then
+		local g, oc = buildSlider(row, widgetDef.min, widgetDef.max, widgetDef.default, configKey)
+		getter = g
+		if widgetDef.onChange then oc(widgetDef.onChange) end
+	elseif wt == "dropdown" then
+		local g, oc = buildDropdown(row, widgetDef.options, widgetDef.default, configKey)
+		getter = g
+		if widgetDef.onChange then oc(widgetDef.onChange) end
+	elseif wt == "keybind" then
+		getter = buildKeybind(row, widgetDef.default, configKey, widgetDef.onChange)
+	elseif wt == "input" then
+		getter = buildInput(row, widgetDef.default, configKey)
+	elseif wt == "button" then
+		getter = buildButton(row, widgetDef.icon, widgetDef.iconLibrary, widgetDef.callback)
+	elseif wt == "colorpicker" then
+		local g, oc = buildColorPicker(row, widgetDef.default, configKey)
+		getter = g
+		if widgetDef.onChange then oc(widgetDef.onChange) end
+	elseif wt == "multiselect" then
+		local g, oc = buildMultiSelect(row, widgetDef.options, widgetDef.defaults, configKey)
+		getter = g
+		if widgetDef.onChange then oc(widgetDef.onChange) end
 	end
 
-	-- For toggle rows, clicking anywhere on the card flips the toggle (the
-	-- toggle button itself still works since it sits at a higher ZIndex).
 	if wt == "toggle" and toggleFn then
-		hoverZone.Size = UDim2.new(1, 0, 1, 0)
 		hoverZone.MouseButton1Click:Connect(toggleFn)
+	end
+
+	if getter and configKey then
+		configRegistry[configKey] = { getter = getter }
 	end
 
 	local feat = {
@@ -1454,6 +1611,7 @@ end
 
 local searchActive = false
 local searchResultFrames = {}
+local searchDebounce = nil
 
 local function clearSearchResults()
 	for _, f in ipairs(searchResultFrames) do f:Destroy() end
@@ -1462,10 +1620,9 @@ end
 
 local function showSearchResults(query)
 	clearSearchResults()
-	local q = query:lower()
 	local count = 0
 	for _, feat in ipairs(featureRegistry) do
-		if feat.title:lower():find(q, 1, true) or feat.desc:lower():find(q, 1, true) then
+		if fuzzyMatch(feat.title, query) or fuzzyMatch(feat.desc, query) then
 			count += 1
 			local shell = Instance.new("Frame")
 			shell.Size = UDim2.new(1, 0, 0, 64)
@@ -1559,7 +1716,9 @@ end
 
 SearchInput:GetPropertyChangedSignal("Text"):Connect(function()
 	local q = SearchInput.Text
+
 	if q == "" then
+		if searchDebounce then task.cancel(searchDebounce); searchDebounce = nil end
 		if searchActive then
 			searchActive = false
 			searchResultsClip.Visible = false
@@ -1573,20 +1732,26 @@ SearchInput:GetPropertyChangedSignal("Text"):Connect(function()
 		for _, entry in ipairs(navButtons) do entry.btn.Visible = true end
 		return
 	end
+
 	if not searchActive then
 		searchActive = true
 		for _, p in ipairs(pages) do p.clip.Visible = false end
 		TabBar.Visible = false
 		TabsDivider.Visible = false
 	end
+
 	HeaderTitle.Text    = "Search Results"
 	HeaderSubtitle.Text = 'Showing results for "' .. q .. '"'
 	searchResultsClip.Visible = true
-	showSearchResults(q)
-	local ql = q:lower()
-	for _, entry in ipairs(navButtons) do
-		entry.btn.Visible = entry.name:lower():find(ql, 1, true) ~= nil
-	end
+
+	if searchDebounce then task.cancel(searchDebounce); searchDebounce = nil end
+	searchDebounce = task.delay(0.15, function()
+		showSearchResults(q)
+		local ql = q:lower()
+		for _, entry in ipairs(navButtons) do
+			entry.btn.Visible = fuzzyMatch(entry.name, ql)
+		end
+	end)
 end)
 
 local Lib = {}
@@ -1732,17 +1897,16 @@ function Lib:Init(defaultNavEntry, defaultTabName, keybindCode)
 	setActiveNav(defaultNavEntry or navButtons[1])
 	if defaultTabName then setTab(defaultTabName) end
 
-	-- Use ContextActionService at high priority so shiftlock doesn't swallow the key
 	ContextActionService:BindActionAtPriority(
 		"SyftUIToggle",
 		function(_, inputState)
 			if inputState == Enum.UserInputState.Begin then
 				MainFrame.Visible = not MainFrame.Visible
 			end
-			return Enum.ContextActionResult.Pass  -- don't block the input from other things
+			return Enum.ContextActionResult.Pass
 		end,
-		false,  -- no on-screen button
-		2001,   -- above default game priority (2000) so shiftlock doesn't eat it first
+		false,
+		2001,
 		currentKeybind
 	)
 
