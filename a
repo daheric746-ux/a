@@ -945,7 +945,7 @@ local function buildColorPicker(parent, defaultColor)
 	local discImage = Instance.new("ImageLabel")
 	discImage.Size = UDim2.new(1, 0, 1, 0)
 	discImage.BackgroundTransparency = 1
-	discImage.Image = "rbxassetid://1003599924"
+	discImage.Image = "rbxassetid://7017517837"
 	discImage.ZIndex = 52
 	discImage.Parent = discContainer
 
