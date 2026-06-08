@@ -1104,19 +1104,21 @@ local function buildColorPicker(parent, defaultColor)
 
 		-- Val: vivid full-spectrum gradient black → colour → white
 		valS.knob.Position = UDim2.new(v, 0, 0.5, 0)
-		local midCol = Color3.fromHSV(h, math.max(s, 0.8), 1)
 		valS.grad.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0,    Color3.fromRGB(0, 0, 0)),
-			ColorSequenceKeypoint.new(0.5,  midCol),
-			ColorSequenceKeypoint.new(1,    Color3.fromRGB(255, 255, 255)),
+			ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)),
+			ColorSequenceKeypoint.new(1, Color3.fromHSV(h, s, 1)),
 		})
 
 		-- Alpha: solid colour → transparent (checkerboard feel via BG_INPUT base)
 		alpS.knob.Position = UDim2.new(1 - alpha, 0, 0.5, 0)
 		alpS.grad.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0,   Color3.fromRGB(30, 28, 45)),
-			ColorSequenceKeypoint.new(0.5, col),
-			ColorSequenceKeypoint.new(1,   col),
+			ColorSequenceKeypoint.new(0, col),
+			ColorSequenceKeypoint.new(1, col),
+		})
+
+		alpS.grad.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(1, 0),
 		})
 
 		redrawDisc()
