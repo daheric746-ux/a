@@ -878,8 +878,9 @@ local function buildColorPicker(parent, defaultColor)
 	local currentColor = defaultColor or Color3.fromRGB(135, 96, 220)
 	local open = false
 	local h, s, v = currentColor:ToHSV()
-	local alpha = 0  -- transparency: 0 = opaque, 1 = fully transparent
+	local alpha = 0
 
+	-- ── Swatch button ─────────────────────────────────────────────────────────
 	local swatch = Instance.new("Frame")
 	swatch.Size = UDim2.new(0, 34, 0, 34)
 	swatch.Position = UDim2.new(1, -34, 0.5, -17)
@@ -902,8 +903,9 @@ local function buildColorPicker(parent, defaultColor)
 	swatchBtn.ZIndex = 4
 	swatchBtn.Parent = swatch
 
-	local POPUP_W = 222
-	local POPUP_H = 282
+	-- ── Popup ─────────────────────────────────────────────────────────────────
+	local POPUP_W = 240
+	local POPUP_H = 310
 	local popup = Instance.new("Frame")
 	popup.Size = UDim2.new(0, POPUP_W, 0, POPUP_H)
 	popup.BackgroundColor3 = Color3.fromRGB(17, 16, 26)
@@ -916,7 +918,6 @@ local function buildColorPicker(parent, defaultColor)
 
 	local popupStroke = Instance.new("UIStroke")
 	popupStroke.Color = Color3.fromRGB(42, 40, 62)
-	popupStroke.Transparency = 0
 	popupStroke.Thickness = 1
 	popupStroke.Parent = popup
 
@@ -927,139 +928,210 @@ local function buildColorPicker(parent, defaultColor)
 	inner.ZIndex = 51
 	inner.Parent = popup
 
-	-- ── Hue wheel (the circle) ────────────────────────────────────────────────
-	local R         = 52   -- radius the hue band sits on
-	local RING_TH   = 14   -- thickness of the hue band
-	local SEG       = 72   -- segments making up the ring
-	local WHEEL_BOX = (R + RING_TH) * 2
+	-- ── HSV Disc ──────────────────────────────────────────────────────────────
+	-- We build the disc from SEG wedge-shaped frames fanned around the center.
+	-- Each wedge is colored by its hue. Then we overlay:
+	--   • a white radial layer (transparency goes from opaque-center to clear-edge) for saturation
+	--   • a black layer whose transparency we animate for value
+	local DISC_SIZE = 180
+	local DISC_R    = DISC_SIZE / 2
+	local SEG       = 64   -- number of hue slices
 
-	local wheel = Instance.new("Frame")
-	wheel.Size = UDim2.new(0, WHEEL_BOX, 0, WHEEL_BOX)
-	wheel.Position = UDim2.new(0.5, -WHEEL_BOX / 2, 0, 2)
-	wheel.BackgroundTransparency = 1
-	wheel.ZIndex = 51
-	wheel.Parent = inner
+	local discFrame = Instance.new("Frame")
+	discFrame.Size = UDim2.new(0, DISC_SIZE, 0, DISC_SIZE)
+	discFrame.Position = UDim2.new(0.5, -DISC_R, 0, 0)
+	discFrame.BackgroundTransparency = 1
+	discFrame.ClipsDescendants = false
+	discFrame.ZIndex = 51
+	discFrame.Parent = inner
 
+	-- Clip to circle
+	corner(discFrame, DISC_R)
+
+	-- Hue segments
 	for i = 0, SEG - 1 do
-		local a   = (i / SEG) * math.pi * 2
-		local hue = i / SEG
 		local seg = Instance.new("Frame")
-		seg.AnchorPoint = Vector2.new(0.5, 0.5)
-		seg.Position = UDim2.new(0.5, math.cos(a) * R, 0.5, math.sin(a) * R)
-		seg.Size = UDim2.new(0, 9, 0, RING_TH)
-		seg.Rotation = math.deg(a) + 90
-		seg.BackgroundColor3 = Color3.fromHSV(hue, 1, 1)
+		seg.AnchorPoint = Vector2.new(0.5, 1)   -- pivot at center of disc
+		seg.Position = UDim2.new(0.5, 0, 0.5, 0)
+		-- Each segment is a thin tall rectangle rotated into place
+		seg.Size = UDim2.new(0, math.ceil(DISC_SIZE / SEG) + 2, 0.5, 0)
+		seg.Rotation = (i / SEG) * 360
+		seg.BackgroundColor3 = Color3.fromHSV(i / SEG, 1, 1)
 		seg.BorderSizePixel = 0
 		seg.ZIndex = 52
-		seg.Parent = wheel
+		seg.Parent = discFrame
 	end
 
-	local centerD = (R - RING_TH) * 2 + 6
-	local centerPreview = Instance.new("Frame")
-	centerPreview.AnchorPoint = Vector2.new(0.5, 0.5)
-	centerPreview.Position = UDim2.new(0.5, 0, 0.5, 0)
-	centerPreview.Size = UDim2.new(0, centerD, 0, centerD)
-	centerPreview.BackgroundColor3 = currentColor
-	centerPreview.BorderSizePixel = 0
-	centerPreview.ZIndex = 53
-	centerPreview.Parent = wheel
-	corner(centerPreview, math.floor(centerD / 2))
-
-	local centerStroke = Instance.new("UIStroke")
-	centerStroke.Color = Color3.fromRGB(0, 0, 0)
-	centerStroke.Transparency = 0.6
-	centerStroke.Thickness = 1
-	centerStroke.Parent = centerPreview
-
-	local hueKnob = Instance.new("Frame")
-	hueKnob.AnchorPoint = Vector2.new(0.5, 0.5)
-	hueKnob.Size = UDim2.new(0, 14, 0, 14)
-	hueKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	hueKnob.BorderSizePixel = 0
-	hueKnob.ZIndex = 55
-	hueKnob.Parent = wheel
-	corner(hueKnob, 7)
-
-	local hueKnobStroke = Instance.new("UIStroke")
-	hueKnobStroke.Color = Color3.fromRGB(0, 0, 0)
-	hueKnobStroke.Transparency = 0.55
-	hueKnobStroke.Thickness = 1.5
-	hueKnobStroke.Parent = hueKnob
-
-	local wheelHit = Instance.new("TextButton")
-	wheelHit.Size = UDim2.new(1, 0, 1, 0)
-	wheelHit.BackgroundTransparency = 1
-	wheelHit.Text = ""
-	wheelHit.ZIndex = 56
-	wheelHit.Parent = wheel
-
-	-- ── Sliders (Sat / Val / Transparency) ────────────────────────────────────
-	local function makeSlider(yPos, name)
-		local holder = Instance.new("Frame")
-		holder.Size = UDim2.new(1, 0, 0, 22)
-		holder.Position = UDim2.new(0, 0, 0, yPos)
-		holder.BackgroundTransparency = 1
-		holder.ZIndex = 51
-		holder.Parent = inner
-
-		local lbl = Instance.new("TextLabel")
-		lbl.Size = UDim2.new(0, 38, 1, 0)
-		lbl.BackgroundTransparency = 1
-		lbl.Text = name
-		lbl.TextColor3 = TEXT_MUTED
-		lbl.TextSize = 11
-		lbl.Font = Enum.Font.GothamBold
-		lbl.TextXAlignment = Enum.TextXAlignment.Left
-		lbl.ZIndex = 52
-		lbl.Parent = holder
-
-		local track = Instance.new("Frame")
-		track.Size = UDim2.new(1, -42, 0, 8)
-		track.Position = UDim2.new(0, 42, 0.5, -4)
-		track.BackgroundColor3 = BG_INPUT
-		track.BorderSizePixel = 0
-		track.ZIndex = 52
-		track.Parent = holder
-		corner(track, 4)
-
-		local grad = Instance.new("UIGradient")
-		grad.Parent = track
-
-		local knob = Instance.new("Frame")
-		knob.AnchorPoint = Vector2.new(0.5, 0.5)
-		knob.Size = UDim2.new(0, 14, 0, 14)
-		knob.Position = UDim2.new(0, 0, 0.5, 0)
-		knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		knob.BorderSizePixel = 0
-		knob.ZIndex = 54
-		knob.Parent = track
-		corner(knob, 7)
-
-		local ks = Instance.new("UIStroke")
-		ks.Color = Color3.fromRGB(0, 0, 0)
-		ks.Transparency = 0.55
-		ks.Thickness = 1.5
-		ks.Parent = knob
-
-		local hit = Instance.new("TextButton")
-		hit.Size = UDim2.new(1, 16, 1, 16)
-		hit.Position = UDim2.new(0, -8, 0.5, -8)
-		hit.BackgroundTransparency = 1
-		hit.Text = ""
-		hit.ZIndex = 55
-		hit.Parent = track
-
-		return { track = track, grad = grad, knob = knob, hit = hit }
+	-- White-center saturation overlay (radial: white opaque at center → clear at edge)
+	-- Roblox UIGradient only does linear, so we stack several circular frames
+	-- from small (white, opaque) to full size (transparent) to fake a radial gradient.
+	local SAT_STEPS = 10
+	for i = SAT_STEPS, 1, -1 do
+		local pct = i / SAT_STEPS
+		local sat_layer = Instance.new("Frame")
+		sat_layer.AnchorPoint = Vector2.new(0.5, 0.5)
+		sat_layer.Position = UDim2.new(0.5, 0, 0.5, 0)
+		sat_layer.Size = UDim2.new(pct, 0, pct, 0)
+		sat_layer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		sat_layer.BackgroundTransparency = pct   -- outermost = fully transparent, center = opaque
+		sat_layer.BorderSizePixel = 0
+		sat_layer.ZIndex = 53
+		sat_layer.Parent = discFrame
+		corner(sat_layer, math.floor(DISC_R * pct))
 	end
 
-	local satS = makeSlider(WHEEL_BOX + 8,  "Sat")
-	local valS = makeSlider(WHEEL_BOX + 36, "Val")
-	local alpS = makeSlider(WHEEL_BOX + 64, "Alpha")
+	-- Black value overlay — we tween its transparency to darken the whole disc
+	local valOverlay = Instance.new("Frame")
+	valOverlay.Size = UDim2.new(1, 0, 1, 0)
+	valOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	valOverlay.BackgroundTransparency = v   -- 1 = no darkening (full brightness), 0 = fully black
+	valOverlay.BorderSizePixel = 0
+	valOverlay.ZIndex = 54
+	valOverlay.Parent = discFrame
+	corner(valOverlay, DISC_R)
 
-	-- ── Hex / RGB input ────────────────────────────────────────────────────────
+	-- Knob that shows current pick position
+	local discKnob = Instance.new("Frame")
+	discKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+	discKnob.Size = UDim2.new(0, 14, 0, 14)
+	discKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	discKnob.BorderSizePixel = 0
+	discKnob.ZIndex = 56
+	discKnob.Parent = discFrame
+	corner(discKnob, 7)
+
+	local discKnobStroke = Instance.new("UIStroke")
+	discKnobStroke.Color = Color3.fromRGB(0, 0, 0)
+	discKnobStroke.Transparency = 0.45
+	discKnobStroke.Thickness = 1.5
+	discKnobStroke.Parent = discKnob
+
+	-- Transparent hit area over the whole disc
+	local discHit = Instance.new("TextButton")
+	discHit.Size = UDim2.new(1, 0, 1, 0)
+	discHit.BackgroundTransparency = 1
+	discHit.Text = ""
+	discHit.ZIndex = 57
+	discHit.Parent = discFrame
+
+	-- ── Value slider (vertical bar below disc) ────────────────────────────────
+	local VAL_Y = DISC_SIZE + 12
+	local valHolder = Instance.new("Frame")
+	valHolder.Size = UDim2.new(1, 0, 0, 22)
+	valHolder.Position = UDim2.new(0, 0, 0, VAL_Y)
+	valHolder.BackgroundTransparency = 1
+	valHolder.ZIndex = 51
+	valHolder.Parent = inner
+
+	local valLbl = Instance.new("TextLabel")
+	valLbl.Size = UDim2.new(0, 38, 1, 0)
+	valLbl.BackgroundTransparency = 1
+	valLbl.Text = "Val"
+	valLbl.TextColor3 = TEXT_MUTED
+	valLbl.TextSize = 11
+	valLbl.Font = Enum.Font.GothamBold
+	valLbl.TextXAlignment = Enum.TextXAlignment.Left
+	valLbl.ZIndex = 52
+	valLbl.Parent = valHolder
+
+	local valTrack = Instance.new("Frame")
+	valTrack.Size = UDim2.new(1, -42, 0, 8)
+	valTrack.Position = UDim2.new(0, 42, 0.5, -4)
+	valTrack.BackgroundColor3 = BG_INPUT
+	valTrack.BorderSizePixel = 0
+	valTrack.ZIndex = 52
+	valTrack.Parent = valHolder
+	corner(valTrack, 4)
+
+	local valGrad = Instance.new("UIGradient")
+	valGrad.Color = ColorSequence.new(Color3.fromRGB(0,0,0), Color3.fromRGB(255,255,255))
+	valGrad.Parent = valTrack
+
+	local valKnob = Instance.new("Frame")
+	valKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+	valKnob.Size = UDim2.new(0, 14, 0, 14)
+	valKnob.Position = UDim2.new(v, 0, 0.5, 0)
+	valKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	valKnob.BorderSizePixel = 0
+	valKnob.ZIndex = 54
+	valKnob.Parent = valTrack
+	corner(valKnob, 7)
+
+	local valKnobS = Instance.new("UIStroke")
+	valKnobS.Color = Color3.fromRGB(0,0,0)
+	valKnobS.Transparency = 0.55
+	valKnobS.Thickness = 1.5
+	valKnobS.Parent = valKnob
+
+	local valHit = Instance.new("TextButton")
+	valHit.Size = UDim2.new(1, 16, 1, 16)
+	valHit.Position = UDim2.new(0, -8, 0.5, -8)
+	valHit.BackgroundTransparency = 1
+	valHit.Text = ""
+	valHit.ZIndex = 55
+	valHit.Parent = valTrack
+
+	-- ── Alpha slider ──────────────────────────────────────────────────────────
+	local ALP_Y = VAL_Y + 30
+	local alpHolder = Instance.new("Frame")
+	alpHolder.Size = UDim2.new(1, 0, 0, 22)
+	alpHolder.Position = UDim2.new(0, 0, 0, ALP_Y)
+	alpHolder.BackgroundTransparency = 1
+	alpHolder.ZIndex = 51
+	alpHolder.Parent = inner
+
+	local alpLbl = Instance.new("TextLabel")
+	alpLbl.Size = UDim2.new(0, 38, 1, 0)
+	alpLbl.BackgroundTransparency = 1
+	alpLbl.Text = "Alpha"
+	alpLbl.TextColor3 = TEXT_MUTED
+	alpLbl.TextSize = 11
+	alpLbl.Font = Enum.Font.GothamBold
+	alpLbl.TextXAlignment = Enum.TextXAlignment.Left
+	alpLbl.ZIndex = 52
+	alpLbl.Parent = alpHolder
+
+	local alpTrack = Instance.new("Frame")
+	alpTrack.Size = UDim2.new(1, -42, 0, 8)
+	alpTrack.Position = UDim2.new(0, 42, 0.5, -4)
+	alpTrack.BackgroundColor3 = BG_INPUT
+	alpTrack.BorderSizePixel = 0
+	alpTrack.ZIndex = 52
+	alpTrack.Parent = alpHolder
+	corner(alpTrack, 4)
+
+	local alpGrad = Instance.new("UIGradient")
+	alpGrad.Parent = alpTrack
+
+	local alpKnob = Instance.new("Frame")
+	alpKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+	alpKnob.Size = UDim2.new(0, 14, 0, 14)
+	alpKnob.Position = UDim2.new(alpha, 0, 0.5, 0)
+	alpKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	alpKnob.BorderSizePixel = 0
+	alpKnob.ZIndex = 54
+	alpKnob.Parent = alpTrack
+	corner(alpKnob, 7)
+
+	local alpKnobS = Instance.new("UIStroke")
+	alpKnobS.Color = Color3.fromRGB(0,0,0)
+	alpKnobS.Transparency = 0.55
+	alpKnobS.Thickness = 1.5
+	alpKnobS.Parent = alpKnob
+
+	local alpHit = Instance.new("TextButton")
+	alpHit.Size = UDim2.new(1, 16, 1, 16)
+	alpHit.Position = UDim2.new(0, -8, 0.5, -8)
+	alpHit.BackgroundTransparency = 1
+	alpHit.Text = ""
+	alpHit.ZIndex = 55
+	alpHit.Parent = alpTrack
+
+	-- ── Hex input ─────────────────────────────────────────────────────────────
+	local HEX_Y = ALP_Y + 36
 	local inputBox = Instance.new("TextBox")
 	inputBox.Size = UDim2.new(1, 0, 0, 26)
-	inputBox.Position = UDim2.new(0, 0, 0, WHEEL_BOX + 92)
+	inputBox.Position = UDim2.new(0, 0, 0, HEX_Y)
 	inputBox.BackgroundColor3 = Color3.fromRGB(23, 22, 34)
 	inputBox.BorderSizePixel = 0
 	inputBox.Text = ""
@@ -1076,40 +1148,43 @@ local function buildColorPicker(parent, defaultColor)
 
 	local inputStroke = Instance.new("UIStroke")
 	inputStroke.Color = Color3.fromRGB(42, 40, 62)
-	inputStroke.Transparency = 0
 	inputStroke.Thickness = 1
 	inputStroke.Parent = inputBox
 
-	-- ── State sync ─────────────────────────────────────────────────────────────
+	-- ── State refresh ─────────────────────────────────────────────────────────
 	local function refresh()
 		local col = Color3.fromHSV(h, s, v)
 		currentColor = col
 		swatch.BackgroundColor3 = col
-		centerPreview.BackgroundColor3 = col
-		centerPreview.BackgroundTransparency = alpha
 
-		local a = h * math.pi * 2
-		hueKnob.Position = UDim2.new(0.5, math.cos(a) * R, 0.5, math.sin(a) * R)
-		hueKnob.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+		-- Knob position on disc: angle = hue, distance from center = saturation
+		local ang = h * math.pi * 2
+		local kx = 0.5 + math.cos(ang) * s * 0.5
+		local ky = 0.5 + math.sin(ang) * s * 0.5
+		discKnob.Position = UDim2.new(kx, 0, ky, 0)
 
-		satS.knob.Position = UDim2.new(s, 0, 0.5, 0)
-		valS.knob.Position = UDim2.new(v, 0, 0.5, 0)
-		alpS.knob.Position = UDim2.new(alpha, 0, 0.5, 0)
+		-- Value overlay: v=1 means fully bright (overlay transparent), v=0 = black
+		valOverlay.BackgroundTransparency = v
+		valKnob.Position = UDim2.new(v, 0, 0.5, 0)
+		valGrad.Color = ColorSequence.new(Color3.fromRGB(0,0,0), Color3.fromHSV(h, s, 1))
 
-		satS.grad.Color = ColorSequence.new(Color3.fromHSV(h, 0, 1), Color3.fromHSV(h, 1, 1))
-		valS.grad.Color = ColorSequence.new(Color3.fromRGB(0, 0, 0), Color3.fromHSV(h, s, 1))
-		alpS.grad.Color = ColorSequence.new(col, Color3.fromRGB(17, 16, 26))
+		alpKnob.Position = UDim2.new(alpha, 0, 0.5, 0)
+		alpGrad.Color = ColorSequence.new(col, Color3.fromRGB(17, 16, 26))
 	end
 
-	-- ── Dragging ─────────────────────────────────────────────────────────────
+	-- ── Drag handling ──────────────────────────────────────────────────────────
 	local dragTarget = nil
 
-	local function setHueFromMouse()
+	local function discFromMouse()
 		local mp = UserInputService:GetMouseLocation()
-		local center = wheel.AbsolutePosition + wheel.AbsoluteSize / 2
-		local ang = math.atan2(mp.Y - center.Y, mp.X - center.X)
+		local center = discFrame.AbsolutePosition + discFrame.AbsoluteSize / 2
+		local dx = mp.X - center.X
+		local dy = mp.Y - center.Y
+		local dist = math.sqrt(dx*dx + dy*dy)
+		local ang = math.atan2(dy, dx)
 		if ang < 0 then ang = ang + math.pi * 2 end
 		h = ang / (math.pi * 2)
+		s = math.clamp(dist / (discFrame.AbsoluteSize.X / 2), 0, 1)
 		refresh()
 	end
 
@@ -1118,26 +1193,15 @@ local function buildColorPicker(parent, defaultColor)
 		return math.clamp((mx - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
 	end
 
-	wheelHit.MouseButton1Down:Connect(function()
-		local mp = UserInputService:GetMouseLocation()
-		local center = wheel.AbsolutePosition + wheel.AbsoluteSize / 2
-		local dist = (Vector2.new(mp.X, mp.Y) - center).Magnitude
-		if dist >= R - RING_TH and dist <= R + RING_TH then
-			dragTarget = "hue"
-			setHueFromMouse()
-		end
-	end)
-
-	satS.hit.MouseButton1Down:Connect(function() dragTarget = "sat"; s = linearPct(satS.track); refresh() end)
-	valS.hit.MouseButton1Down:Connect(function() dragTarget = "val"; v = linearPct(valS.track); refresh() end)
-	alpS.hit.MouseButton1Down:Connect(function() dragTarget = "alpha"; alpha = linearPct(alpS.track); refresh() end)
+	discHit.MouseButton1Down:Connect(function() dragTarget = "disc"; discFromMouse() end)
+	valHit.MouseButton1Down:Connect(function() dragTarget = "val"; v = linearPct(valTrack); refresh() end)
+	alpHit.MouseButton1Down:Connect(function() dragTarget = "alpha"; alpha = linearPct(alpTrack); refresh() end)
 
 	UserInputService.InputChanged:Connect(function(input)
 		if not dragTarget or input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
-		if dragTarget == "hue" then setHueFromMouse()
-		elseif dragTarget == "sat" then s = linearPct(satS.track); refresh()
-		elseif dragTarget == "val" then v = linearPct(valS.track); refresh()
-		elseif dragTarget == "alpha" then alpha = linearPct(alpS.track); refresh()
+		if dragTarget == "disc" then discFromMouse()
+		elseif dragTarget == "val" then v = linearPct(valTrack); refresh()
+		elseif dragTarget == "alpha" then alpha = linearPct(alpTrack); refresh()
 		end
 	end)
 
@@ -1145,43 +1209,43 @@ local function buildColorPicker(parent, defaultColor)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then dragTarget = nil end
 	end)
 
+	-- ── Hex input handling ────────────────────────────────────────────────────
 	inputBox.FocusLost:Connect(function()
 		local raw = inputBox.Text:gsub("%s", "")
 		local parsed = nil
 		local hex = raw:gsub("#", "")
 		if #hex == 6 then
-			local r = tonumber(hex:sub(1, 2), 16)
-			local g = tonumber(hex:sub(3, 4), 16)
-			local b = tonumber(hex:sub(5, 6), 16)
-			if r and g and b then parsed = Color3.fromRGB(r, g, b) end
+			local r = tonumber(hex:sub(1,2), 16)
+			local g = tonumber(hex:sub(3,4), 16)
+			local b = tonumber(hex:sub(5,6), 16)
+			if r and g and b then parsed = Color3.fromRGB(r,g,b) end
 		end
 		if not parsed then
-			local r, g, b = raw:match("^(%d+),(%d+),(%d+)$")
+			local r,g,b = raw:match("^(%d+),(%d+),(%d+)$")
 			if r and g and b then
-				r, g, b = tonumber(r), tonumber(g), tonumber(b)
-				if r <= 255 and g <= 255 and b <= 255 then
-					parsed = Color3.fromRGB(r, g, b)
-				end
+				r,g,b = tonumber(r),tonumber(g),tonumber(b)
+				if r<=255 and g<=255 and b<=255 then parsed = Color3.fromRGB(r,g,b) end
 			end
 		end
 		if parsed then
-			h, s, v = parsed:ToHSV()
+			h,s,v = parsed:ToHSV()
 			refresh()
 			inputBox.Text = ""
-			tween(inputStroke, { Color = Color3.fromRGB(42, 40, 62) }, tweenInfoFast)
+			tween(inputStroke, {Color = Color3.fromRGB(42,40,62)}, tweenInfoFast)
 		else
-			tween(inputStroke, { Color = Color3.fromRGB(180, 60, 60) }, tweenInfoFast)
+			tween(inputStroke, {Color = Color3.fromRGB(180,60,60)}, tweenInfoFast)
 			task.delay(0.8, function()
-				tween(inputStroke, { Color = Color3.fromRGB(42, 40, 62) }, tweenInfo)
+				tween(inputStroke, {Color = Color3.fromRGB(42,40,62)}, tweenInfo)
 				inputBox.Text = ""
 			end)
 		end
 	end)
 
 	inputBox:GetPropertyChangedSignal("Text"):Connect(function()
-		tween(inputStroke, { Color = Color3.fromRGB(42, 40, 62) }, tweenInfoFast)
+		tween(inputStroke, {Color = Color3.fromRGB(42,40,62)}, tweenInfoFast)
 	end)
 
+	-- ── Popup position & toggle ────────────────────────────────────────────────
 	local function positionPopup()
 		local ap = swatch.AbsolutePosition
 		local fp = MainFrame.AbsolutePosition
@@ -1196,7 +1260,7 @@ local function buildColorPicker(parent, defaultColor)
 		open = not open
 		positionPopup()
 		popup.Visible = open
-		tween(parent, { BackgroundColor3 = open and Color3.fromRGB(18, 17, 26) or BG_ROW }, tweenInfoFast)
+		tween(parent, {BackgroundColor3 = open and Color3.fromRGB(18,17,26) or BG_ROW}, tweenInfoFast)
 	end)
 
 	UserInputService.InputBegan:Connect(function(input)
@@ -1208,20 +1272,19 @@ local function buildColorPicker(parent, defaultColor)
 				if dragTarget then return end
 				local mp = UserInputService:GetMouseLocation()
 				local ap, as = popup.AbsolutePosition, popup.AbsoluteSize
-				local inside = mp.X >= ap.X and mp.X <= ap.X + as.X and mp.Y >= ap.Y and mp.Y <= ap.Y + as.Y
-				local onS = mp.X >= swatch.AbsolutePosition.X and mp.X <= swatch.AbsolutePosition.X + swatch.AbsoluteSize.X
-					and mp.Y >= swatch.AbsolutePosition.Y and mp.Y <= swatch.AbsolutePosition.Y + swatch.AbsoluteSize.Y
+				local inside = mp.X >= ap.X and mp.X <= ap.X+as.X and mp.Y >= ap.Y and mp.Y <= ap.Y+as.Y
+				local onS = mp.X >= swatch.AbsolutePosition.X and mp.X <= swatch.AbsolutePosition.X+swatch.AbsoluteSize.X
+					and mp.Y >= swatch.AbsolutePosition.Y and mp.Y <= swatch.AbsolutePosition.Y+swatch.AbsoluteSize.Y
 				if not inside and not onS then
 					open = false
 					popup.Visible = false
-					tween(parent, { BackgroundColor3 = BG_ROW }, tweenInfoFast)
+					tween(parent, {BackgroundColor3 = BG_ROW}, tweenInfoFast)
 				end
 			end)
 		end
 	end)
 
 	refresh()
-
 	return function() return currentColor end
 end
 
