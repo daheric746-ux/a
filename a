@@ -928,30 +928,28 @@ local function buildColorPicker(parent, defaultColor)
 	inner.ZIndex = 51
 	inner.Parent = popup
 
-	-- ── HSV wheel ─────────────────────────────────────────────────────────────
+	-- ── HSV wheel image ───────────────────────────────────────────────────────
 	local DISC_SIZE = 180
 	local DISC_R    = DISC_SIZE / 2
 
-	-- Clipping container — circle shaped via corner()
 	local discContainer = Instance.new("Frame")
 	discContainer.Size = UDim2.new(0, DISC_SIZE, 0, DISC_SIZE)
 	discContainer.Position = UDim2.new(0.5, -DISC_R, 0, 0)
 	discContainer.BackgroundTransparency = 1
 	discContainer.BorderSizePixel = 0
-	discContainer.ClipsDescendants = true
+	discContainer.ClipsDescendants = false
 	discContainer.ZIndex = 51
 	discContainer.Parent = inner
-	corner(discContainer, DISC_R)
 
-	-- Wheel image inside the clipped container
+	-- Wheel image (public HSV wheel asset)
 	local discImage = Instance.new("ImageLabel")
 	discImage.Size = UDim2.new(1, 0, 1, 0)
 	discImage.BackgroundTransparency = 1
-	discImage.Image = "rbxassetid://6523286724"
+	discImage.Image = "rbxassetid://1003599924"
 	discImage.ZIndex = 52
 	discImage.Parent = discContainer
 
-	-- Black overlay for value darkening — clipped by container automatically
+	-- Value darkening overlay — black frame, transparency = v
 	local valOverlay = Instance.new("Frame")
 	valOverlay.Size = UDim2.new(1, 0, 1, 0)
 	valOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
@@ -959,15 +957,16 @@ local function buildColorPicker(parent, defaultColor)
 	valOverlay.BorderSizePixel = 0
 	valOverlay.ZIndex = 53
 	valOverlay.Parent = discContainer
+	corner(valOverlay, DISC_R)
 
-	-- Knob parented to inner so it isn't clipped when near the edge
+	-- Knob
 	local discKnob = Instance.new("Frame")
 	discKnob.AnchorPoint = Vector2.new(0.5, 0.5)
 	discKnob.Size = UDim2.new(0, 14, 0, 14)
 	discKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	discKnob.BorderSizePixel = 0
 	discKnob.ZIndex = 56
-	discKnob.Parent = inner
+	discKnob.Parent = discContainer
 	corner(discKnob, 7)
 
 	local discKnobStroke = Instance.new("UIStroke")
@@ -976,14 +975,12 @@ local function buildColorPicker(parent, defaultColor)
 	discKnobStroke.Thickness = 1.5
 	discKnobStroke.Parent = discKnob
 
-	-- Hit area parented to inner, same size/position as discContainer
 	local discHit = Instance.new("TextButton")
-	discHit.Size = UDim2.new(0, DISC_SIZE, 0, DISC_SIZE)
-	discHit.Position = UDim2.new(0.5, -DISC_R, 0, 0)
+	discHit.Size = UDim2.new(1, 0, 1, 0)
 	discHit.BackgroundTransparency = 1
 	discHit.Text = ""
 	discHit.ZIndex = 57
-	discHit.Parent = inner
+	discHit.Parent = discContainer
 
 	-- ── Slider helper ─────────────────────────────────────────────────────────
 	local function makeSliderRow(yPos, labelText)
@@ -1005,22 +1002,15 @@ local function buildColorPicker(parent, defaultColor)
 		lbl.ZIndex = 52
 		lbl.Parent = holder
 
-		-- Track: transparent base, gradient provides all the color
 		local track = Instance.new("Frame")
 		track.Size = UDim2.new(1, -42, 0, 8)
 		track.Position = UDim2.new(0, 42, 0.5, -4)
-		track.BackgroundTransparency = 1
+		track.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		track.BackgroundTransparency = 0.88
 		track.BorderSizePixel = 0
 		track.ZIndex = 52
 		track.Parent = holder
 		corner(track, 4)
-
-		-- Subtle bright border so the track shape is visible
-		local trackStroke = Instance.new("UIStroke")
-		trackStroke.Color = Color3.fromRGB(255, 255, 255)
-		trackStroke.Transparency = 0.82
-		trackStroke.Thickness = 1
-		trackStroke.Parent = track
 
 		local grad = Instance.new("UIGradient")
 		grad.Parent = track
@@ -1076,35 +1066,29 @@ local function buildColorPicker(parent, defaultColor)
 	inputBox.Parent = inner
 	corner(inputBox, 6)
 
-	local inputStroke = Instance.new("UIStroke")
-	inputStroke.Color = Color3.fromRGB(42, 40, 62)
-	inputStroke.Thickness = 1
-	inputStroke.Parent = inputBox
-
 	-- ── Refresh ───────────────────────────────────────────────────────────────
 	local function refresh()
 		local col = Color3.fromHSV(h, s, v)
 		currentColor = col
 		swatch.BackgroundColor3 = col
 
-		-- Knob: parented to inner, disc is at UDim2.new(0.5, -DISC_R, 0, 0)
-		-- so center of disc in inner-space is (0.5 scale, DISC_R offset)
+		-- knob pixel position on disc
 		local ang = h * math.pi * 2
-		local px  = math.cos(ang) * s * DISC_R
-		local py  = math.sin(ang) * s * DISC_R
-		discKnob.Position = UDim2.new(0.5, px, 0, DISC_R + py)
+		local px = DISC_R + math.cos(ang) * s * DISC_R
+		local py = DISC_R + math.sin(ang) * s * DISC_R
+		discKnob.Position = UDim2.new(0, px, 0, py)
 
-		-- Value overlay transparency: v=1 → fully transparent (bright), v=0 → black
+		-- value overlay: v=1 fully transparent (bright), v=0 fully black
 		valOverlay.BackgroundTransparency = v
 
-		-- Val slider gradient: black → vivid hue
+		-- val slider: black → current hue at full brightness
 		valS.knob.Position = UDim2.new(v, 0, 0.5, 0)
 		valS.grad.Color = ColorSequence.new({
 			ColorSequenceKeypoint.new(0,   Color3.fromRGB(0, 0, 0)),
 			ColorSequenceKeypoint.new(1,   Color3.fromHSV(h, math.max(s, 0.6), 1)),
 		})
 
-		-- Alpha slider gradient: dark bg → current colour
+		-- alpha slider: colour → faded
 		alpS.knob.Position = UDim2.new(1 - alpha, 0, 0.5, 0)
 		alpS.grad.Color = ColorSequence.new({
 			ColorSequenceKeypoint.new(0,   Color3.fromRGB(17, 16, 26)),
@@ -1114,7 +1098,7 @@ local function buildColorPicker(parent, defaultColor)
 
 	-- ── Mouse helpers ─────────────────────────────────────────────────────────
 	local function getMousePos()
-		local mp    = UserInputService:GetMouseLocation()
+		local mp = UserInputService:GetMouseLocation()
 		local inset = GuiService:GetGuiInset()
 		return Vector2.new(mp.X - inset.X, mp.Y - inset.Y)
 	end
@@ -1123,8 +1107,8 @@ local function buildColorPicker(parent, defaultColor)
 
 	local function discFromMouse()
 		local mp   = getMousePos()
-		local ap   = discImage.AbsolutePosition
-		local sz   = discImage.AbsoluteSize
+		local ap   = discContainer.AbsolutePosition
+		local sz   = discContainer.AbsoluteSize
 		local dx   = mp.X - (ap.X + sz.X / 2)
 		local dy   = mp.Y - (ap.Y + sz.Y / 2)
 		local dist = math.sqrt(dx*dx + dy*dy)
@@ -1147,8 +1131,8 @@ local function buildColorPicker(parent, defaultColor)
 	UserInputService.InputChanged:Connect(function(input)
 		if not dragTarget or input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
 		if dragTarget == "disc"  then discFromMouse()
-		elseif dragTarget == "val"   then v     = linearPct(valS.track);     refresh()
-		elseif dragTarget == "alpha" then alpha = 1 - linearPct(alpS.track); refresh()
+		elseif dragTarget == "val"   then v     = linearPct(valS.track);          refresh()
+		elseif dragTarget == "alpha" then alpha = 1 - linearPct(alpS.track);      refresh()
 		end
 	end)
 
@@ -1156,7 +1140,6 @@ local function buildColorPicker(parent, defaultColor)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then dragTarget = nil end
 	end)
 
-	-- ── Hex input handling ────────────────────────────────────────────────────
 	inputBox.FocusLost:Connect(function()
 		local raw = inputBox.Text:gsub("%s", "")
 		if raw == "" then return end
@@ -1206,12 +1189,9 @@ local function buildColorPicker(parent, defaultColor)
 				if dragTarget then return end
 				local mp = getMousePos()
 				local ap, as = popup.AbsolutePosition, popup.AbsoluteSize
-				local inside = mp.X >= ap.X and mp.X <= ap.X + as.X
-					and mp.Y >= ap.Y and mp.Y <= ap.Y + as.Y
-				local onS = mp.X >= swatch.AbsolutePosition.X
-					and mp.X <= swatch.AbsolutePosition.X + swatch.AbsoluteSize.X
-					and mp.Y >= swatch.AbsolutePosition.Y
-					and mp.Y <= swatch.AbsolutePosition.Y + swatch.AbsoluteSize.Y
+				local inside = mp.X >= ap.X and mp.X <= ap.X + as.X and mp.Y >= ap.Y and mp.Y <= ap.Y + as.Y
+				local onS = mp.X >= swatch.AbsolutePosition.X and mp.X <= swatch.AbsolutePosition.X + swatch.AbsoluteSize.X
+					and mp.Y >= swatch.AbsolutePosition.Y and mp.Y <= swatch.AbsolutePosition.Y + swatch.AbsoluteSize.Y
 				if not inside and not onS then
 					open = false
 					popup.Visible = false
