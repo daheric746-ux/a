@@ -560,9 +560,9 @@ local function buildToggle(parent, defaultOn, configKey)
 		tween(ball, { Position = state and UDim2.new(1, -20, 0.5, -8) or UDim2.new(0, 4, 0.5, -8) }, tweenInfoSpring)
 		tween(parent, { BackgroundColor3 = Color3.fromRGB(20, 19, 30) }, tweenInfoFast)
 		task.delay(0.12, function() tween(parent, { BackgroundColor3 = BG_ROW }, tweenInfo) end)
-		if configKey and configRegistry[configKey] then
-			saveConfig(configRegistry)
-		end
+if configKey then
+    saveConfig(configRegistry)
+end
 		if onChange then onChange(state) end
 	end
 
@@ -647,9 +647,9 @@ local function buildSlider(parent, minVal, maxVal, defaultVal, configKey)
 		fill.Size = UDim2.new(pct, 0, 1, 0)
 		thumb.Position = UDim2.new(pct, -6, 0.5, -6)
 		valBox.Text = tostring(value)
-		if configKey and configRegistry[configKey] then
-			saveConfig(configRegistry)
-		end
+if configKey then
+    saveConfig(configRegistry)
+end
 		if onChange then onChange(value) end
 	end
 
@@ -823,9 +823,9 @@ local function buildDropdown(parent, options, default, configKey)
 			label.Text = opt
 			closeList()
 			refreshColors()
-			if configKey and configRegistry[configKey] then
-				saveConfig(configRegistry)
-			end
+if configKey then
+    saveConfig(configRegistry)
+end
 			if onChange then onChange(selected) end
 		end)
 	end
@@ -889,9 +889,9 @@ local function buildKeybind(parent, default, configKey, onChanged)
 			tween(btn, { TextColor3 = TEXT_MAIN })
 			tween(btn, { BackgroundColor3 = BG_INPUT }, tweenInfoFast)
 			listening = false
-			if configKey and configRegistry[configKey] then
-				saveConfig(configRegistry)
-			end
+if configKey then
+    saveConfig(configRegistry)
+end
 			if onChanged then onChanged(currentKey) end
 		end
 	end)
@@ -920,9 +920,9 @@ local function buildInput(parent, default, configKey)
 	pad(box, 0, 0, 12, 12)
 
 	box.FocusLost:Connect(function()
-		if configKey and configRegistry[configKey] then
-			saveConfig(configRegistry)
-		end
+if configKey then
+    saveConfig(configRegistry)
+end
 	end)
 
 	return box
@@ -1182,9 +1182,9 @@ local function buildColorPicker(parent, defaultColor, configKey)
 			ColorSequenceKeypoint.new(1, col),
 		})
 
-		if configKey and configRegistry[configKey] then
-			saveConfig(configRegistry)
-		end
+if configKey then
+    saveConfig(configRegistry)
+end
 		if onChange then onChange(col) end
 	end
 
@@ -1447,9 +1447,9 @@ local function buildMultiSelect(parent, options, defaults, configKey)
 		item.MouseButton1Click:Connect(function()
 			selected[opt] = not selected[opt]
 			refreshItems()
-			if configKey and configRegistry[configKey] then
-				saveConfig(configRegistry)
-			end
+if configKey then
+    saveConfig(configRegistry)
+end
 			if onChange then
 				local out = {}
 				for _, o in ipairs(options) do if selected[o] then table.insert(out, o) end end
