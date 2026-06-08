@@ -1114,7 +1114,8 @@ local function buildColorPicker(parent, defaultColor)
 		local dist = math.sqrt(dx*dx + dy*dy)
 		local ang  = math.atan2(dy, dx)
 		if ang < 0 then ang = ang + math.pi * 2 end
-		h = ang / (math.pi * 2)
+		h = (ang / (math.pi * 2)) + 0.25
+		if h > 1 then h = h - 1 end
 		s = math.clamp(dist / (sz.X / 2), 0, 1)
 		refresh()
 	end
