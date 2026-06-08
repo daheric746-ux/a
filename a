@@ -24,12 +24,12 @@ local function saveConfig(registry)
 				local t = type(val)
 				if t == "boolean" or t == "number" or t == "string" then
 					data[key] = { type = t, value = val }
-				elseif t == "userdata" and val.R then
+				elseif t == "userdata" and typeof(val) == "EnumItem" then
+					data[key] = { type = "keycode", name = val.Name }
+				elseif t == "userdata" and typeof(val) == "Color3" then
 					data[key] = { type = "color", r = val.R, g = val.G, b = val.B }
 				elseif t == "table" then
 					data[key] = { type = "table", value = val }
-				elseif t == "userdata" and val.Name then
-					data[key] = { type = "keycode", name = val.Name }
 				end
 			end
 		end
