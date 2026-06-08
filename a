@@ -928,59 +928,70 @@ local function buildColorPicker(parent, defaultColor)
 	inner.ZIndex = 51
 	inner.Parent = popup
 
-	-- ── EditableImage disc ────────────────────────────────────────────────────
+	-- ── Pixel-grid HSV disc ───────────────────────────────────────────────────
+	-- We render a grid of STEP×STEP frames. Each cell maps to a disc coordinate.
+	-- Hue = angle, Saturation = distance from center, Value = current v.
+	-- Cells outside the circle radius are hidden.
 	local DISC_SIZE = 180
 	local DISC_R    = DISC_SIZE / 2
-	local RES       = 128  -- pixel resolution of the editable image
+	local STEP      = 6   -- cell size in pixels (lower = nicer, more instances)
+	local COLS      = math.ceil(DISC_SIZE / STEP)
 
 	local discContainer = Instance.new("Frame")
 	discContainer.Size = UDim2.new(0, DISC_SIZE, 0, DISC_SIZE)
 	discContainer.Position = UDim2.new(0.5, -DISC_R, 0, 0)
-	discContainer.BackgroundTransparency = 1
+	discContainer.BackgroundColor3 = Color3.fromRGB(17, 16, 26)
+	discContainer.BorderSizePixel = 0
+	discContainer.ClipsDescendants = true
 	discContainer.ZIndex = 51
 	discContainer.Parent = inner
+	corner(discContainer, DISC_R)
 
-	local discImage = Instance.new("ImageLabel")
-	discImage.Size = UDim2.new(1, 0, 1, 0)
-	discImage.BackgroundTransparency = 1
-	discImage.ZIndex = 52
-	discImage.Parent = discContainer
-	corner(discImage, DISC_R)
+	-- Build cell grid
+	local cells = {}
+	for row = 0, COLS - 1 do
+		cells[row] = {}
+		for col = 0, COLS - 1 do
+			-- normalized -1..1 coords
+			local nx = (col / COLS) * 2 - 1 + (1 / COLS)
+			local ny = (row / COLS) * 2 - 1 + (1 / COLS)
+			local dist = math.sqrt(nx*nx + ny*ny)
 
-	local editImg = Instance.new("EditableImage")
-	editImg.Size = Vector2.new(RES, RES)
-	editImg.Parent = discImage
+			local cell = Instance.new("Frame")
+			cell.Size = UDim2.new(0, STEP + 1, 0, STEP + 1)  -- +1 to avoid gaps
+			cell.Position = UDim2.new(0, col * STEP, 0, row * STEP)
+			cell.BorderSizePixel = 0
+			cell.ZIndex = 52
+			cell.Parent = discContainer
 
-	local function drawDisc()
-		local pixels = {}
-		local cx, cy = RES / 2, RES / 2
-		for py = 0, RES - 1 do
-			for px = 0, RES - 1 do
-				local dx = (px - cx) / (RES / 2)
-				local dy = (py - cy) / (RES / 2)
-				local dist = math.sqrt(dx*dx + dy*dy)
-				if dist <= 1 then
-					local ang = math.atan2(dy, dx)
+			if dist > 1 then
+				cell.BackgroundTransparency = 1
+			else
+				local ang = math.atan2(ny, nx)
+				if ang < 0 then ang = ang + math.pi * 2 end
+				local cellH = ang / (math.pi * 2)
+				local cellS = dist
+				cell.BackgroundColor3 = Color3.fromHSV(cellH, cellS, v)
+				cell.BackgroundTransparency = 0
+			end
+
+			cells[row][col] = { frame = cell, nx = nx, ny = ny, dist = dist }
+		end
+	end
+
+	-- Recolor cells when value changes
+	local function redrawDisc()
+		for row = 0, COLS - 1 do
+			for col = 0, COLS - 1 do
+				local c = cells[row][col]
+				if c.dist <= 1 then
+					local ang = math.atan2(c.ny, c.nx)
 					if ang < 0 then ang = ang + math.pi * 2 end
-					local hue = ang / (math.pi * 2)
-					local sat = dist
-					local col = Color3.fromHSV(hue, sat, v)
-					table.insert(pixels, col.R)
-					table.insert(pixels, col.G)
-					table.insert(pixels, col.B)
-					table.insert(pixels, 1)
-				else
-					table.insert(pixels, 0)
-					table.insert(pixels, 0)
-					table.insert(pixels, 0)
-					table.insert(pixels, 0)
+					c.frame.BackgroundColor3 = Color3.fromHSV(ang / (math.pi * 2), c.dist, v)
 				end
 			end
 		end
-		editImg:WritePixels(Vector2.zero, Vector2.new(RES, RES), pixels)
 	end
-
-	drawDisc()
 
 	-- Knob
 	local discKnob = Instance.new("Frame")
@@ -1005,7 +1016,7 @@ local function buildColorPicker(parent, defaultColor)
 	discHit.ZIndex = 57
 	discHit.Parent = discContainer
 
-	-- ── Value slider ──────────────────────────────────────────────────────────
+	-- ── Slider helper ─────────────────────────────────────────────────────────
 	local function makeSliderRow(yPos, labelText)
 		local holder = Instance.new("Frame")
 		holder.Size = UDim2.new(1, 0, 0, 22)
@@ -1099,7 +1110,6 @@ local function buildColorPicker(parent, defaultColor)
 		currentColor = col
 		swatch.BackgroundColor3 = col
 
-		-- Knob on disc (polar → UDim2)
 		local ang = h * math.pi * 2
 		local kx = 0.5 + math.cos(ang) * s * 0.5
 		local ky = 0.5 + math.sin(ang) * s * 0.5
@@ -1111,7 +1121,7 @@ local function buildColorPicker(parent, defaultColor)
 		alpS.knob.Position = UDim2.new(alpha, 0, 0.5, 0)
 		alpS.grad.Color = ColorSequence.new(col, Color3.fromRGB(17, 16, 26))
 
-		drawDisc()  -- redraw disc with new v
+		redrawDisc()
 	end
 
 	-- ── Dragging ──────────────────────────────────────────────────────────────
@@ -1151,7 +1161,6 @@ local function buildColorPicker(parent, defaultColor)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then dragTarget = nil end
 	end)
 
-	-- ── Hex input ─────────────────────────────────────────────────────────────
 	inputBox.FocusLost:Connect(function()
 		local raw = inputBox.Text:gsub("%s", "")
 		local parsed = nil
@@ -1187,7 +1196,7 @@ local function buildColorPicker(parent, defaultColor)
 		tween(inputStroke, { Color = Color3.fromRGB(42, 40, 62) }, tweenInfoFast)
 	end)
 
-	-- ── Popup position & toggle ────────────────────────────────────────────────
+	-- ── Popup positioning ─────────────────────────────────────────────────────
 	local function positionPopup()
 		local ap = swatch.AbsolutePosition
 		local fp = MainFrame.AbsolutePosition
