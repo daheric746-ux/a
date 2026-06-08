@@ -929,12 +929,9 @@ local function buildColorPicker(parent, defaultColor)
 	inner.Parent = popup
 
 	-- ── Pixel-grid HSV disc ───────────────────────────────────────────────────
-	-- We render a grid of STEP×STEP frames. Each cell maps to a disc coordinate.
-	-- Hue = angle, Saturation = distance from center, Value = current v.
-	-- Cells outside the circle radius are hidden.
 	local DISC_SIZE = 180
 	local DISC_R    = DISC_SIZE / 2
-	local STEP      = 6   -- cell size in pixels (lower = nicer, more instances)
+	local STEP      = 6
 	local COLS      = math.ceil(DISC_SIZE / STEP)
 
 	local discContainer = Instance.new("Frame")
@@ -947,18 +944,16 @@ local function buildColorPicker(parent, defaultColor)
 	discContainer.Parent = inner
 	corner(discContainer, DISC_R)
 
-	-- Build cell grid
 	local cells = {}
 	for row = 0, COLS - 1 do
 		cells[row] = {}
 		for col = 0, COLS - 1 do
-			-- normalized -1..1 coords
 			local nx = (col / COLS) * 2 - 1 + (1 / COLS)
 			local ny = (row / COLS) * 2 - 1 + (1 / COLS)
 			local dist = math.sqrt(nx*nx + ny*ny)
 
 			local cell = Instance.new("Frame")
-			cell.Size = UDim2.new(0, STEP + 1, 0, STEP + 1)  -- +1 to avoid gaps
+			cell.Size = UDim2.new(0, STEP + 1, 0, STEP + 1)
 			cell.Position = UDim2.new(0, col * STEP, 0, row * STEP)
 			cell.BorderSizePixel = 0
 			cell.ZIndex = 52
@@ -969,9 +964,7 @@ local function buildColorPicker(parent, defaultColor)
 			else
 				local ang = math.atan2(ny, nx)
 				if ang < 0 then ang = ang + math.pi * 2 end
-				local cellH = ang / (math.pi * 2)
-				local cellS = dist
-				cell.BackgroundColor3 = Color3.fromHSV(cellH, cellS, v)
+				cell.BackgroundColor3 = Color3.fromHSV(ang / (math.pi * 2), dist, v)
 				cell.BackgroundTransparency = 0
 			end
 
@@ -979,7 +972,6 @@ local function buildColorPicker(parent, defaultColor)
 		end
 	end
 
-	-- Recolor cells when value changes
 	local function redrawDisc()
 		for row = 0, COLS - 1 do
 			for col = 0, COLS - 1 do
@@ -993,7 +985,6 @@ local function buildColorPicker(parent, defaultColor)
 		end
 	end
 
-	-- Knob
 	local discKnob = Instance.new("Frame")
 	discKnob.AnchorPoint = Vector2.new(0.5, 0.5)
 	discKnob.Size = UDim2.new(0, 14, 0, 14)
@@ -1045,6 +1036,7 @@ local function buildColorPicker(parent, defaultColor)
 		track.Parent = holder
 		corner(track, 4)
 
+		-- checkerboard bg for alpha, gradient for others
 		local grad = Instance.new("UIGradient")
 		grad.Parent = track
 
@@ -1080,7 +1072,7 @@ local function buildColorPicker(parent, defaultColor)
 	local valS = makeSliderRow(VAL_Y, "Val")
 	local alpS = makeSliderRow(ALP_Y, "Alpha")
 
-	-- ── Hex input ─────────────────────────────────────────────────────────────
+	-- ── Hex input — plain style, no error flash ────────────────────────────────
 	local HEX_Y = ALP_Y + 34
 	local inputBox = Instance.new("TextBox")
 	inputBox.Size = UDim2.new(1, 0, 0, 26)
@@ -1088,7 +1080,7 @@ local function buildColorPicker(parent, defaultColor)
 	inputBox.BackgroundColor3 = Color3.fromRGB(23, 22, 34)
 	inputBox.BorderSizePixel = 0
 	inputBox.Text = ""
-	inputBox.PlaceholderText = "#8760DC or 135, 96, 220"
+	inputBox.PlaceholderText = "hex or r, g, b"
 	inputBox.PlaceholderColor3 = TEXT_MUTED
 	inputBox.TextColor3 = TEXT_MAIN
 	inputBox.TextSize = 11
@@ -1099,27 +1091,32 @@ local function buildColorPicker(parent, defaultColor)
 	inputBox.Parent = inner
 	corner(inputBox, 6)
 
-	local inputStroke = Instance.new("UIStroke")
-	inputStroke.Color = Color3.fromRGB(42, 40, 62)
-	inputStroke.Thickness = 1
-	inputStroke.Parent = inputBox
-
 	-- ── Refresh ───────────────────────────────────────────────────────────────
 	local function refresh()
 		local col = Color3.fromHSV(h, s, v)
 		currentColor = col
 		swatch.BackgroundColor3 = col
 
+		-- FIX: use absolute pixel position on disc, not UDim fractions
+		-- knob position is in pixels relative to discContainer top-left
 		local ang = h * math.pi * 2
-		local kx = 0.5 + math.cos(ang) * s * 0.5
-		local ky = 0.5 + math.sin(ang) * s * 0.5
-		discKnob.Position = UDim2.new(kx, 0, ky, 0)
+		local px = DISC_R + math.cos(ang) * s * DISC_R
+		local py = DISC_R + math.sin(ang) * s * DISC_R
+		discKnob.Position = UDim2.new(0, px, 0, py)
 
+		-- Val slider: gradient black → full-bright color at current h,s
 		valS.knob.Position = UDim2.new(v, 0, 0.5, 0)
-		valS.grad.Color = ColorSequence.new(Color3.fromRGB(0, 0, 0), Color3.fromHSV(h, s, 1))
+		valS.grad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0,   Color3.fromRGB(0, 0, 0)),
+			ColorSequenceKeypoint.new(1,   Color3.fromHSV(h, math.max(s, 0.01), 1)),
+		})
 
-		alpS.knob.Position = UDim2.new(alpha, 0, 0.5, 0)
-		alpS.grad.Color = ColorSequence.new(col, Color3.fromRGB(17, 16, 26))
+		-- Alpha slider: gradient current color → transparent (show dark bg colour)
+		alpS.knob.Position = UDim2.new(1 - alpha, 0, 0.5, 0)  -- 0 = opaque (left), 1 = transparent (right)
+		alpS.grad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, col),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(17, 16, 26)),
+		})
 
 		redrawDisc()
 	end
@@ -1128,15 +1125,17 @@ local function buildColorPicker(parent, defaultColor)
 	local dragTarget = nil
 
 	local function discFromMouse()
-		local mp = UserInputService:GetMouseLocation()
-		local center = discContainer.AbsolutePosition + discContainer.AbsoluteSize / 2
-		local dx = mp.X - center.X
-		local dy = mp.Y - center.Y
+		local mp  = UserInputService:GetMouseLocation()
+		local ap  = discContainer.AbsolutePosition
+		local sz  = discContainer.AbsoluteSize
+		-- dx/dy in pixels relative to disc center
+		local dx  = mp.X - (ap.X + sz.X / 2)
+		local dy  = mp.Y - (ap.Y + sz.Y / 2)
 		local dist = math.sqrt(dx*dx + dy*dy)
-		local ang = math.atan2(dy, dx)
+		local ang  = math.atan2(dy, dx)
 		if ang < 0 then ang = ang + math.pi * 2 end
 		h = ang / (math.pi * 2)
-		s = math.clamp(dist / (discContainer.AbsoluteSize.X / 2), 0, 1)
+		s = math.clamp(dist / (sz.X / 2), 0, 1)
 		refresh()
 	end
 
@@ -1147,13 +1146,13 @@ local function buildColorPicker(parent, defaultColor)
 
 	discHit.MouseButton1Down:Connect(function() dragTarget = "disc"; discFromMouse() end)
 	valS.hit.MouseButton1Down:Connect(function() dragTarget = "val"; v = linearPct(valS.track); refresh() end)
-	alpS.hit.MouseButton1Down:Connect(function() dragTarget = "alpha"; alpha = linearPct(alpS.track); refresh() end)
+	alpS.hit.MouseButton1Down:Connect(function() dragTarget = "alpha"; alpha = 1 - linearPct(alpS.track); refresh() end)
 
 	UserInputService.InputChanged:Connect(function(input)
 		if not dragTarget or input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
 		if dragTarget == "disc" then discFromMouse()
 		elseif dragTarget == "val" then v = linearPct(valS.track); refresh()
-		elseif dragTarget == "alpha" then alpha = linearPct(alpS.track); refresh()
+		elseif dragTarget == "alpha" then alpha = 1 - linearPct(alpS.track); refresh()
 		end
 	end)
 
@@ -1161,8 +1160,10 @@ local function buildColorPicker(parent, defaultColor)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then dragTarget = nil end
 	end)
 
+	-- ── Hex input — silently ignore bad input, no red flash ───────────────────
 	inputBox.FocusLost:Connect(function()
 		local raw = inputBox.Text:gsub("%s", "")
+		if raw == "" then return end
 		local parsed = nil
 		local hex = raw:gsub("#", "")
 		if #hex == 6 then
@@ -1175,25 +1176,17 @@ local function buildColorPicker(parent, defaultColor)
 			local r, g, b = raw:match("^(%d+),(%d+),(%d+)$")
 			if r and g and b then
 				r, g, b = tonumber(r), tonumber(g), tonumber(b)
-				if r <= 255 and g <= 255 and b <= 255 then parsed = Color3.fromRGB(r, g, b) end
+				if r <= 255 and g <= 255 and b <= 255 then
+					parsed = Color3.fromRGB(r, g, b)
+				end
 			end
 		end
 		if parsed then
 			h, s, v = parsed:ToHSV()
 			refresh()
-			inputBox.Text = ""
-			tween(inputStroke, { Color = Color3.fromRGB(42, 40, 62) }, tweenInfoFast)
-		else
-			tween(inputStroke, { Color = Color3.fromRGB(180, 60, 60) }, tweenInfoFast)
-			task.delay(0.8, function()
-				tween(inputStroke, { Color = Color3.fromRGB(42, 40, 62) }, tweenInfo)
-				inputBox.Text = ""
-			end)
 		end
-	end)
-
-	inputBox:GetPropertyChangedSignal("Text"):Connect(function()
-		tween(inputStroke, { Color = Color3.fromRGB(42, 40, 62) }, tweenInfoFast)
+		-- always clear, no error flash — bad input just silently resets
+		inputBox.Text = ""
 	end)
 
 	-- ── Popup positioning ─────────────────────────────────────────────────────
