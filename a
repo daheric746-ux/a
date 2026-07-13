@@ -8,7 +8,9 @@ local LocalPlayer         = Players.LocalPlayer
 
 local icons = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/Kryos69/icons/refs/heads/main/icons"))()
 local function getIcon(name, library)
-	return "rbxassetid://" .. icons:get_icon(name, library or "Material")
+	local ok, assetId = pcall(icons.get_icon, icons, name, library or "Material")
+	if not ok or assetId == nil then return "" end
+	return "rbxassetid://" .. tostring(assetId)
 end
 
 local MOBILE_PREVIEW_ON_PC = false
@@ -21,8 +23,21 @@ do
 end
 
 local CONFIG_KEY = "sparestack_config"
+local PROFILE_DIR = "sparestack_profiles"
+local saveMode = "auto"
+local dirty = false
+local dirtyListeners = {}
+local suppressSaves = false
 
-local function saveConfig(registry)
+local function emitDirty(value)
+	if dirty == value then return end
+	dirty = value
+	for _, listener in ipairs(dirtyListeners) do
+		task.spawn(listener, dirty)
+	end
+end
+
+local function serializeConfig(registry)
 	local data = {}
 	for key, entry in pairs(registry) do
 		if entry.getter then
@@ -43,7 +58,23 @@ local function saveConfig(registry)
 			end
 		end
 	end
-	pcall(writefile, CONFIG_KEY .. ".json", HttpService:JSONEncode(data))
+	return data
+end
+
+local function writeConfig(path, registry)
+	local data = serializeConfig(registry)
+	local ok = pcall(writefile, path, HttpService:JSONEncode(data))
+	if ok then emitDirty(false) end
+	return ok
+end
+
+local function saveConfig(registry)
+	if suppressSaves then return end
+	if saveMode == "auto" then
+		writeConfig(CONFIG_KEY .. ".json", registry)
+	else
+		emitDirty(true)
+	end
 end
 
 local function loadConfig()
@@ -59,8 +90,8 @@ local BG_SIDEBAR = Color3.fromRGB(9,   8,  13)
 local BG_CONTENT = Color3.fromRGB(12,  11,  17)
 local BG_ROW     = Color3.fromRGB(15,  14,  21)
 local BG_INPUT   = Color3.fromRGB(19,  18,  27)
-local ACCENT     = Color3.fromRGB(51, 105, 255)   -- // #3369FF stack accent
-local TEXT_MAIN  = Color3.fromRGB(245, 245, 250)   -- // spare white
+local ACCENT     = Color3.fromRGB(51, 105, 255)
+local TEXT_MAIN  = Color3.fromRGB(245, 245, 250)
 local TEXT_MUTED = Color3.fromRGB(100, 100, 115)
 local DIVIDER    = Color3.fromRGB(22,  21,  30)
 
@@ -136,6 +167,7 @@ ScreenGui.Parent          = guiParent
 
 local SIDEBAR_W = IS_MOBILE and 112 or 220
 local CPAD      = IS_MOBILE and 12 or 30
+local CollapsedTab
 
 local MainFrame = Instance.new("Frame")
 MainFrame.BackgroundColor3 = BG_CONTENT
@@ -157,6 +189,10 @@ local function sizeMainFrame()
 	else
 		MainFrame.Size     = UDim2.new(0, 860, 0, 540)
 		MainFrame.Position = UDim2.new(0.5, -430, 0.5, -270)
+	end
+	if CollapsedTab and CollapsedTab.Visible then
+		CollapsedTab.Size = UDim2.new(0, MainFrame.AbsoluteSize.X, 0, IS_MOBILE and 56 or 60)
+		CollapsedTab.Position = UDim2.fromOffset(MainFrame.AbsolutePosition.X, MainFrame.AbsolutePosition.Y)
 	end
 end
 sizeMainFrame()
@@ -277,15 +313,6 @@ local function showNotif(title, message, notifType)
 	stroke.Thickness = 1
 	stroke.Parent    = card
 
-	local accent = Instance.new("Frame")
-	accent.Size             = UDim2.new(0, 3, 1, -16)
-	accent.Position         = UDim2.new(0, 0, 0, 8)
-	accent.BackgroundColor3 = typeColor
-	accent.BorderSizePixel  = 0
-	accent.ZIndex           = 1000
-	accent.Parent           = card
-	corner(accent, 2)
-
 	local iconBg = Instance.new("Frame")
 	iconBg.Size                   = UDim2.new(0, 32, 0, 32)
 	iconBg.Position               = UDim2.new(0, 12, 0.5, -16)
@@ -367,7 +394,6 @@ local function showNotif(title, message, notifType)
 		tween(titleLbl, { TextTransparency = 1 },       ti)
 		tween(msgLbl,   { TextTransparency = 1 },       ti)
 		tween(stroke,   { Transparency = 1 },           ti)
-		tween(accent,   { BackgroundTransparency = 1 }, ti)
 		tween(iconBg,   { BackgroundTransparency = 1 }, ti)
 		tween(statusIcon, { ImageTransparency = 1 },     ti)
 		tween(closeIcon, { ImageTransparency = 1 },      ti)
@@ -540,30 +566,30 @@ ContentFix.BackgroundColor3 = BG_CONTENT
 ContentFix.BorderSizePixel  = 0
 ContentFix.Parent           = ContentArea
 
-local CollapsedTab = Instance.new("Frame")
+CollapsedTab = Instance.new("Frame")
 CollapsedTab.Name             = "SpareStackCollapsedTab"
-CollapsedTab.Size             = UDim2.new(0, IS_MOBILE and 132 or 148, 0, IS_MOBILE and 48 or 44)
-CollapsedTab.Position         = UDim2.new(0, 14, 0.5, IS_MOBILE and -24 or -22)
-CollapsedTab.BackgroundColor3 = BG_SIDEBAR
+CollapsedTab.Size             = UDim2.new(0, MainFrame.AbsoluteSize.X, 0, IS_MOBILE and 56 or 60)
+CollapsedTab.Position         = UDim2.fromOffset(MainFrame.AbsolutePosition.X, MainFrame.AbsolutePosition.Y)
+CollapsedTab.BackgroundColor3 = BG_CONTENT
 CollapsedTab.BorderSizePixel  = 0
 CollapsedTab.Visible          = false
 CollapsedTab.ZIndex           = 200
 CollapsedTab.Parent           = ScreenGui
-corner(CollapsedTab, IS_MOBILE and 12 or 9)
+corner(CollapsedTab, 10)
 
 local collapsedStroke = Instance.new("UIStroke")
-collapsedStroke.Color       = ACCENT
-collapsedStroke.Thickness   = 1.5
-collapsedStroke.Transparency = 0.15
+collapsedStroke.Color        = DIVIDER
+collapsedStroke.Thickness    = 1
+collapsedStroke.Transparency = 0
 collapsedStroke.Parent      = CollapsedTab
 
 local collapsedLabel = Instance.new("TextLabel")
 collapsedLabel.Size                = UDim2.new(1, -46, 1, 0)
-collapsedLabel.Position            = UDim2.new(0, 14, 0, 0)
+collapsedLabel.Position            = UDim2.new(0, IS_MOBILE and 16 or 20, 0, 0)
 collapsedLabel.BackgroundTransparency = 1
 collapsedLabel.Text                = "spare stack"
 collapsedLabel.TextColor3          = TEXT_MAIN
-collapsedLabel.TextSize            = IS_MOBILE and 13 or 14
+collapsedLabel.TextSize            = IS_MOBILE and 16 or 18
 collapsedLabel.Font                = Enum.Font.GothamBold
 collapsedLabel.TextXAlignment      = Enum.TextXAlignment.Left
 collapsedLabel.ZIndex              = 202
@@ -586,8 +612,27 @@ collapsedHit.ZIndex                 = 203
 collapsedHit.Parent                 = CollapsedTab
 
 local function setWindowExpanded(expanded)
-	MainFrame.Visible = expanded
-	CollapsedTab.Visible = not expanded
+	if expanded then
+		if CollapsedTab.Visible then
+			local cam = workspace.CurrentCamera
+			local viewport = cam and cam.ViewportSize or Vector2.new(1280, 720)
+			local position = CollapsedTab.AbsolutePosition
+			local size = MainFrame.AbsoluteSize
+			MainFrame.Position = UDim2.fromOffset(
+				math.clamp(position.X, 8, math.max(8, viewport.X - size.X - 8)),
+				math.clamp(position.Y, 8, math.max(8, viewport.Y - size.Y - 8))
+			)
+		end
+		CollapsedTab.Visible = false
+		MainFrame.Visible = true
+	else
+		local position = MainFrame.AbsolutePosition
+		local size = MainFrame.AbsoluteSize
+		CollapsedTab.Size = UDim2.new(0, size.X, 0, IS_MOBILE and 56 or 60)
+		CollapsedTab.Position = UDim2.fromOffset(position.X, position.Y)
+		CollapsedTab.Visible = true
+		MainFrame.Visible = false
+	end
 end
 
 do
@@ -628,14 +673,12 @@ local minimizeButton = Instance.new("ImageButton")
 minimizeButton.Name                   = "MinimizeButton"
 minimizeButton.Size                   = UDim2.new(0, IS_MOBILE and 42 or 34, 0, IS_MOBILE and 42 or 34)
 minimizeButton.Position               = UDim2.new(1, IS_MOBILE and -50 or -42, 0, IS_MOBILE and 10 or 13)
-minimizeButton.BackgroundColor3       = BG_INPUT
-minimizeButton.BackgroundTransparency = 0.15
+minimizeButton.BackgroundTransparency = 1
 minimizeButton.BorderSizePixel        = 0
 minimizeButton.AutoButtonColor        = false
 minimizeButton.Image                  = ""
 minimizeButton.ZIndex                 = 20
 minimizeButton.Parent                 = ContentArea
-corner(minimizeButton, IS_MOBILE and 10 or 7)
 
 local minimizeIcon = Instance.new("ImageLabel")
 minimizeIcon.Size                   = UDim2.new(0, IS_MOBILE and 22 or 18, 0, IS_MOBILE and 22 or 18)
@@ -647,11 +690,9 @@ minimizeIcon.ZIndex                 = 21
 minimizeIcon.Parent                 = minimizeButton
 
 minimizeButton.MouseEnter:Connect(function()
-	tween(minimizeButton, { BackgroundColor3 = Color3.fromRGB(28, 27, 40) }, TI_FAST)
 	tween(minimizeIcon, { ImageColor3 = TEXT_MAIN }, TI_FAST)
 end)
 minimizeButton.MouseLeave:Connect(function()
-	tween(minimizeButton, { BackgroundColor3 = BG_INPUT }, TI_FAST)
 	tween(minimizeIcon, { ImageColor3 = TEXT_MUTED }, TI_FAST)
 end)
 minimizeButton.MouseButton1Click:Connect(function()
@@ -745,6 +786,7 @@ local W_WIDE   = IS_MOBILE and 124 or 165
 local W_SLIDER = IS_MOBILE and 140 or 210
 local SLIDER_TRACK_W = IS_MOBILE and 84 or 150
 local ROW_H    = IS_MOBILE and 96 or 64
+local setTab
 
 local function makeScrollPage(yStart)
 	local clip = Instance.new("Frame")
@@ -798,10 +840,15 @@ local function setActiveNav(entry)
 	TabBar.Visible      = hasTabs
 	TabsDivider.Visible = hasTabs
 
-	if entry.page then entry.page.clip.Visible = true end
+	if hasTabs then
+		activeTabDefs = entry.tabDefs or {}
+		setTab(entry.defaultTab or (activeTabDefs[1] and activeTabDefs[1].name) or "")
+	elseif entry.page then
+		entry.page.clip.Visible = true
+	end
 end
 
-local function setTab(name)
+setTab = function(name)
 	activeTabName = name
 	for _, def in ipairs(activeTabDefs) do
 		local isActive = def.name == name
@@ -999,7 +1046,9 @@ local function buildSlider(parent, minVal, maxVal, defaultVal, configKey, step)
 		if n then applyValue(roundValue(n)) else valBox.Text = fmt(value) end
 	end)
 
-	return function() return value end, function(fn) onChange = fn end, function(v) applyValue(roundValue(v), true) end
+	return function() return value end,
+		function(fn) onChange = fn end,
+		function(v, silent) applyValue(roundValue(v), silent) end
 end
 
 local function buildDropdown(parent, options, default, configKey)
@@ -1102,46 +1151,68 @@ local function buildDropdown(parent, options, default, configKey)
 		if trackConn then trackConn:Disconnect(); trackConn = nil end
 	end
 
-	for i, opt in ipairs(options) do
-		local item = Instance.new("TextButton")
-		item.Size             = UDim2.new(1, 0, 0, ITEM_H)
-		item.BackgroundColor3 = opt == selected and Color3.fromRGB(30,28,44) or Color3.fromRGB(22,21,32)
-		item.BackgroundTransparency = 0
-		item.Text             = ""
-		item.LayoutOrder      = i
-		item.ZIndex           = 11
-		item.Parent           = listBg
-		corner(item, 4)
-
-		local itemLbl = Instance.new("TextLabel")
-		itemLbl.Size             = UDim2.new(1, -20, 1, 0)
-		itemLbl.Position         = UDim2.new(0, 12, 0, 0)
-		itemLbl.BackgroundTransparency = 1
-		itemLbl.Text             = opt
-		itemLbl.TextColor3       = opt == selected and TEXT_MAIN or TEXT_MUTED
-		itemLbl.TextSize         = 13
-		itemLbl.Font             = Enum.Font.Gotham
-		itemLbl.TextXAlignment   = Enum.TextXAlignment.Left
-		itemLbl.ZIndex           = 12
-		itemLbl.Parent           = item
-
-		table.insert(itemBtns, { btn = item, lbl = itemLbl, opt = opt })
-
-		item.MouseEnter:Connect(function()
-			if opt ~= selected then tween(item, { BackgroundColor3 = Color3.fromRGB(26,25,38) }, TI_FAST) end
-		end)
-		item.MouseLeave:Connect(function()
-			if opt ~= selected then tween(item, { BackgroundColor3 = Color3.fromRGB(22,21,32) }, TI_FAST) end
-		end)
-		item.MouseButton1Click:Connect(function()
-			selected = opt
-			label.Text = opt
-			closeList()
-			refreshColors()
-			if configKey then saveConfig(configRegistry) end
-			if onChange then onChange(selected) end
-		end)
+	local function setSelected(value, silent)
+		selected = value
+		label.Text = tostring(value or "")
+		refreshColors()
+		if configKey then saveConfig(configRegistry) end
+		if onChange and not silent then onChange(selected) end
 	end
+
+	local function rebuildItems(newOptions)
+		if newOptions then options = newOptions end
+		for _, entry in ipairs(itemBtns) do entry.btn:Destroy() end
+		itemBtns = {}
+		contentH = #options * ITEM_H + 8
+		openH = math.min(contentH, IS_MOBILE and 220 or 280)
+		listBg.Size = UDim2.new(1, 0, 0, openH)
+		listBg.CanvasSize = UDim2.new(0, 0, 0, contentH)
+
+		local found = false
+		for _, opt in ipairs(options) do
+			if opt == selected then found = true; break end
+		end
+		if not found then selected = options[1] end
+		label.Text = tostring(selected or "")
+
+		for i, opt in ipairs(options) do
+			local item = Instance.new("TextButton")
+			item.Size             = UDim2.new(1, 0, 0, ITEM_H)
+			item.BackgroundColor3 = opt == selected and Color3.fromRGB(30,28,44) or Color3.fromRGB(22,21,32)
+			item.BackgroundTransparency = 0
+			item.Text             = ""
+			item.LayoutOrder      = i
+			item.ZIndex           = 11
+			item.Parent           = listBg
+			corner(item, 4)
+
+			local itemLbl = Instance.new("TextLabel")
+			itemLbl.Size             = UDim2.new(1, -20, 1, 0)
+			itemLbl.Position         = UDim2.new(0, 12, 0, 0)
+			itemLbl.BackgroundTransparency = 1
+			itemLbl.Text             = opt
+			itemLbl.TextColor3       = opt == selected and TEXT_MAIN or TEXT_MUTED
+			itemLbl.TextSize         = 13
+			itemLbl.Font             = Enum.Font.Gotham
+			itemLbl.TextXAlignment   = Enum.TextXAlignment.Left
+			itemLbl.ZIndex           = 12
+			itemLbl.Parent           = item
+
+			table.insert(itemBtns, { btn = item, lbl = itemLbl, opt = opt })
+			item.MouseEnter:Connect(function()
+				if opt ~= selected then tween(item, { BackgroundColor3 = Color3.fromRGB(26,25,38) }, TI_FAST) end
+			end)
+			item.MouseLeave:Connect(function()
+				if opt ~= selected then tween(item, { BackgroundColor3 = Color3.fromRGB(22,21,32) }, TI_FAST) end
+			end)
+			item.MouseButton1Click:Connect(function()
+				closeList()
+				setSelected(opt, false)
+			end)
+		end
+	end
+
+	rebuildItems()
 
 	clickBtn.MouseButton1Click:Connect(function()
 		open = not open
@@ -1161,7 +1232,10 @@ local function buildDropdown(parent, options, default, configKey)
 		end
 	end)
 
-	return function() return selected end, function(fn) onChange = fn end
+	return function() return selected end,
+		function(fn) onChange = fn end,
+		function(value, silent) setSelected(value, silent) end,
+		rebuildItems
 end
 
 local function buildKeybind(parent, default, configKey, onChanged)
@@ -1173,8 +1247,16 @@ local function buildKeybind(parent, default, configKey, onChanged)
 	end
 
 	local listening = false
+	local btn
+	local function setKey(value, silent)
+		if typeof(value) ~= "EnumItem" then return end
+		currentKey = value
+		if not IS_MOBILE then btn.Text = currentKey.Name end
+		if configKey then saveConfig(configRegistry) end
+		if onChanged and not silent then onChanged(currentKey) end
+	end
 
-	local btn = Instance.new("TextButton")
+	btn = Instance.new("TextButton")
 	btn.Size             = UDim2.new(0, IS_MOBILE and 110 or 125, 0, 34)
 	btn.Position         = IS_MOBILE and UDim2.new(1, -110, 1, -42) or UDim2.new(1, -125, 0.5, -17)
 	btn.BackgroundColor3 = BG_INPUT
@@ -1198,18 +1280,22 @@ local function buildKeybind(parent, default, configKey, onChanged)
 		onInputBegan(function(input)
 			if not listening then return end
 			if input.UserInputType == Enum.UserInputType.Keyboard then
-				currentKey = input.KeyCode
-				btn.Text = currentKey.Name
+				if input.KeyCode == Enum.KeyCode.Escape then
+					btn.Text = currentKey.Name
+					btn.TextColor3 = TEXT_MAIN
+					btn.BackgroundColor3 = BG_INPUT
+					listening = false
+					return
+				end
+				setKey(input.KeyCode, false)
 				tween(btn, { TextColor3 = TEXT_MAIN })
 				tween(btn, { BackgroundColor3 = BG_INPUT }, TI_FAST)
 				listening = false
-				if configKey then saveConfig(configRegistry) end
-				if onChanged then onChanged(currentKey) end
 			end
 		end)
 	end
 
-	return function() return currentKey end
+	return function() return currentKey end, setKey, btn, function() return listening end
 end
 
 local function buildInput(parent, default, configKey)
@@ -1236,7 +1322,48 @@ local function buildInput(parent, default, configKey)
 		if configKey then saveConfig(configRegistry) end
 	end)
 
-	return function() return box.Text end
+	local function setText(value, silent)
+		box.Text = tostring(value or "")
+		if configKey then saveConfig(configRegistry) end
+	end
+
+	return function() return box.Text end, setText
+end
+
+local function buildBind(parent, definition, configKey)
+	local getState, toggleState, setOnChange, setState = buildToggle(
+		parent, definition.default, configKey
+	)
+	local getKey, setKey, keyButton, isListening = buildKeybind(
+		parent, definition.key or Enum.KeyCode.Unknown, configKey .. "__key",
+		function(key)
+			if definition.onChange then definition.onChange(getState(), key) end
+		end
+	)
+	keyButton.Size = UDim2.new(0, IS_MOBILE and 88 or 105, 0, 34)
+	keyButton.Position = IS_MOBILE
+		and UDim2.new(1, -142, 1, -42)
+		or UDim2.new(1, -159, 0.5, -17)
+	if IS_MOBILE then keyButton.Text = getKey().Name end
+	setOnChange(function(value)
+		if definition.onChange then definition.onChange(value, getKey()) end
+	end)
+	onInputBegan(function(input)
+		if isListening() or UserInputService:GetFocusedTextBox() then return end
+		if input.UserInputType ~= Enum.UserInputType.Keyboard or input.KeyCode ~= getKey() then return end
+		if definition.mode == "hold" then
+			setState(true, false)
+		else
+			toggleState()
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if definition.mode ~= "hold" then return end
+		if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == getKey() then
+			setState(false, false)
+		end
+	end)
+	return getState, toggleState, setState, getKey, setKey
 end
 
 local function buildButton(parent, iconName, iconLibrary, callback)
@@ -1607,7 +1734,15 @@ local function buildColorPicker(parent, defaultColor, configKey)
 	end)
 
 	refresh()
-	return function() return currentColor end, function(fn) onChange = fn end
+	local function setColor(value, silent)
+		if typeof(value) ~= "Color3" then return end
+		h, s, v = value:ToHSV()
+		local callback = onChange
+		if silent then onChange = nil end
+		refresh()
+		onChange = callback
+	end
+	return function() return currentColor end, function(fn) onChange = fn end, setColor
 end
 
 local function buildMultiSelect(parent, options, defaults, configKey)
@@ -1798,11 +1933,19 @@ local function buildMultiSelect(parent, options, defaults, configKey)
 		end
 	end)
 
-	return function()
+	local function getValues()
 		local out = {}
 		for _, opt in ipairs(options) do if selected[opt] then table.insert(out, opt) end end
 		return out
-	end, function(fn) onChange = fn end
+	end
+	local function setValues(values, silent)
+		selected = {}
+		for _, value in ipairs(values or {}) do selected[value] = true end
+		refreshItems()
+		if configKey then saveConfig(configRegistry) end
+		if onChange and not silent then onChange(getValues()) end
+	end
+	return getValues, function(fn) onChange = fn end, setValues
 end
 
 local function fuzzyMatch(str, query)
@@ -1869,47 +2012,166 @@ local function buildRow(parent, titleText, descText, order, widgetDef, pageEntry
 	hoverZone.MouseEnter:Connect(function() tween(row, { BackgroundColor3 = Color3.fromRGB(18,17,26) }, TI_FAST) end)
 	hoverZone.MouseLeave:Connect(function() tween(row, { BackgroundColor3 = BG_ROW }, TI_FAST) end)
 
+	if widgetDef and widgetDef.tooltip then
+		title.Size = IS_MOBILE and UDim2.new(1, -36, 0, 20) or UDim2.new(0.5, -40, 0, 20)
+		local tipButton = Instance.new("TextButton")
+		tipButton.Size = UDim2.new(0, IS_MOBILE and 32 or 24, 0, IS_MOBILE and 32 or 24)
+		tipButton.Position = IS_MOBILE and UDim2.new(1, -32, 0, 4) or UDim2.new(0.5, -32, 0, 7)
+		tipButton.BackgroundTransparency = 1
+		tipButton.Text = ""
+		tipButton.ZIndex = 7
+		tipButton.Parent = row
+
+		local tipIcon = Instance.new("ImageLabel")
+		tipIcon.Size = UDim2.new(0, 15, 0, 15)
+		tipIcon.Position = UDim2.new(0.5, -7, 0.5, -7)
+		tipIcon.BackgroundTransparency = 1
+		tipIcon.Image = getIcon("info", "Lucide")
+		tipIcon.ImageColor3 = TEXT_MUTED
+		tipIcon.ZIndex = 8
+		tipIcon.Parent = tipButton
+
+		local tooltip = Instance.new("Frame")
+		tooltip.Size = UDim2.new(0, IS_MOBILE and 230 or 260, 0, 78)
+		tooltip.BackgroundColor3 = BG_SIDEBAR
+		tooltip.BorderSizePixel = 0
+		tooltip.Visible = false
+		tooltip.ZIndex = 1500
+		tooltip.Parent = ScreenGui
+		corner(tooltip, 8)
+		local tipStroke = Instance.new("UIStroke")
+		tipStroke.Color = DIVIDER
+		tipStroke.Thickness = 1
+		tipStroke.Parent = tooltip
+		local tipText = Instance.new("TextLabel")
+		tipText.Size = UDim2.new(1, -24, 1, -18)
+		tipText.Position = UDim2.new(0, 12, 0, 9)
+		tipText.BackgroundTransparency = 1
+		tipText.Text = tostring(widgetDef.tooltip)
+		tipText.TextColor3 = TEXT_MAIN
+		tipText.TextSize = IS_MOBILE and 11 or 12
+		tipText.Font = Enum.Font.Gotham
+		tipText.TextWrapped = true
+		tipText.TextXAlignment = Enum.TextXAlignment.Left
+		tipText.TextYAlignment = Enum.TextYAlignment.Center
+		tipText.ZIndex = 1501
+		tipText.Parent = tooltip
+
+		local function showTooltip(value)
+			if value then
+				local cam = workspace.CurrentCamera
+				local viewport = cam and cam.ViewportSize or Vector2.new(1280, 720)
+				local pos = tipButton.AbsolutePosition
+				local size = tooltip.AbsoluteSize
+				local x = math.clamp(pos.X - size.X + tipButton.AbsoluteSize.X, 8, viewport.X - size.X - 8)
+				local y = pos.Y + tipButton.AbsoluteSize.Y + 6
+				if y + size.Y > viewport.Y - 8 then y = pos.Y - size.Y - 6 end
+				tooltip.Position = UDim2.fromOffset(x, math.max(8, y))
+			end
+			tooltip.Visible = value
+			tipIcon.ImageColor3 = value and ACCENT or TEXT_MUTED
+		end
+		tipButton.MouseButton1Click:Connect(function() showTooltip(not tooltip.Visible) end)
+		if not IS_MOBILE then
+			tipButton.MouseEnter:Connect(function() showTooltip(true) end)
+			tipButton.MouseLeave:Connect(function() showTooltip(false) end)
+		end
+	end
+
 	local configKey = (navEntry and navEntry.name or "") .. "_" .. tostring(titleText)
 
 	local getter
+	local setter
+	local optionsSetter
+	local secondaryGetter
 	local toggleFn
 	local toggleSetState
 	local wt = widgetDef and widgetDef.type
 
 	if wt == "toggle" then
 		local g, fn, oc, setS = buildToggle(row, widgetDef.default, configKey)
-		getter = g; toggleFn = fn; toggleSetState = setS
+		getter = g; setter = setS; toggleFn = fn; toggleSetState = setS
 		if widgetDef.onChange then oc(widgetDef.onChange) end
 	elseif wt == "slider" then
-		local g, oc = buildSlider(row, widgetDef.min, widgetDef.max, widgetDef.default, configKey, widgetDef.step)
-		getter = g
+		local step = widgetDef.step
+		if not step and widgetDef.decimals then step = 10 ^ -widgetDef.decimals end
+		local g, oc, setV = buildSlider(row, widgetDef.min, widgetDef.max, widgetDef.default, configKey, step)
+		getter = g; setter = setV
 		if widgetDef.onChange then oc(widgetDef.onChange) end
 	elseif wt == "dropdown" then
-		local g, oc = buildDropdown(row, widgetDef.options, widgetDef.default, configKey)
-		getter = g
+		local g, oc, setV, setOpts = buildDropdown(row, widgetDef.options, widgetDef.default, configKey)
+		getter = g; setter = setV; optionsSetter = setOpts
 		if widgetDef.onChange then oc(widgetDef.onChange) end
 	elseif wt == "keybind" then
-		getter = buildKeybind(row, widgetDef.default, configKey, widgetDef.onChange)
+		local g, setV = buildKeybind(row, widgetDef.default, configKey, widgetDef.onChange)
+		getter = g; setter = setV
+	elseif wt == "bind" then
+		local g, fn, setS, getKey, setKey = buildBind(row, widgetDef, configKey)
+		getter = g; setter = setS; toggleFn = fn; toggleSetState = setS
+		secondaryGetter = getKey
+		configRegistry[configKey .. "__key"] = { getter = getKey, setter = setKey }
 	elseif wt == "input" then
-		getter = buildInput(row, widgetDef.default, configKey)
+		local g, setV = buildInput(row, widgetDef.default, configKey)
+		getter = g; setter = setV
 	elseif wt == "button" then
-		getter = buildButton(row, widgetDef.icon, widgetDef.iconLibrary, widgetDef.callback)
+		buildButton(row, widgetDef.icon, widgetDef.iconLibrary, widgetDef.callback)
 	elseif wt == "colorpicker" then
-		local g, oc = buildColorPicker(row, widgetDef.default, configKey)
-		getter = g
+		local g, oc, setV = buildColorPicker(row, widgetDef.default, configKey)
+		getter = g; setter = setV
 		if widgetDef.onChange then oc(widgetDef.onChange) end
 	elseif wt == "multiselect" then
-		local g, oc = buildMultiSelect(row, widgetDef.options, widgetDef.defaults, configKey)
-		getter = g
+		local g, oc, setV = buildMultiSelect(row, widgetDef.options, widgetDef.defaults, configKey)
+		getter = g; setter = setV
 		if widgetDef.onChange then oc(widgetDef.onChange) end
 	end
 
-	if wt == "toggle" and toggleFn then
+	if (wt == "toggle" or wt == "bind") and toggleFn then
 		hoverZone.MouseButton1Click:Connect(toggleFn)
 	end
 
 	if getter and configKey then
-		configRegistry[configKey] = { getter = getter }
+		configRegistry[configKey] = { getter = getter, setter = setter }
+	end
+
+	local blocker = Instance.new("TextButton")
+	blocker.Size = UDim2.new(1, 0, 1, 0)
+	blocker.BackgroundTransparency = 1
+	blocker.Text = ""
+	blocker.Visible = false
+	blocker.ZIndex = 100
+	blocker.Parent = row
+
+	local rowObject = { Frame = row }
+	function rowObject:Get()
+		return getter and getter() or nil
+	end
+	function rowObject:Set(value)
+		if setter then setter(value, false) end
+		return self
+	end
+	function rowObject:SetOptions(values)
+		if optionsSetter then optionsSetter(values) end
+		return self
+	end
+	function rowObject:SetSubtitle(value)
+		desc.Text = tostring(value or "")
+		return self
+	end
+	function rowObject:SetTitle(value)
+		title.Text = tostring(value or "")
+		return self
+	end
+	function rowObject:SetDisabled(value)
+		local disabled = not not value
+		blocker.Visible = disabled
+		title.TextTransparency = disabled and 0.45 or 0
+		desc.TextTransparency = disabled and 0.5 or 0
+		row.BackgroundTransparency = disabled and 0.28 or 0
+		self.Disabled = disabled
+		return self
+	end
+	function rowObject:Destroy()
+		row:Destroy()
 	end
 
 	table.insert(featureRegistry, {
@@ -1922,11 +2184,13 @@ local function buildRow(parent, titleText, descText, order, widgetDef, pageEntry
 		tabName        = tabName,
 		configKey      = configKey,
 		getter         = getter,
+		setter         = setter,
+		secondaryGetter = secondaryGetter,
 		toggleFn       = toggleFn,
 		toggleSetState = toggleSetState,
 	})
 
-	return row, getter
+	return rowObject, getter
 end
 
 local searchActive       = false
@@ -1982,6 +2246,9 @@ local function mountLiveWidget(shell, feat)
 
 	elseif wt == "keybind" then
 		buildKeybind(shell, def.default, feat.configKey, def.onChange)
+		return
+	elseif wt == "bind" then
+		buildBind(shell, def, feat.configKey)
 		return
 
 	elseif wt == "button" then
@@ -2070,11 +2337,7 @@ SearchInput:GetPropertyChangedSignal("Text"):Connect(function()
 			searchActive = false
 			searchResultsClip.Visible = false
 			clearSearchResults()
-			if activeNavBtn and activeNavBtn.page then activeNavBtn.page.clip.Visible = true end
-			HeaderTitle.Text    = activeNavBtn and activeNavBtn.title    or ""
-			HeaderSubtitle.Text = activeNavBtn and activeNavBtn.subtitle or ""
-			TabBar.Visible      = activeNavBtn and (activeNavBtn.tabs ~= nil) or false
-			TabsDivider.Visible = TabBar.Visible
+			if activeNavBtn then setActiveNav(activeNavBtn) end
 		end
 		for _, entry in ipairs(navButtons) do entry.btn.Visible = true end
 		return
@@ -2102,6 +2365,65 @@ SearchInput:GetPropertyChangedSignal("Text"):Connect(function()
 end)
 
 local Lib = {}
+local initialized = false
+
+local function decodeConfigValue(entry)
+	if type(entry) ~= "table" then return nil end
+	if entry.type == "keycode" then
+		return Enum.KeyCode[entry.name]
+	elseif entry.type == "color" then
+		return Color3.new(entry.r or 0, entry.g or 0, entry.b or 0)
+	end
+	return entry.value
+end
+
+local function applyConfigData(data)
+	suppressSaves = true
+	for key, encoded in pairs(data or {}) do
+		local registryEntry = configRegistry[key]
+		if registryEntry and registryEntry.setter then
+			pcall(registryEntry.setter, decodeConfigValue(encoded), true)
+		end
+	end
+	suppressSaves = false
+	for _, feature in ipairs(featureRegistry) do
+		local definition = feature.widgetDef
+		local skipCallback = feature.title == "Save Mode" or feature.title == "Active Profile"
+		if not skipCallback and definition and definition.onChange and feature.getter then
+			local value = feature.getter()
+			if definition.type == "bind" and feature.secondaryGetter then
+				task.spawn(definition.onChange, value, feature.secondaryGetter())
+			else
+				task.spawn(definition.onChange, value)
+			end
+		end
+	end
+	emitDirty(false)
+end
+
+local function cleanProfileName(name)
+	name = tostring(name or ""):match("^%s*(.-)%s*$") or ""
+	return name:gsub("[^%w%-%_ ]", "")
+end
+
+local function profilePath(name)
+	return PROFILE_DIR .. "/" .. cleanProfileName(name) .. ".json"
+end
+
+local function bindMenuKey()
+	ContextActionService:UnbindAction("SpareStackToggle")
+	if IS_MOBILE then return end
+	ContextActionService:BindActionAtPriority(
+		"SpareStackToggle",
+		function(_, inputState)
+			if inputState == Enum.UserInputState.Begin then
+				setWindowExpanded(not MainFrame.Visible)
+			end
+			return Enum.ContextActionResult.Pass
+		end,
+		false, 2001, currentKeybind
+	)
+end
 
 Lib.IsMobile = IS_MOBILE
 Lib.IsMobilePreview = MOBILE_PREVIEW_ON_PC
@@ -2113,6 +2435,65 @@ function Lib:SetNotifEnabled(b) notifEnabled = b end
 function Lib:SetNotifPosition(p) notifPosition = p; updateNotifPosition() end
 function Lib:Toggle() setWindowExpanded(not MainFrame.Visible) end
 function Lib:SetVisible(b) setWindowExpanded(not not b) end
+function Lib:SetKeybind(key)
+	if typeof(key) ~= "EnumItem" then return false end
+	currentKeybind = key
+	if initialized then bindMenuKey() end
+	return true
+end
+function Lib:GetSaveMode() return saveMode end
+function Lib:SetSaveMode(mode)
+	if mode ~= "auto" and mode ~= "manual" then return false end
+	saveMode = mode
+	if saveMode == "auto" then writeConfig(CONFIG_KEY .. ".json", configRegistry) end
+	return true
+end
+function Lib:IsDirty() return dirty end
+function Lib:OnDirtyChanged(callback)
+	if type(callback) ~= "function" then return function() end end
+	table.insert(dirtyListeners, callback)
+	local connected = true
+	return function()
+		if not connected then return end
+		connected = false
+		local index = table.find(dirtyListeners, callback)
+		if index then table.remove(dirtyListeners, index) end
+	end
+end
+function Lib:ListProfiles()
+	pcall(makefolder, PROFILE_DIR)
+	local ok, files = pcall(listfiles, PROFILE_DIR)
+	if not ok or type(files) ~= "table" then return {} end
+	local profiles = {}
+	for _, path in ipairs(files) do
+		local filename = tostring(path):match("([^/\\]+)%.json$")
+		if filename then table.insert(profiles, filename) end
+	end
+	table.sort(profiles, function(a, b) return a:lower() < b:lower() end)
+	return profiles
+end
+function Lib:SaveProfile(name)
+	name = cleanProfileName(name)
+	if name == "" then return false end
+	pcall(makefolder, PROFILE_DIR)
+	return writeConfig(profilePath(name), configRegistry)
+end
+function Lib:LoadProfile(name)
+	name = cleanProfileName(name)
+	if name == "" then return false end
+	local ok, raw = pcall(readfile, profilePath(name))
+	if not ok or not raw then return false end
+	local decodedOk, data = pcall(HttpService.JSONDecode, HttpService, raw)
+	if not decodedOk or type(data) ~= "table" then return false end
+	applyConfigData(data)
+	return true
+end
+function Lib:DeleteProfile(name)
+	name = cleanProfileName(name)
+	if name == "" then return false end
+	local ok = pcall(delfile, profilePath(name))
+	return ok
+end
 
 function Lib:NavCategory(text, order)
 	local l = Instance.new("TextLabel")
@@ -2184,6 +2565,167 @@ function Lib:AddPage(navText, iconName, order, titleText, subtitleText, iconLibr
 	Section._scroll    = pageScroll
 	Section._rowOrder  = 0
 
+	local function getSectionScroll(tabName)
+		if tabName and tabClips[tabName] then return tabClips[tabName].scroll end
+		return pageScroll
+	end
+
+	local function nextOrder()
+		Section._rowOrder += 1
+		return Section._rowOrder
+	end
+
+	function Section:AddGroup(text, tabName)
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.new(1, 0, 0, 30)
+		label.BackgroundTransparency = 1
+		label.Text = string.upper(tostring(text))
+		label.TextColor3 = TEXT_MUTED
+		label.TextSize = 10
+		label.Font = Enum.Font.GothamBold
+		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.LayoutOrder = nextOrder()
+		label.Parent = getSectionScroll(tabName)
+		pad(label, 8, 0, 6, 0)
+
+		local Group = { Label = label }
+		function Group:AddRow(rowTitle, rowSubtitle, definition, rowTab)
+			return Section:AddRow(rowTitle, rowSubtitle, definition, rowTab or tabName)
+		end
+		return Group
+	end
+
+	function Section:AddParagraph(titleText2, bodyText, tabName)
+		local frame = Instance.new("Frame")
+		frame.Size = UDim2.new(1, 0, 0, IS_MOBILE and 92 or 78)
+		frame.BackgroundColor3 = BG_ROW
+		frame.BorderSizePixel = 0
+		frame.LayoutOrder = nextOrder()
+		frame.Parent = getSectionScroll(tabName)
+		corner(frame, 6)
+		pad(frame, 0, 0, IS_MOBILE and 14 or 18, IS_MOBILE and 14 or 18)
+
+		local heading = Instance.new("TextLabel")
+		heading.Size = UDim2.new(1, 0, 0, 20)
+		heading.Position = UDim2.new(0, 0, 0, 12)
+		heading.BackgroundTransparency = 1
+		heading.Text = tostring(titleText2)
+		heading.TextColor3 = TEXT_MAIN
+		heading.TextSize = IS_MOBILE and 14 or 15
+		heading.Font = Enum.Font.GothamBold
+		heading.TextXAlignment = Enum.TextXAlignment.Left
+		heading.Parent = frame
+
+		local body = Instance.new("TextLabel")
+		body.Size = UDim2.new(1, 0, 1, -42)
+		body.Position = UDim2.new(0, 0, 0, 36)
+		body.BackgroundTransparency = 1
+		body.Text = tostring(bodyText)
+		body.TextColor3 = TEXT_MUTED
+		body.TextSize = IS_MOBILE and 11 or 12
+		body.Font = Enum.Font.Gotham
+		body.TextWrapped = true
+		body.TextXAlignment = Enum.TextXAlignment.Left
+		body.TextYAlignment = Enum.TextYAlignment.Top
+		body.Parent = frame
+
+		return { Frame = frame, Title = heading, Body = body }
+	end
+
+	function Section:AddViewport(itemName, meshId, textureId, callback, tabName, infoText)
+		local card = Instance.new("Frame")
+		card.Size = UDim2.new(1, 0, 0, IS_MOBILE and 164 or 150)
+		card.BackgroundColor3 = BG_ROW
+		card.BorderSizePixel = 0
+		card.LayoutOrder = nextOrder()
+		card.Parent = getSectionScroll(tabName)
+		corner(card, 7)
+
+		local viewport = Instance.new("ViewportFrame")
+		viewport.Size = UDim2.new(0.42, -10, 1, -20)
+		viewport.Position = UDim2.new(0, 10, 0, 10)
+		viewport.BackgroundColor3 = BG_INPUT
+		viewport.BorderSizePixel = 0
+		viewport.Ambient = Color3.fromRGB(170, 170, 180)
+		viewport.LightColor = Color3.fromRGB(255, 255, 255)
+		viewport.LightDirection = Vector3.new(-1, -1, -1)
+		viewport.Parent = card
+		corner(viewport, 6)
+
+		local camera = Instance.new("Camera")
+		camera.FieldOfView = 35
+		camera.Parent = viewport
+		viewport.CurrentCamera = camera
+
+		local world = Instance.new("WorldModel")
+		world.Parent = viewport
+		local part = Instance.new("MeshPart")
+		part.Anchored = true
+		part.CanCollide = false
+		part.Material = Enum.Material.SmoothPlastic
+		part.Color = Color3.fromRGB(210, 210, 220)
+		part.Size = Vector3.new(2, 2, 2)
+		if meshId and meshId ~= "" then pcall(function() part.MeshId = meshId end) end
+		if textureId and textureId ~= "" then pcall(function() part.TextureID = textureId end) end
+		part.Parent = world
+
+		task.defer(function()
+			if not part.Parent then return end
+			local size = part.Size
+			local radius = math.max(size.X, size.Y, size.Z)
+			camera.CFrame = CFrame.new(Vector3.new(radius * 1.5, radius * 0.8, radius * 2.4), Vector3.zero)
+		end)
+
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Size = UDim2.new(0.58, -26, 0, 20)
+		nameLabel.Position = UDim2.new(0.42, 8, 0, 16)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Text = tostring(itemName)
+		nameLabel.TextColor3 = TEXT_MAIN
+		nameLabel.TextSize = IS_MOBILE and 13 or 15
+		nameLabel.Font = Enum.Font.GothamBold
+		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+		nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+		nameLabel.Parent = card
+
+		local info = Instance.new("TextLabel")
+		info.Size = UDim2.new(0.58, -26, 0, 42)
+		info.Position = UDim2.new(0.42, 8, 0, 42)
+		info.BackgroundTransparency = 1
+		info.Text = tostring(infoText or "Ready to apply")
+		info.TextColor3 = TEXT_MUTED
+		info.TextSize = IS_MOBILE and 10 or 11
+		info.Font = Enum.Font.Gotham
+		info.TextWrapped = true
+		info.TextXAlignment = Enum.TextXAlignment.Left
+		info.TextYAlignment = Enum.TextYAlignment.Top
+		info.Parent = card
+
+		local applyButton = Instance.new("TextButton")
+		applyButton.Size = UDim2.new(0.58, -26, 0, IS_MOBILE and 42 or 36)
+		applyButton.Position = UDim2.new(0.42, 8, 1, IS_MOBILE and -54 or -48)
+		applyButton.BackgroundColor3 = ACCENT
+		applyButton.BorderSizePixel = 0
+		applyButton.Text = "Apply"
+		applyButton.TextColor3 = TEXT_MAIN
+		applyButton.TextSize = 12
+		applyButton.Font = Enum.Font.GothamBold
+		applyButton.AutoButtonColor = false
+		applyButton.Parent = card
+		corner(applyButton, 6)
+		applyButton.MouseButton1Click:Connect(function()
+			if callback then callback(meshId, textureId, itemName) end
+		end)
+		applyButton.MouseEnter:Connect(function()
+			tween(applyButton, { BackgroundColor3 = Color3.fromRGB(70, 122, 255) }, TI_FAST)
+		end)
+		applyButton.MouseLeave:Connect(function()
+			tween(applyButton, { BackgroundColor3 = ACCENT }, TI_FAST)
+		end)
+
+		return { Frame = card, Viewport = viewport, ApplyButton = applyButton }
+	end
+
 	function Section:AddTabBar(tabNames)
 		activeTabDefs = {}
 		for i, tName in ipairs(tabNames) do
@@ -2211,14 +2753,14 @@ function Lib:AddPage(navText, iconName, order, titleText, subtitleText, iconLibr
 			TabIndicator.Size     = UDim2.new(0, activeTabDefs[1].w, 0, 2)
 			TabIndicator.Position = UDim2.new(0, activeTabDefs[1].x, 1, -2)
 		end
+		navEntry.tabs = tabNames
+		navEntry.defaultTab = tabNames[1]
+		navEntry.tabDefs = activeTabDefs
 		return tabClips
 	end
 
 	function Section:AddRow(titleText2, descText2, widgetDef2, tabName2)
-		Section._rowOrder += 1
-		local scroll = pageScroll
-		if tabName2 and tabClips[tabName2] then scroll = tabClips[tabName2].scroll end
-		return buildRow(scroll, titleText2, descText2, Section._rowOrder, widgetDef2, pageEntry, navEntry, tabName2)
+		return buildRow(getSectionScroll(tabName2), titleText2, descText2, nextOrder(), widgetDef2, pageEntry, navEntry, tabName2)
 	end
 
 	return Section
@@ -2226,22 +2768,11 @@ end
 
 function Lib:Init(defaultNavEntry, defaultTabName, keybindCode)
 	currentKeybind = keybindCode or Enum.KeyCode.LeftControl
+	initialized = true
 
 	setActiveNav(defaultNavEntry or navButtons[1])
 	if defaultTabName then setTab(defaultTabName) end
-
-	if not IS_MOBILE then
-		ContextActionService:BindActionAtPriority(
-			"SpareStackToggle",
-			function(_, inputState)
-				if inputState == Enum.UserInputState.Begin then
-					setWindowExpanded(not MainFrame.Visible)
-				end
-				return Enum.ContextActionResult.Pass
-			end,
-			false, 2001, currentKeybind
-		)
-	end
+	bindMenuKey()
 
 	task.delay(0.5, function()
 		showNotif("Welcome back", "spare stack loaded successfully.", "success")
